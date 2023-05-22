@@ -4,32 +4,29 @@ import org.objectweb.asm.ClassReader;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.file.Path;
 
 public class BytecodeSignatureExtractor {
-    public static BytecodeClass run(String className) throws IOException {
-        byte[] bytecode = readClassFile(className);
+    public static BytecodeClass run(Path classFilePath) throws IOException {
+        byte[] bytecode = readClassFile(classFilePath);
         return extractSignature(bytecode);
     }
 
-    private static byte[] readClassFile(String className) throws IOException {
-        String classFilePath = className.replace('.', '/') + ".class";
+    private static byte[] readClassFile(Path classFilePath) throws IOException {
+//        String classFilePath = className.replace('.', '/') + ".class";
 
-        FileInputStream input = new FileInputStream(classFilePath);
+        FileInputStream input = new FileInputStream(classFilePath.toFile());
         byte[] bytecode = input.readAllBytes();
         input.close();
         return bytecode;
     }
 
-    private static BytecodeClass extractSignature(byte[] bytecode) {
+    public static BytecodeClass extractSignature(byte[] bytecode) {
         ClassReader classReader = new ClassReader(bytecode);
         BytecodeSignatureVisitor bytecodeSignatureVisitor = new BytecodeSignatureVisitor();
-        classReader.accept(bytecodeSignatureVisitor, ClassReader.EXPAND_FRAMES); // why EXPAND FRAMES
+        classReader.accept(bytecodeSignatureVisitor, ClassReader.EXPAND_FRAMES); // TODO: why EXPAND FRAMES
 
-        BytecodeClass bytecodeClass = bytecodeSignatureVisitor.getBytecodeClass();
-        System.out.println("Bytecode signature:");
-        System.out.println(bytecodeClass.name + " " + bytecodeClass.extendsType);
-
-        return bytecodeClass;
+        return bytecodeSignatureVisitor.getBytecodeClass();
 
     }
 }
