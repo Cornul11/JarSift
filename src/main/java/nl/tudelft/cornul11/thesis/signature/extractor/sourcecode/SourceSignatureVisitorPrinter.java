@@ -1,4 +1,4 @@
-package nl.tudelft.cornul11.thesis.sourcecode;
+package nl.tudelft.cornul11.thesis.signature.extractor.sourcecode;
 
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;

@@ -1,13 +1,12 @@
-package nl.tudelft.cornul11.thesis.sourcecode;
+package nl.tudelft.cornul11.thesis.signature.extractor.sourcecode;
 
-import nl.tudelft.cornul11.thesis.sourcecode.members.JavaField;
-import nl.tudelft.cornul11.thesis.sourcecode.members.JavaConstructor;
-import nl.tudelft.cornul11.thesis.sourcecode.members.JavaMethod;
+import nl.tudelft.cornul11.thesis.signature.extractor.sourcecode.members.JavaField;
+import nl.tudelft.cornul11.thesis.signature.extractor.sourcecode.members.JavaConstructor;
+import nl.tudelft.cornul11.thesis.signature.extractor.sourcecode.members.JavaMethod;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 public class JavaClass {
     public String name;

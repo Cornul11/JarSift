@@ -1,9 +1,9 @@
-package nl.tudelft.cornul11.thesis.bytecode;
+package nl.tudelft.cornul11.thesis.signature.extractor.bytecode;
 
-import nl.tudelft.cornul11.thesis.bytecode.members.BytecodeInterface;
-import nl.tudelft.cornul11.thesis.bytecode.members.Field;
-import nl.tudelft.cornul11.thesis.bytecode.members.JavaConstructor;
-import nl.tudelft.cornul11.thesis.bytecode.members.JavaMethod;
+import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.BytecodeInterface;
+import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.Field;
+import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.JavaConstructor;
+import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.JavaMethod;
 import org.objectweb.asm.*;
 
 import java.util.Arrays;

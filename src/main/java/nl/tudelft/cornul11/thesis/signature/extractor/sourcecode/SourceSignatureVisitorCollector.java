@@ -1,12 +1,12 @@
-package nl.tudelft.cornul11.thesis.sourcecode;
+package nl.tudelft.cornul11.thesis.signature.extractor.sourcecode;
 
 import com.github.javaparser.ast.body.*;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 
-import nl.tudelft.cornul11.thesis.sourcecode.members.JavaField;
-import nl.tudelft.cornul11.thesis.sourcecode.members.JavaConstructor;
-import nl.tudelft.cornul11.thesis.sourcecode.members.JavaParameter;
-import nl.tudelft.cornul11.thesis.sourcecode.members.JavaMethod;
+import nl.tudelft.cornul11.thesis.signature.extractor.sourcecode.members.JavaField;
+import nl.tudelft.cornul11.thesis.signature.extractor.sourcecode.members.JavaConstructor;
+import nl.tudelft.cornul11.thesis.signature.extractor.sourcecode.members.JavaParameter;
+import nl.tudelft.cornul11.thesis.signature.extractor.sourcecode.members.JavaMethod;
 
 
 public class SourceSignatureVisitorCollector extends VoidVisitorAdapter<JavaClass> {

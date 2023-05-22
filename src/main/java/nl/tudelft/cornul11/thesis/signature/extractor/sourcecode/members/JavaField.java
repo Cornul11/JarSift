@@ -1,4 +1,4 @@
-package nl.tudelft.cornul11.thesis.sourcecode.members;
+package nl.tudelft.cornul11.thesis.signature.extractor.sourcecode.members;
 
 public class JavaField {
     public String name;

@@ -1,4 +1,4 @@
-package nl.tudelft.cornul11.thesis.bytecode.members;
+package nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members;
 
 public class BytecodeInterface {
     public String name;

@@ -1,4 +1,4 @@
-package nl.tudelft.cornul11.thesis.bytecode;
+package nl.tudelft.cornul11.thesis.signature.extractor.bytecode;
 
 import org.objectweb.asm.ClassReader;
 
