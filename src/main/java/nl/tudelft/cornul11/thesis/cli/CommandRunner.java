@@ -1,5 +1,6 @@
 package nl.tudelft.cornul11.thesis.cli;
 
+import nl.tudelft.cornul11.thesis.database.SignatureDao;
 import nl.tudelft.cornul11.thesis.jar.FileProcessor;
 import nl.tudelft.cornul11.thesis.jar.JarFileProcessor;
 import nl.tudelft.cornul11.thesis.database.DatabaseManager;
@@ -27,10 +28,13 @@ public class CommandRunner {
 
         String mode = options.getMode();
         if (mode != null) {
+            DatabaseManager databaseManager = DatabaseManager.getInstance();
+            SignatureDao signatureDao = databaseManager.getSignatureDao();
+
             if ("CORPUS_GEN_MODE".equals(mode)) {
                 String directoryPath = options.getDirectory();
                 if (directoryPath != null) {
-                    FileProcessor fileProcessor = new FileProcessor(DatabaseManager.getInstance());
+                    FileProcessor fileProcessor = new FileProcessor(signatureDao);
                     fileProcessor.processFiles(directoryPath);
                 } else {
                     System.out.println("Directory path is required for CORPUS_GEN_MODE");
@@ -39,7 +43,7 @@ public class CommandRunner {
             } else if ("DETECTION_MODE".equals(mode)) {
                 String fileName = options.getFilename();
                 if (fileName != null) {
-                    JarInferenceProcessor jarInferenceProcessor = new JarInferenceProcessor(DatabaseManager.getInstance());
+                    JarInferenceProcessor jarInferenceProcessor = new JarInferenceProcessor(signatureDao);
                     jarInferenceProcessor.processJar(fileName);
 
                     // performDetectionMode(fileName);

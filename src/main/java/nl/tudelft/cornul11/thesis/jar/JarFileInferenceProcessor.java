@@ -1,6 +1,7 @@
 package nl.tudelft.cornul11.thesis.jar;
 
 import nl.tudelft.cornul11.thesis.database.DatabaseManager;
+import nl.tudelft.cornul11.thesis.database.SignatureDao;
 import nl.tudelft.cornul11.thesis.file.ClassFileInfo;
 import nl.tudelft.cornul11.thesis.file.JarFileClassMatchInfo;
 import nl.tudelft.cornul11.thesis.file.PomInfo;
@@ -28,7 +29,7 @@ import java.util.stream.Collectors;
 public class JarFileInferenceProcessor {
     private final Logger logger = LoggerFactory.getLogger(JarFileInferenceProcessor.class);
 
-    public void inferJarFile(Path jarFilePath, DatabaseManager dbManager) {
+    public void inferJarFile(Path jarFilePath, SignatureDao signatureDao) {
         try (JarFile jarFile = new JarFile(jarFilePath.toFile())) {
             List<ClassFileInfo> classFileInfos = new ArrayList<>();
             Enumeration<JarEntry> entries = jarFile.entries();
@@ -39,20 +40,20 @@ public class JarFileInferenceProcessor {
                     classFileInfos.add(processClassFile(entry, jarFile));
                 }
             }
-            checkSignatures(classFileInfos, dbManager);
+            checkSignatures(classFileInfos, signatureDao);
         } catch (IOException e) {
             logger.error("Error while processing JAR file: " + jarFilePath, e);
             throw new RuntimeException(e);
         }
     }
 
-    private void checkSignatures(List<ClassFileInfo> signatures, DatabaseManager dbManager) {
+    private void checkSignatures(List<ClassFileInfo> signatures, SignatureDao signatureDao) {
         ArrayList<JarFileClassMatchInfo> matches = new ArrayList<>();
 
 
         for (ClassFileInfo signature : signatures) {
             logger.info("Checking signature in database: " + signature.getFileName());
-            matches.addAll(dbManager.returnMatches(signature.getFileName(), Integer.toString(signature.getHashCode())));
+            matches.addAll(signatureDao.returnMatches(Integer.toString(signature.getHashCode())));
         }
 
 

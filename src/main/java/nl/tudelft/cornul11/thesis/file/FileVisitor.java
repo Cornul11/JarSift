@@ -1,5 +1,6 @@
 package nl.tudelft.cornul11.thesis.file;
 
+import nl.tudelft.cornul11.thesis.database.SignatureDao;
 import nl.tudelft.cornul11.thesis.jar.JarFileProcessor;
 import nl.tudelft.cornul11.thesis.database.DatabaseManager;
 import org.slf4j.Logger;
@@ -16,12 +17,12 @@ import static java.nio.file.Files.isHidden;
 public class FileVisitor extends SimpleFileVisitor<Path> {
     private final Logger logger = LoggerFactory.getLogger(FileVisitor.class);
     private final Path rootPath;
-    private final DatabaseManager dbManager;
+    private final SignatureDao signatureDao;
     private final JarFileProcessor jarFileProcessor;
 
-    public FileVisitor(Path rootPath, DatabaseManager dbManager, JarFileProcessor jarFileProcessor) {
+    public FileVisitor(Path rootPath, SignatureDao signatureDao, JarFileProcessor jarFileProcessor) {
         this.rootPath = rootPath;
-        this.dbManager = dbManager;
+        this.signatureDao = signatureDao;
         this.jarFileProcessor = jarFileProcessor;
     }
 
@@ -30,7 +31,7 @@ public class FileVisitor extends SimpleFileVisitor<Path> {
         // TODO: maybe verify not by extension but by magic number
         if (!isHidden(file) && file.toString().endsWith(".jar")) {
             logger.info("Processing jar file: " + file);
-            jarFileProcessor.processJarFile(file, dbManager);
+            jarFileProcessor.processJarFile(file, signatureDao);
         }
         return FileVisitResult.CONTINUE;
     }

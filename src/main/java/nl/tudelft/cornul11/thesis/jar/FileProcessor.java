@@ -1,5 +1,6 @@
 package nl.tudelft.cornul11.thesis.jar;
 
+import nl.tudelft.cornul11.thesis.database.SignatureDao;
 import nl.tudelft.cornul11.thesis.file.FileVisitor;
 import nl.tudelft.cornul11.thesis.database.DatabaseManager;
 import org.slf4j.Logger;
@@ -12,12 +13,12 @@ import java.nio.file.*;
 
 public class FileProcessor {
     private final Logger logger = LoggerFactory.getLogger(FileProcessor.class);
-    private final DatabaseManager dbManager;
+    private final SignatureDao signatureDao;
     private final JarFileProcessor jarFileProcessor;
 
 
-    public FileProcessor(DatabaseManager dbManager) {
-        this.dbManager = dbManager;
+    public FileProcessor(SignatureDao signatureDao) {
+        this.signatureDao = signatureDao;
         this.jarFileProcessor = new JarFileProcessor();
     }
 
@@ -25,11 +26,11 @@ public class FileProcessor {
         Path rootPath = Paths.get(path);
         try {
             // TODO: add tqdm-like progress bar
-            Files.walkFileTree(rootPath, new FileVisitor(rootPath, dbManager, jarFileProcessor));
+            Files.walkFileTree(rootPath, new FileVisitor(rootPath, signatureDao, jarFileProcessor));
         } catch (IOException e) {
             logger.error("Error while processing files", e);
         } finally {
-            dbManager.closeConnection();
+            signatureDao.closeConnection();
         }
     }
 

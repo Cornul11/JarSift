@@ -1,6 +1,7 @@
 package nl.tudelft.cornul11.thesis.jar;
 
 import nl.tudelft.cornul11.thesis.database.DatabaseManager;
+import nl.tudelft.cornul11.thesis.database.SignatureDao;
 import nl.tudelft.cornul11.thesis.file.ClassFileInfo;
 import nl.tudelft.cornul11.thesis.file.PomInfo;
 import nl.tudelft.cornul11.thesis.file.PomProcessor;
@@ -23,7 +24,7 @@ import java.util.jar.JarFile;
 public class JarFileProcessor {
     private final Logger logger = LoggerFactory.getLogger(JarFileProcessor.class);
 
-    public void processJarFile(Path jarFilePath, DatabaseManager dbManager) throws IOException {
+    public void processJarFile(Path jarFilePath, SignatureDao signatureDao) throws IOException {
         try (JarFile jarFile = new JarFile(jarFilePath.toFile())) {
             // TODO: first parse pom.xml file to get library name and version
             // to avoid having to go through all entries of a JAR first to find the pom.xml file
@@ -40,8 +41,12 @@ public class JarFileProcessor {
 
                 if (!entry.isDirectory() && entry.getName().endsWith(".class")) {
                     classFileInfos.add(processClassFile(entry, jarFile));
-                } else if(entry.getName().endsWith("pom.xml")) {
-                    pomInfo = new PomInfo(new PomProcessor(jarFile.getInputStream(entry)));
+                } else {
+                    // TODO: maybe extract version and artifactID from the MANIFEST.MF file?
+                    if (entry.getName().endsWith("pom.xml") && entry.getName().startsWith("META-INF/maven")) {
+                        // only the pom.xml file contained under META-INF/maven in the JAR file is relevant
+                        pomInfo = new PomInfo(new PomProcessor(jarFile.getInputStream(entry), entry.getName()));
+                    }
                 }
             }
 
@@ -50,18 +55,15 @@ public class JarFileProcessor {
                 logger.warn("No pom.xml file found in JAR file: " + jarFilePath);
                 return;
             }
-            commitSignatures(classFileInfos, dbManager, pomInfo.getArtifactId(), pomInfo.getVersion());
-        } catch (ParserConfigurationException e) {
-            logger.error("Error while parsing pom.xml file", e);
-            throw new RuntimeException(e);
-        } catch (SAXException e) {
-            throw new RuntimeException(e);
+            commitSignatures(classFileInfos, signatureDao, pomInfo.getArtifactId(), pomInfo.getVersion());
+        } catch (ParserConfigurationException | SAXException e) {
+            logger.error("Error while parsing pom.xml file for jar file: " + jarFilePath + "; ignoring it", e);
         }
     }
 
-    private void commitSignatures(List<ClassFileInfo> signatures, DatabaseManager dbManager, String library, String version) {
+    private void commitSignatures(List<ClassFileInfo> signatures, SignatureDao signatureDao, String library, String version) {
         for (ClassFileInfo signature : signatures) {
-            dbManager.insertSignature(signature.getFileName(), Integer.toString(signature.getHashCode()), library, version);
+            signatureDao.insertSignature(new DatabaseManager.Signature(0, signature.getFileName(), Integer.toString(signature.getHashCode()), library, version));
             logger.info("Inserted signature into database: " + signature.getFileName());
         }
 

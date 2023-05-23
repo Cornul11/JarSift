@@ -1,5 +1,8 @@
 package nl.tudelft.cornul11.thesis.file;
 
+import nl.tudelft.cornul11.thesis.jar.JarFileProcessor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
@@ -8,9 +11,13 @@ import java.io.IOException;
 import java.io.InputStream;
 
 public class PomProcessor {
+    private final Logger logger = LoggerFactory.getLogger(PomProcessor.class);
+
     private String artifactId;
     private String version;
-    public PomProcessor(InputStream pomInputStream) throws ParserConfigurationException, SAXException, IOException {
+    public PomProcessor(InputStream pomInputStream, String name) throws ParserConfigurationException, SAXException, IOException {
+        logger.info("Processing pom.xml file: " + name);
+
         DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
         DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
 
