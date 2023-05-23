@@ -4,6 +4,7 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
+import nl.tudelft.cornul11.thesis.file.JarFileClassMatchInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,8 +37,9 @@ public class DatabaseManager {
         createSignaturesTable();
     }
 
+    // TODO: need a DAO for this (getAll, get, insert, update, delete etc)
     public void insertSignature(String fileName, String hash, String library, String version) {
-        String insertQuery = "INSERT INTO signatures (filename, hash, version, library) VALUES (?, ?, ?, ?)";
+        String insertQuery = "INSERT INTO signatures (filename, hash, library, version) VALUES (?, ?, ?, ?)";
         try (PreparedStatement statement = connection.prepareStatement(insertQuery)) {
             statement.setString(1, fileName);
             statement.setString(2, hash);
@@ -53,6 +55,31 @@ public class DatabaseManager {
                 e.printStackTrace();
             }
         }
+    }
+
+    public List<JarFileClassMatchInfo> returnMatches(String filename, String hash) {
+        List<JarFileClassMatchInfo> matches = new ArrayList<>();
+        String checkQuery = "SELECT * FROM signatures WHERE hash = ?";
+        // run the query to the database
+        try (PreparedStatement statement = connection.prepareStatement(checkQuery)) {
+            statement.setString(1, hash);
+            ResultSet results = statement.executeQuery();
+
+            while (results.next()) {
+                String resultFilename = results.getString("filename");
+                String resultLibrary = results.getString("library");
+                String resultVersion = results.getString("version");
+
+                logger.info("Found match for " + resultFilename + " in library " + resultLibrary + " version " + resultVersion);
+
+                JarFileClassMatchInfo jarFileClassMatchInfo = new JarFileClassMatchInfo(resultFilename, resultLibrary, resultVersion);
+                matches.add(jarFileClassMatchInfo);
+            }
+            return matches;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
 

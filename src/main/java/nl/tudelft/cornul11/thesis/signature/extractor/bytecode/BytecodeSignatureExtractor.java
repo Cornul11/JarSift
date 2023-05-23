@@ -13,8 +13,6 @@ public class BytecodeSignatureExtractor {
     }
 
     private static byte[] readClassFile(Path classFilePath) throws IOException {
-//        String classFilePath = className.replace('.', '/') + ".class";
-
         FileInputStream input = new FileInputStream(classFilePath.toFile());
         byte[] bytecode = input.readAllBytes();
         input.close();
