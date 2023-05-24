@@ -2,7 +2,6 @@ package nl.tudelft.cornul11.thesis.file;
 
 import nl.tudelft.cornul11.thesis.database.SignatureDao;
 import nl.tudelft.cornul11.thesis.jar.JarFileProcessor;
-import nl.tudelft.cornul11.thesis.database.DatabaseManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,6 +18,7 @@ public class FileVisitor extends SimpleFileVisitor<Path> {
     private final Path rootPath;
     private final SignatureDao signatureDao;
     private final JarFileProcessor jarFileProcessor;
+    private int totalFiles = 0;
 
     public FileVisitor(Path rootPath, SignatureDao signatureDao, JarFileProcessor jarFileProcessor) {
         this.rootPath = rootPath;
@@ -32,6 +32,7 @@ public class FileVisitor extends SimpleFileVisitor<Path> {
         if (!isHidden(file) && file.toString().endsWith(".jar")) {
             logger.info("Processing jar file: " + file);
             jarFileProcessor.processJarFile(file, signatureDao);
+            totalFiles++;
         }
         return FileVisitResult.CONTINUE;
     }
@@ -44,6 +45,10 @@ public class FileVisitor extends SimpleFileVisitor<Path> {
         }
         logger.info("Processing directory: " + dir);
         return FileVisitResult.CONTINUE;
+    }
+
+    public int getVisitedFilesCount() {
+        return totalFiles;
     }
 
     @Override

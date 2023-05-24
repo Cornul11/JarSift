@@ -1,23 +1,16 @@
 package nl.tudelft.cornul11.thesis.jar;
 
-import nl.tudelft.cornul11.thesis.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.database.SignatureDao;
 import nl.tudelft.cornul11.thesis.file.ClassFileInfo;
 import nl.tudelft.cornul11.thesis.file.JarFileClassMatchInfo;
-import nl.tudelft.cornul11.thesis.file.PomInfo;
-import nl.tudelft.cornul11.thesis.file.PomProcessor;
 import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.BytecodeClass;
 import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.BytecodeSignatureExtractor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.xml.sax.SAXException;
 
-import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
@@ -59,7 +52,7 @@ public class JarFileInferenceProcessor {
 
         if (matches.size() > 0) {
             Map<String, Long> frequencyMap = matches.stream()
-                    .collect(Collectors.groupingBy(f -> f.getJarClassArtifactId() + "-" + f.getJarClassVersion(),
+                    .collect(Collectors.groupingBy(f -> f.getJarClassGroupId() + "»" + f.getJarClassArtifactId() + "-" + f.getJarClassVersion(),
                             Collectors.counting()));
 
             // sort frequencymap by value

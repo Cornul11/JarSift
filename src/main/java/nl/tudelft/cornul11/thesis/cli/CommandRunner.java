@@ -2,7 +2,6 @@ package nl.tudelft.cornul11.thesis.cli;
 
 import nl.tudelft.cornul11.thesis.database.SignatureDao;
 import nl.tudelft.cornul11.thesis.jar.FileProcessor;
-import nl.tudelft.cornul11.thesis.jar.JarFileProcessor;
 import nl.tudelft.cornul11.thesis.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.jar.JarInferenceProcessor;
 

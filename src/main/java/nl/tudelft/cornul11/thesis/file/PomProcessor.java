@@ -1,6 +1,5 @@
 package nl.tudelft.cornul11.thesis.file;
 
-import nl.tudelft.cornul11.thesis.jar.JarFileProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;

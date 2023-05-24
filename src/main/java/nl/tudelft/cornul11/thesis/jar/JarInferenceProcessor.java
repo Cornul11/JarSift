@@ -1,6 +1,5 @@
 package nl.tudelft.cornul11.thesis.jar;
 
-import nl.tudelft.cornul11.thesis.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.database.SignatureDao;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

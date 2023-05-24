@@ -1,10 +1,7 @@
 package nl.tudelft.cornul11.thesis.database;
 
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.List;
 
-import nl.tudelft.cornul11.thesis.file.JarFileClassMatchInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,7 +42,8 @@ public class DatabaseManager {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS signatures (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, "
                 + "filename TEXT NOT NULL, " + "hash TEXT NOT NULL, "
-                + "library TEXT NOT NULL, "
+                + "groupId TEXT NOT NULL, "
+                + "artifactId TEXT NOT NULL, "
                 + "version TEXT NOT NULL)";
         try (Statement statement = connection.createStatement()) {
             statement.executeUpdate(createTableQuery);
@@ -67,7 +65,7 @@ public class DatabaseManager {
         }
     }
 
-    public record Signature(int id, String fileName, String hash, String library, String version) {
+    public record Signature(int id, String fileName, String hash, String groupID, String artifactId, String version) {
     }
 
 }

@@ -18,12 +18,13 @@ public class SignatureDaoImpl implements SignatureDao {
 
     @Override
     public void insertSignature(DatabaseManager.Signature signature) {
-        String insertQuery = "INSERT INTO signatures (filename, hash, library, version) VALUES (?, ?, ?, ?)";
+        String insertQuery = "INSERT INTO signatures (filename, hash, groupId, artifactId, version) VALUES (?, ?, ?, ?, ?)";
         try (PreparedStatement statement = connection.prepareStatement(insertQuery)) {
             statement.setString(1, signature.fileName());
             statement.setString(2, signature.hash());
-            statement.setString(3, signature.library());
-            statement.setString(4, signature.version());
+            statement.setString(3, signature.groupID());
+            statement.setString(4, signature.artifactId());
+            statement.setString(5, signature.version());
             int rowsInserted = statement.executeUpdate();
             logger.info(rowsInserted + " signature row(s) inserted.");
         } catch (SQLException e) {
@@ -48,12 +49,13 @@ public class SignatureDaoImpl implements SignatureDao {
 
             while (results.next()) {
                 String resultFilename = results.getString("filename");
-                String resultLibrary = results.getString("library");
+                String resultGroupId = results.getString("groupId");
+                String resultArtifactId = results.getString("artifactId");
                 String resultVersion = results.getString("version");
 
-                logger.info("Found match for " + resultFilename + " in library " + resultLibrary + " version " + resultVersion);
+                logger.info("Found match for " + resultFilename + " in artifactId " + resultArtifactId + " version " + resultVersion);
 
-                JarFileClassMatchInfo jarFileClassMatchInfo = new JarFileClassMatchInfo(resultFilename, resultLibrary, resultVersion);
+                JarFileClassMatchInfo jarFileClassMatchInfo = new JarFileClassMatchInfo(resultFilename, resultGroupId, resultArtifactId, resultVersion);
                 matches.add(jarFileClassMatchInfo);
             }
             return matches;
@@ -66,15 +68,16 @@ public class SignatureDaoImpl implements SignatureDao {
     @Override
     public List<DatabaseManager.Signature> getAllSignatures() {
         List<DatabaseManager.Signature> signatureList = new ArrayList<>();
-        String selectQuery = "SELECT id, filename, hash, library, version FROM signatures";
+        String selectQuery = "SELECT id, filename, hash, groupId, artifactId, version FROM signatures";
         try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery(selectQuery)) {
             while (resultSet.next()) {
                 int id = resultSet.getInt("id");
                 String fileName = resultSet.getString("filename");
                 String hash = resultSet.getString("hash");
-                String library = resultSet.getString("library");
+                String groupId = resultSet.getString("groupId");
+                String artifactId = resultSet.getString("artifactId");
                 String version = resultSet.getString("version");
-                DatabaseManager.Signature signature = new DatabaseManager.Signature(id, fileName, hash, library, version);
+                DatabaseManager.Signature signature = new DatabaseManager.Signature(id, fileName, hash, groupId, artifactId, version);
                 signatureList.add(signature);
             }
         } catch (SQLException e) {
