@@ -5,4 +5,9 @@ public class JavaMethod {
     public String desc;
     public String signature;
     public String[] exceptions;
+
+    @Override
+    public int hashCode() {
+        return super.hashCode();
+    }
 }

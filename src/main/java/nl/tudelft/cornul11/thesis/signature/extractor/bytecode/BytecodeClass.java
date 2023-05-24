@@ -1,9 +1,6 @@
 package nl.tudelft.cornul11.thesis.signature.extractor.bytecode;
 
-import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.BytecodeInterface;
-import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.Field;
-import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.JavaConstructor;
-import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.JavaMethod;
+import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,9 +14,17 @@ public class BytecodeClass {
     public List<JavaMethod> methods = new ArrayList<>();
     public List<JavaConstructor> constructors = new ArrayList<>();
     public List<BytecodeInterface> innerInterfaces = new ArrayList<>();
+    public List<BytecodeAnnotation> annotations = new ArrayList<>();
 
     @Override
     public int hashCode() {
-        return Objects.hash(name, extendsType);
+        // TODO: maybe hash all separate fields and then hash them together to create a per-version signature?
+
+        // if name contains string "s"
+        if (name.contains("collections4/ListUtils")) {
+            System.out.println("Found ListUtils class: " + name);
+        }
+
+        return Objects.hash(name, annotations, extendsType, methods.size());
     }
 }

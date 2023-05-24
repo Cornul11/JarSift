@@ -16,13 +16,11 @@ import static java.nio.file.Files.isHidden;
 public class FileVisitor extends SimpleFileVisitor<Path> {
     private final Logger logger = LoggerFactory.getLogger(FileVisitor.class);
     private final Path rootPath;
-    private final SignatureDao signatureDao;
     private final JarFileProcessor jarFileProcessor;
     private int totalFiles = 0;
 
-    public FileVisitor(Path rootPath, SignatureDao signatureDao, JarFileProcessor jarFileProcessor) {
+    public FileVisitor(Path rootPath, JarFileProcessor jarFileProcessor) {
         this.rootPath = rootPath;
-        this.signatureDao = signatureDao;
         this.jarFileProcessor = jarFileProcessor;
     }
 
@@ -31,7 +29,7 @@ public class FileVisitor extends SimpleFileVisitor<Path> {
         // TODO: maybe verify not by extension but by magic number
         if (!isHidden(file) && file.toString().endsWith(".jar")) {
             logger.info("Processing jar file: " + file);
-            jarFileProcessor.processJarFile(file, signatureDao);
+            jarFileProcessor.processJarFile(file);
             totalFiles++;
         }
         return FileVisitResult.CONTINUE;

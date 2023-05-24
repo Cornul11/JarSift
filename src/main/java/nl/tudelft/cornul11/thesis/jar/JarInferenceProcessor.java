@@ -10,19 +10,17 @@ import java.nio.file.Paths;
 
 public class JarInferenceProcessor {
     private final Logger logger = LoggerFactory.getLogger(JarInferenceProcessor.class);
-    private final SignatureDao signatureDao;
     private final JarFileInferenceProcessor jarFileInferenceProcessor;
 
     public JarInferenceProcessor(SignatureDao signatureDao) {
-        this.signatureDao = signatureDao;
-        this.jarFileInferenceProcessor = new JarFileInferenceProcessor();
+        this.jarFileInferenceProcessor = new JarFileInferenceProcessor(signatureDao);
     }
 
     public void processJar(String path) {
         Path jarPath = Paths.get(path);
         if (jarPath.toString().endsWith(".jar")) {
             logger.info("Inferring libraries in jar file: " + jarPath);
-            jarFileInferenceProcessor.inferJarFile(jarPath, signatureDao);
+            jarFileInferenceProcessor.inferJarFile(jarPath);
         }
     }
 }

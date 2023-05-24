@@ -20,9 +20,14 @@ import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 
 public class JarFileInferenceProcessor {
+    private final SignatureDao signatureDao;
     private final Logger logger = LoggerFactory.getLogger(JarFileInferenceProcessor.class);
 
-    public void inferJarFile(Path jarFilePath, SignatureDao signatureDao) {
+    public JarFileInferenceProcessor(SignatureDao signatureDao) {
+        this.signatureDao = signatureDao;
+    }
+
+    public void inferJarFile(Path jarFilePath) {
         try (JarFile jarFile = new JarFile(jarFilePath.toFile())) {
             List<ClassFileInfo> classFileInfos = new ArrayList<>();
             Enumeration<JarEntry> entries = jarFile.entries();

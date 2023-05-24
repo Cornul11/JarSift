@@ -12,13 +12,11 @@ import java.nio.file.*;
 
 public class FileProcessor {
     private final Logger logger = LoggerFactory.getLogger(FileProcessor.class);
-    private final SignatureDao signatureDao;
     private final JarFileProcessor jarFileProcessor;
 
 
     public FileProcessor(SignatureDao signatureDao) {
-        this.signatureDao = signatureDao;
-        this.jarFileProcessor = new JarFileProcessor();
+        this.jarFileProcessor = new JarFileProcessor(signatureDao);
     }
 
     public void processFiles(String path) {
@@ -29,15 +27,13 @@ public class FileProcessor {
             // TODO: add tqdm-like progress bar (maybe)
             logger.info("Processing files in directory: " + rootPath);
 
-            FileVisitor fileVisitor = new FileVisitor(rootPath, signatureDao, jarFileProcessor);
+            FileVisitor fileVisitor = new FileVisitor(rootPath, jarFileProcessor);
             Files.walkFileTree(rootPath, fileVisitor);
 
             long endTime = System.currentTimeMillis();
             logger.info("Processed " + fileVisitor.getVisitedFilesCount() + " files in " + (endTime - startTime) / 1000 + " seconds");
         } catch (IOException e) {
             logger.error("Error while processing files", e);
-        } finally {
-            signatureDao.closeConnection();
         }
     }
 

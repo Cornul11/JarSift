@@ -19,9 +19,15 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
 public class JarFileProcessor {
+    private final SignatureDao signatureDao;
     private final Logger logger = LoggerFactory.getLogger(JarFileProcessor.class);
+
+    public JarFileProcessor(SignatureDao signatureDao) {
+        this.signatureDao = signatureDao;
+    }
+
 // TODO: transition to multithreaded operation, process many JARs at once
-    public void processJarFile(Path jarFilePath, SignatureDao signatureDao) throws IOException {
+    public void processJarFile(Path jarFilePath) throws IOException {
         try (JarFile jarFile = new JarFile(jarFilePath.toFile())) {
             JarInfo jarInfo = new JarInfo(jarFilePath.toString());
 
@@ -56,11 +62,12 @@ public class JarFileProcessor {
 
 
     private void commitSignatures(List<ClassFileInfo> signatures, SignatureDao signatureDao, String groupID, String artifactID, String version) {
+        ArrayList<DatabaseManager.Signature> signaturesToInsert = new ArrayList<>();
         for (ClassFileInfo signature : signatures) {
-            signatureDao.insertSignature(new DatabaseManager.Signature(0, signature.getFileName(), Integer.toString(signature.getHashCode()), groupID, artifactID, version));
-            logger.info("Inserted signature into database: " + signature.getFileName());
+            // what if the hash is already in the database, but its artifacts are different, or the filename was different
+            signaturesToInsert.add(new DatabaseManager.Signature(0, signature.getFileName(), Integer.toString(signature.getHashCode()), groupID, artifactID, version));
         }
-
+        signatureDao.insertSignature(signaturesToInsert);
     }
 
     private ClassFileInfo processClassFile(JarEntry entry, JarFile jarFile) throws IOException {

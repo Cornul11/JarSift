@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class SignatureDaoImpl implements SignatureDao {
@@ -17,24 +18,29 @@ public class SignatureDaoImpl implements SignatureDao {
     }
 
     @Override
-    public void insertSignature(DatabaseManager.Signature signature) {
+    public void insertSignature(List<DatabaseManager.Signature> signatures) {
         String insertQuery = "INSERT INTO signatures (filename, hash, groupId, artifactId, version) VALUES (?, ?, ?, ?, ?)";
         try (PreparedStatement statement = connection.prepareStatement(insertQuery)) {
-            statement.setString(1, signature.fileName());
-            statement.setString(2, signature.hash());
-            statement.setString(3, signature.groupID());
-            statement.setString(4, signature.artifactId());
-            statement.setString(5, signature.version());
-            int rowsInserted = statement.executeUpdate();
-            logger.info(rowsInserted + " signature row(s) inserted.");
-        } catch (SQLException e) {
-            // TODO: not sure if this is still needed
-            if ("X0Y32".equals(e.getSQLState())) {
-//                createSignaturesTable();
-                insertSignature(signature); // Retry the insert after creating the table
-            } else {
-                e.printStackTrace();
+            connection.setAutoCommit(false);
+
+            for (DatabaseManager.Signature signature : signatures) {
+                statement.setString(1, signature.fileName());
+                statement.setString(2, signature.hash());
+                statement.setString(3, signature.groupID());
+                statement.setString(4, signature.artifactId());
+                statement.setString(5, signature.version());
+                statement.addBatch();
             }
+
+            int[] rowsInserted = statement.executeBatch();
+            connection.commit();
+            connection.setAutoCommit(true);
+
+            int totalRowsInserted = Arrays.stream(rowsInserted).sum();
+
+            logger.info(totalRowsInserted + " signature row(s) inserted.");
+        } catch (SQLException e) {
+                e.printStackTrace();
         }
     }
 

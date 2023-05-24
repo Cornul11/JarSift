@@ -1,9 +1,6 @@
 package nl.tudelft.cornul11.thesis.signature.extractor.bytecode;
 
-import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.BytecodeInterface;
-import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.Field;
-import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.JavaConstructor;
-import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.JavaMethod;
+import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.*;
 import org.objectweb.asm.*;
 
 import java.util.Arrays;
@@ -25,6 +22,7 @@ public class BytecodeSignatureVisitor extends ClassVisitor {
         bytecodeClass.name = name;
         bytecodeClass.extendsType = superName;
         bytecodeClass.interfaces.addAll(Arrays.asList(interfaces));
+        super.visit(version, access, name, signature, superName, interfaces);
     }
 
     public void visitSource(String source, String debug) {
@@ -37,8 +35,11 @@ public class BytecodeSignatureVisitor extends ClassVisitor {
     }
 
     public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
-        // TODO:
-        return null;
+        BytecodeAnnotation bytecodeAnnotation = new BytecodeAnnotation();
+        bytecodeAnnotation.desc = desc;
+        bytecodeAnnotation.visible = visible;
+        bytecodeClass.annotations.add(bytecodeAnnotation);
+        return super.visitAnnotation(desc, visible);
     }
 
     public void visitAttribute(Attribute attr) {
@@ -59,7 +60,7 @@ public class BytecodeSignatureVisitor extends ClassVisitor {
         field.name = name;
         field.desc = desc;
         bytecodeClass.fields.add(field);
-        return null;
+        return super.visitField(access, name, desc, signature, value);
     }
 
     public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
@@ -78,7 +79,7 @@ public class BytecodeSignatureVisitor extends ClassVisitor {
             method.exceptions = exceptions;
             bytecodeClass.methods.add(method);
         }
-        return null;
+        return super.visitMethod(access, name, desc, signature, exceptions);
     }
 
     public void visitEnd() {
