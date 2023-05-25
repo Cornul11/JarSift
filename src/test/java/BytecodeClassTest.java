@@ -7,6 +7,7 @@ import java.io.InputStream;
 
 import static org.junit.Assert.*;
 public class BytecodeClassTest {
+    // TODO: these classes could maybe be generated locally instead of being read from the resources folder
     @Test
     public void testInterfaceAnnotationDifference() throws IOException {
         // TODO: this is very ugly and hacky, got to improve it later
