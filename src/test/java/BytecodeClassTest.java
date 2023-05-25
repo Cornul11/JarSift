@@ -18,7 +18,7 @@ public class BytecodeClassTest {
 
         BytecodeClass withAnnotations = BytecodeSignatureExtractor.extractSignature(bytecode);
 
-        inputStream = getClass().getClassLoader().getResourceAsStream("interface/annotation/ClassWithAnnotation.class");
+        inputStream = getClass().getClassLoader().getResourceAsStream("interface/annotation/ClassWithoutAnnotation.class");
         assert inputStream != null;
         bytecode = inputStream.readAllBytes();
 
@@ -51,7 +51,6 @@ public class BytecodeClassTest {
     }
 
 
-    // TODO: disable for now until it works
     @Test
     public void testMethodCountDifference() throws IOException {
         // TODO: this is very ugly and hacky, got to improve it later
