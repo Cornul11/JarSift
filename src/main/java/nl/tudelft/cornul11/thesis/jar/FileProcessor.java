@@ -31,7 +31,7 @@ public class FileProcessor {
             Files.walkFileTree(rootPath, fileVisitor);
 
             long endTime = System.currentTimeMillis();
-            logger.info("Processed " + fileVisitor.getVisitedFilesCount() + " files in " + (endTime - startTime) / 1000 + " seconds");
+            logger.info("Processed " + fileVisitor.getVisitedFilesCount() + " jar file(s) in " + (endTime - startTime) / 1000 + " seconds (" + (endTime - startTime) + " ms)");
         } catch (IOException e) {
             logger.error("Error while processing files", e);
         }

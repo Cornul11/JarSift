@@ -1,53 +1,41 @@
 import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.BytecodeClass;
 import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.BytecodeSignatureExtractor;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+
 public class BytecodeClassTest {
+    public static final String CLASS_WITH_PACKAGE_PRIVATE_INNER_ENUM_CLASS = "class/inner/enum/ClassWithPackagePrivateInnerEnum.class";
+    private static final String CLASS_WITH_ANNOTATIONS = "interface/annotation/ClassWithAnnotation.class";
+    private static final String CLASS_WITHOUT_ANNOTATIONS = "interface/annotation/ClassWithoutAnnotation.class";
+    public static final String CLASS_WITH_PRIVATE_INNER_ENUM_CLASS = "class/inner/enum/ClassWithPrivateInnerEnum.class";
+    public static final String CLASS_WITH_METHODS_CLASS = "interface/method/ClassWithMethods.class";
+    public static final String CLASS_WITH_ONE_LESS_METHODS_CLASS = "interface/method/ClassWithOneLessMethods.class";
+
     // TODO: these classes could maybe be generated locally instead of being read from the resources folder
     @Test
     public void testInterfaceAnnotationDifference() throws IOException {
-        // TODO: this is very ugly and hacky, got to improve it later
+        BytecodeClass withAnnotations = loadBytecodeClass(CLASS_WITH_ANNOTATIONS);
+        BytecodeClass withoutAnnotations = loadBytecodeClass(CLASS_WITHOUT_ANNOTATIONS);
 
-        InputStream inputStream = getClass().getClassLoader().getResourceAsStream("interface/annotation/ClassWithAnnotation.class");
-        assert inputStream != null;
-        byte[] bytecode = inputStream.readAllBytes();
-
-        BytecodeClass withAnnotations = BytecodeSignatureExtractor.extractSignature(bytecode);
-
-        inputStream = getClass().getClassLoader().getResourceAsStream("interface/annotation/ClassWithoutAnnotation.class");
-        assert inputStream != null;
-        bytecode = inputStream.readAllBytes();
-
-        BytecodeClass withoutAnnotations = BytecodeSignatureExtractor.extractSignature(bytecode);
-
-        assertNotEquals(withAnnotations.annotations.size(), withoutAnnotations.annotations.size());
-        assertNotEquals(withAnnotations.hashCode(), withoutAnnotations.hashCode());
+        assertNotEquals(withAnnotations.annotations.size(), withoutAnnotations.annotations.size(), "The number of annotations should be different between the two classes.");
+        assertNotEquals(withAnnotations.hashCode(), withoutAnnotations.hashCode(), "The hashcodes of the two classes should be different.");
     }
 
     // TODO: disable for now until it works
-//    @Test
+    @Test
     public void testInnerEnumAccessDifference() throws IOException {
         // TODO: this is very ugly and hacky, got to improve it later
         // TODO: this does not yet spot the difference between package private and private
 
-        InputStream inputStream = getClass().getClassLoader().getResourceAsStream("class/inner/enum/ClassWithPackagePrivateInnerEnum.class");
-        assert inputStream != null;
-        byte[] bytecode = inputStream.readAllBytes();
+        BytecodeClass packagePrivateClass = loadBytecodeClass(CLASS_WITH_PACKAGE_PRIVATE_INNER_ENUM_CLASS);
+        BytecodeClass privateClass = loadBytecodeClass(CLASS_WITH_PRIVATE_INNER_ENUM_CLASS);
 
-        BytecodeClass packagePrivateClass = BytecodeSignatureExtractor.extractSignature(bytecode);
-
-        inputStream = getClass().getClassLoader().getResourceAsStream("class/inner/enum/ClassWithPrivateInnerEnum.class");
-        assert inputStream != null;
-        bytecode = inputStream.readAllBytes();
-
-        BytecodeClass privateClass = BytecodeSignatureExtractor.extractSignature(bytecode);
-
-        assertNotEquals(packagePrivateClass.innerEnums, privateClass.innerEnums);
-        assertNotEquals(packagePrivateClass.hashCode(), privateClass.hashCode());
+        assertNotEquals(packagePrivateClass.innerEnums.size(), privateClass.innerEnums.size(), "The number of inner enums should be different between the two classes");
+        assertNotEquals(packagePrivateClass.hashCode(), privateClass.hashCode(), "The hashcodes of the two classes should be different.");
     }
 
 
@@ -55,19 +43,19 @@ public class BytecodeClassTest {
     public void testMethodCountDifference() throws IOException {
         // TODO: this is very ugly and hacky, got to improve it later
 
-        InputStream inputStream = getClass().getClassLoader().getResourceAsStream("interface/method/ClassWithMethods.class");
-        assert inputStream != null;
+        BytecodeClass withMethods = loadBytecodeClass(CLASS_WITH_METHODS_CLASS);
+        BytecodeClass withOneLessMethods = loadBytecodeClass(CLASS_WITH_ONE_LESS_METHODS_CLASS);
+
+        assertNotEquals(withMethods.methods.size(), withOneLessMethods.methods.size(), "The number of methods should be different between the two classes");
+        assertNotEquals(withMethods.hashCode(), withOneLessMethods.hashCode(), "The hashcodes of the two classes should be different");
+    }
+
+    private BytecodeClass loadBytecodeClass(String resourceName) throws IOException {
+        InputStream inputStream = getClass().getClassLoader().getResourceAsStream(resourceName);
+        if (inputStream == null) {
+            throw new IllegalArgumentException("Resource not found: " + resourceName);
+        }
         byte[] bytecode = inputStream.readAllBytes();
-
-        BytecodeClass withMethods = BytecodeSignatureExtractor.extractSignature(bytecode);
-
-        inputStream = getClass().getClassLoader().getResourceAsStream("interface/method/ClassWithOneLessMethods.class");
-        assert inputStream != null;
-        bytecode = inputStream.readAllBytes();
-
-        BytecodeClass withOneLessMethods = BytecodeSignatureExtractor.extractSignature(bytecode);
-
-        assertNotEquals(withMethods.methods.size(), withOneLessMethods.methods.size());
-        assertNotEquals(withMethods.hashCode(), withOneLessMethods.hashCode());
+        return BytecodeSignatureExtractor.extractSignature(bytecode);
     }
 }

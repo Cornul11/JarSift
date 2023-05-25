@@ -34,14 +34,28 @@ public class JarFileProcessor {
 
             List<ClassFileInfo> classFileInfos = new ArrayList<>();
             Enumeration<JarEntry> entries = jarFile.entries();
+            List<String> directories = new ArrayList<>();
             while (entries.hasMoreElements()) {
+                // if there is more than one directory in the JAR file, except for the META-INF directory, then
+                // the JAR file is an uber-JAR, and it should not count towards the corpus
+                if (directories.size() > 2) {  // Changed from 1 to 2 to account for META-INF and one other folder
+                    logger.warn("JAR file " + jarFilePath + " is an uber-JAR, skipping");
+                    return;
+                }
+
                 JarEntry entry = entries.nextElement();
+
+                // Check if it's a directory and it doesn't have any subdirectories
+                if (entry.isDirectory() && !entry.getName().contains("/")) {
+                    directories.add(entry.getName());
+                }
 
                 if (!entry.isDirectory() && entry.getName().endsWith(".class")) {
                     System.out.println("Processing class file: " + entry.getName());
                     classFileInfos.add(processClassFile(entry, jarFile));
                 }
-//                else {
+
+                //                else {
 //                    // TODO: maybe extract version and artifactID from the MANIFEST.MF file?
 //                    if (entry.getName().endsWith("pom.xml") && entry.getName().startsWith("META-INF/maven")) {
 //                        // only the pom.xml file contained under META-INF/maven in the JAR file is relevant
