@@ -27,7 +27,26 @@ public class BytecodeClassTest {
         assertNotEquals(withAnnotations.hashCode(), withoutAnnotations.hashCode());
     }
 
+    @Test
+    public void testInnerEnumAccessDifference() throws IOException {
+        // TODO: this is very ugly and hacky, got to improve it later
+        // TODO: this does not yet spot the difference between package private and private
 
+        InputStream inputStream = getClass().getClassLoader().getResourceAsStream("class/inner/enum/ClassWithPackagePrivateInnerEnum.class");
+        assert inputStream != null;
+        byte[] bytecode = inputStream.readAllBytes();
+
+        BytecodeClass packagePrivateClass = BytecodeSignatureExtractor.extractSignature(bytecode);
+
+        inputStream = getClass().getClassLoader().getResourceAsStream("class/inner/enum/ClassWithPrivateInnerEnum.class");
+        assert inputStream != null;
+        bytecode = inputStream.readAllBytes();
+
+        BytecodeClass privateClass = BytecodeSignatureExtractor.extractSignature(bytecode);
+
+        assertNotEquals(packagePrivateClass.innerEnums, privateClass.innerEnums);
+        assertNotEquals(packagePrivateClass.hashCode(), privateClass.hashCode());
+    }
     @Test
     public void testMethodCountDifference() throws IOException {
         // TODO: this is very ugly and hacky, got to improve it later

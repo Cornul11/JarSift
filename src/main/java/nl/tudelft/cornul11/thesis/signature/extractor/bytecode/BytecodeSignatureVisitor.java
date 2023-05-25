@@ -47,12 +47,27 @@ public class BytecodeSignatureVisitor extends ClassVisitor {
     }
 
     public void visitInnerClass(String name, String outerName, String innerName, int access) {
-        BytecodeInterface bytecodeInterface = new BytecodeInterface();
-        bytecodeInterface.name = name;
-        bytecodeInterface.outerName = outerName;
-        bytecodeInterface.innerName = innerName;
-        bytecodeInterface.access = access;
-        bytecodeClass.innerInterfaces.add(bytecodeInterface);
+        // check if the inner class is an interface, if yes
+        // add it to the list of inner interfaces
+        if ((access & Opcodes.ACC_INTERFACE) != 0) {
+            BytecodeInterface bytecodeInterface = new BytecodeInterface();
+            bytecodeInterface.name = name;
+            bytecodeInterface.outerName = outerName;
+            bytecodeInterface.innerName = innerName;
+            bytecodeInterface.access = access;
+            bytecodeClass.innerInterfaces.add(bytecodeInterface);
+        } else if ((access & Opcodes.ACC_ENUM) != 0) {
+            // shouldn't forget that all inner classes and interfaces are compiled to separate .class files
+            // maybe the hash of a class should be the hash of all its inner classes and interfaces?
+            // TODO: consider looking at the class file name, and to group by everything up to $ in the name of the class
+            BytecodeEnum bytecodeEnum = new BytecodeEnum();
+            bytecodeEnum.name = name;
+            bytecodeEnum.outerName = outerName;
+            bytecodeEnum.innerName = innerName;
+            bytecodeEnum.access = access;
+            System.out.println(access);
+            bytecodeClass.innerEnums.add(bytecodeEnum);
+        }
     }
 
     public FieldVisitor visitField(int access, String name, String desc, String signature, Object value) {

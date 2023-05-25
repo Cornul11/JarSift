@@ -14,6 +14,7 @@ public class BytecodeClass {
     public List<JavaMethod> methods = new ArrayList<>();
     public List<JavaConstructor> constructors = new ArrayList<>();
     public List<BytecodeInterface> innerInterfaces = new ArrayList<>();
+    public List<BytecodeEnum> innerEnums = new ArrayList<>();
     public List<BytecodeAnnotation> annotations = new ArrayList<>();
 
     @Override
@@ -21,8 +22,8 @@ public class BytecodeClass {
         // TODO: maybe hash all separate fields and then hash them together to create a per-version signature?
 
         // if name contains string "s"
-        if (name.contains("collections4/ListUtils")) {
-            System.out.println("Found ListUtils class: " + name);
+        if (name.contains("TreeBidiMap")) {
+            System.out.println("Found class: " + name);
         }
 
         return Objects.hash(name, annotations, extendsType, methods.size());
