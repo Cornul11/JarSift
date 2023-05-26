@@ -26,8 +26,15 @@ public class JarFileProcessor {
 
     static {
         exceptions = new HashSet<>();
-        exceptions.add("META-INF/");
+        exceptions.add("META-INF/"); // META-INF should in general not contain any .class files other than in the versions folder
+        // but those are, from what I can see, normally from the same package.
+        // TODO: we could of course check whether the classpath of the classes located in /versions/ folder under META-INF/
+        // are the same as the classpath of the classes in the root of the JAR file for better precision
+
+        // reference: https://www.logicbig.com/tutorials/core-java-tutorial/java-9-changes/multi-release-jars.html
+        exceptions.add("META-INF/versions/");
         exceptions.add("module-info.class");
+        exceptions.add("hidden/"); // some kind of weird shading, seen in plexus-utils-1.5.6.jar
         exceptions.add("test/");
     }
 
@@ -47,22 +54,58 @@ public class JarFileProcessor {
             while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
 
-                // define an array containing the K and V, where K and V are both string
-                // K is the name of the entry, V is the content of the entry
+                // TODO: ikasan-uber-spec-3.2.3.jar contains many classes from different JAR files, but does not
+                // get flagged as an uber-JAR
+                // TODO: maybe, we want to also look at the number of paths at the third level, such as at
+                // org.ikasan.spec.* where there are many paths, but only one class per path, each spec representing a different
+                // original JAR that was embedded
+
+
+                // TODO: Home » org.aspectj » aspectjweaver » 1.9.19: this one seems to be skipped, even though the embedded
+                // classes are embedded in second level paths, not root level
+
+                // TODO: sisu-inject-bean-1.4.2.jar 
+                // TODO: maybe using maven-shade-plugin would instantly be flagged as an uber-JAR, but we need to research this
+                //  <plugin>
+                //        <artifactId>maven-shade-plugin</artifactId>
+                //        <executions>
+                //          <execution>
+                //            <phase>package</phase>
+                //            <goals>
+                //              <goal>shade</goal>
+                //            </goals>
+                //            <configuration>
+                //              <artifactSet>
+                //                <includes>
+                //                  <include>${project.groupId}:${project.artifactId}</include>
+                //                </includes>
+                //              </artifactSet>
+                //              <relocations>
+                //                <relocation>
+                //                  <pattern>org.objectweb</pattern>
+                //                  <shadedPattern>org.sonatype.guice</shadedPattern>
+                //                </relocation>
+                //              </relocations>
+                //              <filters>
+                //                <filter>
+                //                  <artifact>*:*</artifact>
+                //                  <excludes>
+                //                    <exclude>org/objectweb/asm/*Adapter*</exclude>
+                //                    <exclude>org/objectweb/asm/*Writer*</exclude>
+                //                  </excludes>
+                //                </filter>
+                //              </filters>
+                //            </configuration>
+                //          </execution>
+                //        </executions>
+                //      </plugin>
+                //      <plugin>
                 if (shouldSkip(entry)) {
                     continue;
                 }
-                // TODO: jars/org/slf4j/slf4j-api/2.0.4/slf4j-api-2.0.4.jar contains a module-info.class file in
-                //  the META-INF folder, and it botches the filtering algorithm
 
-                // TODO: multiple versions of class files for different versions of Java
-                // TODO: https://www.logicbig.com/tutorials/core-java-tutorial/java-9-changes/multi-release-jars.html
-
-                // TODO: check plexus-utils-1.5.6.jar, if it's uber or not, and "hidden" is an edge case
-                // apparently module-info.class files can also exist in these JARs, so we need to skip them
                 if (!entry.isDirectory() && entry.getName().endsWith(".class")) {
                     if (initialClassPrefix == null) {
-                        // set initialclassPrefix to the substring of the entry name up to the first slash
                         initialClassPrefix = entry.getName().substring(0, entry.getName().indexOf('/') + 1);
                     } else {
                         String classPrefix = entry.getName().substring(0, entry.getName().indexOf('/') + 1);
@@ -74,21 +117,7 @@ public class JarFileProcessor {
                     }
                     classFileInfos.add(processClassFile(entry, jarFile));
                 }
-
-                //                else {
-//                    // TODO: maybe extract version and artifactID from the MANIFEST.MF file?
-//                    if (entry.getName().endsWith("pom.xml") && entry.getName().startsWith("META-INF/maven")) {
-//                        // only the pom.xml file contained under META-INF/maven in the JAR file is relevant
-//                        pomInfo = new PomInfo(new PomProcessor(jarFile.getInputStream(entry), entry.getName()));
-//                    }
-//                }
             }
-
-//            if (pomInfo == null) {
-//                 TODO: maybe still commit signatures without artifactId and version?
-//                logger.warn("No pom.xml file found in JAR file: " + jarFilePath);
-//                return;
-//            }
             commitSignatures(classFileInfos, signatureDao, jarInfo.getGroupId(), jarInfo.getArtifactId(), jarInfo.getVersion());
         }
     }
@@ -96,16 +125,11 @@ public class JarFileProcessor {
     private static boolean shouldSkip(JarEntry entry) {
         String name = entry.getName();
         // Skip if the entry is a directory/filename to be ignored
-        // module-info.class may also be in a directory, so we need to skip that as well
-        if (exceptions.contains(name)) {
-            return true;
+        for (String exception : exceptions) {
+            if (name.startsWith(exception)) {
+                return true;
+            }
         }
-
-        // Skip if the entry is in the 'test/' subtree
-        if (name.startsWith("test/")) {
-            return true;
-        }
-
         return false;
     }
 
