@@ -8,7 +8,7 @@ import java.util.Arrays;
 import static org.objectweb.asm.Opcodes.ASM8;
 
 public class BytecodeSignatureVisitor extends ClassVisitor {
-    private BytecodeClass bytecodeClass = new BytecodeClass();
+    private final BytecodeClass bytecodeClass = new BytecodeClass();
 
     public BytecodeSignatureVisitor() {
         super(ASM8);

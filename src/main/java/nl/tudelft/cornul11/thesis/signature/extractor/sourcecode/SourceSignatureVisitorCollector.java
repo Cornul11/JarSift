@@ -16,13 +16,9 @@ public class SourceSignatureVisitorCollector extends VoidVisitorAdapter<JavaClas
         // records, and local classes return Optional.empty()
         javaClass.setName(cls.getFullyQualifiedName().orElse(cls.getName().asString()));
 
-        cls.getExtendedTypes().forEach(extendedType -> {
-            javaClass.extendsType = extendedType.getNameAsString();
-        });
+        cls.getExtendedTypes().forEach(extendedType -> javaClass.extendsType = extendedType.getNameAsString());
 
-        cls.getImplementedTypes().forEach(implementedType -> {
-            javaClass.implementsTypes.add(implementedType.getNameAsString());
-        });
+        cls.getImplementedTypes().forEach(implementedType -> javaClass.implementsTypes.add(implementedType.getNameAsString()));
 
         cls.getFields().forEach(field -> {
             JavaField newField = new JavaField();

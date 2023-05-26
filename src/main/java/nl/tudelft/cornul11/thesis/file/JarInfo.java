@@ -1,8 +1,5 @@
 package nl.tudelft.cornul11.thesis.file;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 public class JarInfo {
     String groupId;
     String artifactId;

@@ -8,12 +8,12 @@ import java.io.InputStream;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 public class BytecodeClassTest {
-    public static final String CLASS_WITH_PACKAGE_PRIVATE_INNER_ENUM_CLASS = "class/inner/enum/ClassWithPackagePrivateInnerEnum.class";
+    private static final String CLASS_WITH_PACKAGE_PRIVATE_INNER_ENUM_CLASS = "class/inner/enum/ClassWithPackagePrivateInnerEnum.class";
     private static final String CLASS_WITH_ANNOTATIONS = "interface/annotation/ClassWithAnnotation.class";
     private static final String CLASS_WITHOUT_ANNOTATIONS = "interface/annotation/ClassWithoutAnnotation.class";
-    public static final String CLASS_WITH_PRIVATE_INNER_ENUM_CLASS = "class/inner/enum/ClassWithPrivateInnerEnum.class";
-    public static final String CLASS_WITH_METHODS_CLASS = "interface/method/ClassWithMethods.class";
-    public static final String CLASS_WITH_ONE_LESS_METHODS_CLASS = "interface/method/ClassWithOneLessMethods.class";
+    private static final String CLASS_WITH_PRIVATE_INNER_ENUM_CLASS = "class/inner/enum/ClassWithPrivateInnerEnum.class";
+    private static final String CLASS_WITH_METHODS_CLASS = "interface/method/ClassWithMethods.class";
+    private static final String CLASS_WITH_ONE_LESS_METHODS_CLASS = "interface/method/ClassWithOneLessMethods.class";
 
     // TODO: these classes could maybe be generated locally instead of being read from the resources folder
     @Test

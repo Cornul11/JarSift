@@ -14,6 +14,7 @@ import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -21,6 +22,14 @@ import java.util.jar.JarFile;
 public class JarFileProcessor {
     private final SignatureDao signatureDao;
     private final Logger logger = LoggerFactory.getLogger(JarFileProcessor.class);
+    private static HashSet<String> exceptions;
+
+    static {
+        exceptions = new HashSet<>();
+        exceptions.add("META-INF/");
+        exceptions.add("module-info.class");
+        exceptions.add("test/");
+    }
 
     public JarFileProcessor(SignatureDao signatureDao) {
         this.signatureDao = signatureDao;
@@ -31,27 +40,38 @@ public class JarFileProcessor {
         try (JarFile jarFile = new JarFile(jarFilePath.toFile())) {
             JarInfo jarInfo = new JarInfo(jarFilePath.toString());
 
-
             List<ClassFileInfo> classFileInfos = new ArrayList<>();
             Enumeration<JarEntry> entries = jarFile.entries();
-            List<String> directories = new ArrayList<>();
-            while (entries.hasMoreElements()) {
-                // if there is more than one directory in the JAR file, except for the META-INF directory, then
-                // the JAR file is an uber-JAR, and it should not count towards the corpus
-                if (directories.size() > 2) {  // Changed from 1 to 2 to account for META-INF and one other folder
-                    logger.warn("JAR file " + jarFilePath + " is an uber-JAR, skipping");
-                    return;
-                }
+            String initialClassPrefix = null;
 
+            while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
 
-                // Check if it's a directory and it doesn't have any subdirectories
-                if (entry.isDirectory() && !entry.getName().contains("/")) {
-                    directories.add(entry.getName());
+                // define an array containing the K and V, where K and V are both string
+                // K is the name of the entry, V is the content of the entry
+                if (shouldSkip(entry)) {
+                    continue;
                 }
+                // TODO: jars/org/slf4j/slf4j-api/2.0.4/slf4j-api-2.0.4.jar contains a module-info.class file in
+                //  the META-INF folder, and it botches the filtering algorithm
 
+                // TODO: multiple versions of class files for different versions of Java
+                // TODO: https://www.logicbig.com/tutorials/core-java-tutorial/java-9-changes/multi-release-jars.html
+
+                // TODO: check plexus-utils-1.5.6.jar, if it's uber or not, and "hidden" is an edge case
+                // apparently module-info.class files can also exist in these JARs, so we need to skip them
                 if (!entry.isDirectory() && entry.getName().endsWith(".class")) {
-                    System.out.println("Processing class file: " + entry.getName());
+                    if (initialClassPrefix == null) {
+                        // set initialclassPrefix to the substring of the entry name up to the first slash
+                        initialClassPrefix = entry.getName().substring(0, entry.getName().indexOf('/') + 1);
+                    } else {
+                        String classPrefix = entry.getName().substring(0, entry.getName().indexOf('/') + 1);
+                        if (!classPrefix.equals(initialClassPrefix)) {
+                            logger.warn("JAR file " + jarFilePath + " contains classes from multiple packages, skipping");
+                            logger.warn("Initial class prefix: " + initialClassPrefix + ", current class prefix: " + classPrefix);
+                            return;
+                        }
+                    }
                     classFileInfos.add(processClassFile(entry, jarFile));
                 }
 
@@ -73,7 +93,21 @@ public class JarFileProcessor {
         }
     }
 
+    private static boolean shouldSkip(JarEntry entry) {
+        String name = entry.getName();
+        // Skip if the entry is a directory/filename to be ignored
+        // module-info.class may also be in a directory, so we need to skip that as well
+        if (exceptions.contains(name)) {
+            return true;
+        }
 
+        // Skip if the entry is in the 'test/' subtree
+        if (name.startsWith("test/")) {
+            return true;
+        }
+
+        return false;
+    }
 
     private void commitSignatures(List<ClassFileInfo> signatures, SignatureDao signatureDao, String groupID, String artifactID, String version) {
         ArrayList<DatabaseManager.Signature> signaturesToInsert = new ArrayList<>();
