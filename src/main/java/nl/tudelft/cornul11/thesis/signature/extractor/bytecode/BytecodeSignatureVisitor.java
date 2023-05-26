@@ -65,7 +65,6 @@ public class BytecodeSignatureVisitor extends ClassVisitor {
             bytecodeEnum.outerName = outerName;
             bytecodeEnum.innerName = innerName;
             bytecodeEnum.access = access;
-            System.out.println(access);
             bytecodeClass.innerEnums.add(bytecodeEnum);
         }
     }

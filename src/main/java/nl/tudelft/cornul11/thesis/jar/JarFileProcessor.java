@@ -20,6 +20,7 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
 public class JarFileProcessor {
+    private static final int MAX_SUBMODULES = 3;
     private final SignatureDao signatureDao;
     private final Logger logger = LoggerFactory.getLogger(JarFileProcessor.class);
     private static HashSet<String> exceptions;
@@ -42,84 +43,81 @@ public class JarFileProcessor {
         this.signatureDao = signatureDao;
     }
 
-// TODO: transition to multithreaded operation, process many JARs at once
-    public void processJarFile(Path jarFilePath) throws IOException {
-        try (JarFile jarFile = new JarFile(jarFilePath.toFile())) {
-            JarInfo jarInfo = new JarInfo(jarFilePath.toString());
+    private boolean isMavenSubmodule(JarEntry entry) {
+        return entry.isDirectory() && entry.getName().contains("META-INF/maven/");
+    }
 
-            List<ClassFileInfo> classFileInfos = new ArrayList<>();
+    private boolean shouldSkipDueToSubmoduleCount(Path jarFilePath, int mavenSubmoduleCount) {
+        if (mavenSubmoduleCount > MAX_SUBMODULES) {
+            logger.warn("JAR file " + jarFilePath + " contains more than 3 maven submodules, skipping");
+            return true;
+        }
+        return false;
+    }
+
+    private boolean isClassFile(JarEntry entry) {
+        return !entry.isDirectory() && entry.getName().endsWith(".class");
+    }
+
+    private String getInitialClassPrefix(JarEntry entry, String initialClassPrefix) {
+        if (initialClassPrefix == null) {
+            initialClassPrefix = getClassPrefix(entry);
+        }
+        return initialClassPrefix;
+    }
+
+    private boolean hasMultiplePackages(Path jarFilePath, JarEntry entry, String initialClassPrefix) {
+        String classPrefix = getClassPrefix(entry);
+        if (!classPrefix.equals(initialClassPrefix)) {
+            logger.warn("JAR file " + jarFilePath + " contains classes from multiple packages, skipping");
+            logger.warn("Initial class prefix: " + initialClassPrefix + ", current class prefix: " + classPrefix);
+            return true;
+        }
+        return false;
+    }
+
+    private String getClassPrefix(JarEntry entry) {
+        return entry.getName().substring(0, entry.getName().indexOf('/') + 1);
+    }
+
+    private List<ClassFileInfo> extractJarFileInfo(Path jarFilePath) throws IOException {
+        try (JarFile jarFile = new JarFile(jarFilePath.toFile())) {
             Enumeration<JarEntry> entries = jarFile.entries();
             String initialClassPrefix = null;
+            int mavenSubmoduleCount = 0;
+            List<ClassFileInfo> classFileInfos = new ArrayList<>();
 
             while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
 
-                // TODO: ikasan-uber-spec-3.2.3.jar contains many classes from different JAR files, but does not
-                // get flagged as an uber-JAR
-                // TODO: maybe, we want to also look at the number of paths at the third level, such as at
-                // org.ikasan.spec.* where there are many paths, but only one class per path, each spec representing a different
-                // original JAR that was embedded
+                if (isMavenSubmodule(entry)) {
+                    mavenSubmoduleCount++;
+                    if (shouldSkipDueToSubmoduleCount(jarFilePath, mavenSubmoduleCount)) {
+                        return new ArrayList<>();
+                    }
+                }
 
-
-                // TODO: Home » org.aspectj » aspectjweaver » 1.9.19: this one seems to be skipped, even though the embedded
-                // classes are embedded in second level paths, not root level
-
-                // TODO: sisu-inject-bean-1.4.2.jar 
-                // TODO: maybe using maven-shade-plugin would instantly be flagged as an uber-JAR, but we need to research this
-                //  <plugin>
-                //        <artifactId>maven-shade-plugin</artifactId>
-                //        <executions>
-                //          <execution>
-                //            <phase>package</phase>
-                //            <goals>
-                //              <goal>shade</goal>
-                //            </goals>
-                //            <configuration>
-                //              <artifactSet>
-                //                <includes>
-                //                  <include>${project.groupId}:${project.artifactId}</include>
-                //                </includes>
-                //              </artifactSet>
-                //              <relocations>
-                //                <relocation>
-                //                  <pattern>org.objectweb</pattern>
-                //                  <shadedPattern>org.sonatype.guice</shadedPattern>
-                //                </relocation>
-                //              </relocations>
-                //              <filters>
-                //                <filter>
-                //                  <artifact>*:*</artifact>
-                //                  <excludes>
-                //                    <exclude>org/objectweb/asm/*Adapter*</exclude>
-                //                    <exclude>org/objectweb/asm/*Writer*</exclude>
-                //                  </excludes>
-                //                </filter>
-                //              </filters>
-                //            </configuration>
-                //          </execution>
-                //        </executions>
-                //      </plugin>
-                //      <plugin>
                 if (shouldSkip(entry)) {
                     continue;
                 }
 
-                if (!entry.isDirectory() && entry.getName().endsWith(".class")) {
-                    if (initialClassPrefix == null) {
-                        initialClassPrefix = entry.getName().substring(0, entry.getName().indexOf('/') + 1);
-                    } else {
-                        String classPrefix = entry.getName().substring(0, entry.getName().indexOf('/') + 1);
-                        if (!classPrefix.equals(initialClassPrefix)) {
-                            logger.warn("JAR file " + jarFilePath + " contains classes from multiple packages, skipping");
-                            logger.warn("Initial class prefix: " + initialClassPrefix + ", current class prefix: " + classPrefix);
-                            return;
-                        }
+                if (isClassFile(entry)) {
+                    initialClassPrefix = getInitialClassPrefix(entry, initialClassPrefix);
+                    if (hasMultiplePackages(jarFilePath, entry, initialClassPrefix)) {
+                        return new ArrayList<>();
                     }
                     classFileInfos.add(processClassFile(entry, jarFile));
                 }
             }
-            commitSignatures(classFileInfos, signatureDao, jarInfo.getGroupId(), jarInfo.getArtifactId(), jarInfo.getVersion());
+            return classFileInfos;
         }
+    }
+
+    // TODO: transition to multithreaded operation, process many JARs at once
+    public int processJarFile(Path jarFilePath) throws IOException {
+        List<ClassFileInfo> classFileInfos = extractJarFileInfo(jarFilePath);
+        JarInfo jarInfo = new JarInfo(jarFilePath.toString());
+        return commitSignatures(classFileInfos, jarInfo);
     }
 
     private static boolean shouldSkip(JarEntry entry) {
@@ -133,13 +131,22 @@ public class JarFileProcessor {
         return false;
     }
 
-    private void commitSignatures(List<ClassFileInfo> signatures, SignatureDao signatureDao, String groupID, String artifactID, String version) {
+    private int commitSignatures(List<ClassFileInfo> signatures, JarInfo jarInfo) {
         ArrayList<DatabaseManager.Signature> signaturesToInsert = new ArrayList<>();
         for (ClassFileInfo signature : signatures) {
-            // what if the hash is already in the database, but its artifacts are different, or the filename was different
-            signaturesToInsert.add(new DatabaseManager.Signature(0, signature.getFileName(), Integer.toString(signature.getHashCode()), groupID, artifactID, version));
+            signaturesToInsert.add(createSignature(signature, jarInfo));
         }
-        signatureDao.insertSignature(signaturesToInsert);
+        return signatureDao.insertSignature(signaturesToInsert);
+    }
+
+    private DatabaseManager.Signature createSignature(ClassFileInfo signature, JarInfo jarInfo) {
+        return new DatabaseManager.Signature(
+                0,
+                signature.getFileName(),
+                Integer.toString(signature.getHashCode()),
+                jarInfo.getGroupId(),
+                jarInfo.getArtifactId(),
+                jarInfo.getVersion());
     }
 
     private ClassFileInfo processClassFile(JarEntry entry, JarFile jarFile) throws IOException {

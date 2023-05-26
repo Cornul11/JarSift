@@ -18,7 +18,7 @@ public class SignatureDaoImpl implements SignatureDao {
     }
 
     @Override
-    public void insertSignature(List<DatabaseManager.Signature> signatures) {
+    public int insertSignature(List<DatabaseManager.Signature> signatures) {
         String insertQuery = "INSERT INTO signatures (filename, hash, groupId, artifactId, version) VALUES (?, ?, ?, ?, ?)";
         try (PreparedStatement statement = connection.prepareStatement(insertQuery)) {
             connection.setAutoCommit(false);
@@ -39,9 +39,11 @@ public class SignatureDaoImpl implements SignatureDao {
             int totalRowsInserted = Arrays.stream(rowsInserted).sum();
 
             logger.info(totalRowsInserted + " signature row(s) inserted.");
+            return totalRowsInserted;
         } catch (SQLException e) {
                 e.printStackTrace();
         }
+        return 0;
     }
 
     @Override
