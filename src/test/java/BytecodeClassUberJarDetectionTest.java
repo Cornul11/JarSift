@@ -20,8 +20,9 @@ public class BytecodeClassUberJarDetectionTest {
     private static final String JAR_WITH_HIDDEN_FOLDER = "jars/plexus-utils-1.5.6.jar";
     private static final String JAR_MULTI_RELEASE_JAR = "jars/junit-platform-commons-1.9.3.jar";
     private static final String JAR_WITH_MULTIPLE_SUBPROJECTS = "jars/ikasan-uber-spec-3.2.3.jar";
+    private static final String JAR_WITH_TWO_SUBPROJECTS = "jars/maven-shared-utils-0.1.jar";
     private static final String JAR_WITH_MULTIPLE_CLASSPATH = "jars/aspectjweaver-1.9.19.jar";
-
+    private static final String JAR_WITH_NORMAL_FEATURES = "jars/javaparser-core-3.18.0.jar";
 
 
     @Mock
@@ -53,6 +54,26 @@ public class BytecodeClassUberJarDetectionTest {
         int totalClassFilesProcessed = jarFileProcessor.processJarFile(jarPath);
 
         assertEquals(0, totalClassFilesProcessed, "No class files should be processed");
+    }
+
+    @Test
+    public void testNormalJarDetection() throws IOException {
+        prepareSignatureDaoMock();
+
+        Path jarPath = getJarPath(JAR_WITH_NORMAL_FEATURES);
+        int totalClassFilesProcessed = jarFileProcessor.processJarFile(jarPath);
+
+        assertNotEquals(0, totalClassFilesProcessed, "All class files should be processed");
+    }
+
+    @Test
+    public void testUberJarWithOneClasspathDetection() throws IOException {
+        prepareSignatureDaoMock();
+
+        Path jarPath = getJarPath(JAR_WITH_TWO_SUBPROJECTS);
+        int totalClassFilesProcessed = jarFileProcessor.processJarFile(jarPath);
+
+        assertEquals(0, totalClassFilesProcessed, "All class files should be processed");
     }
 
 

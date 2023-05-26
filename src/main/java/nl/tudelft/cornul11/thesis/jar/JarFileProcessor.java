@@ -12,18 +12,16 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.HashSet;
-import java.util.List;
+import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
 public class JarFileProcessor {
-    private static final int MAX_SUBMODULES = 3;
+    private static final int MAX_SUBMODULES = 1;
     private final SignatureDao signatureDao;
     private final Logger logger = LoggerFactory.getLogger(JarFileProcessor.class);
     private static HashSet<String> exceptions;
+    private Set<String> mavenSubmodules = new HashSet<>();
 
     static {
         exceptions = new HashSet<>();
@@ -44,7 +42,14 @@ public class JarFileProcessor {
     }
 
     private boolean isMavenSubmodule(JarEntry entry) {
-        return entry.isDirectory() && entry.getName().contains("META-INF/maven/");
+        if (entry.isDirectory() && entry.getName().startsWith("META-INF/maven/")) {
+            String[] parts = entry.getName().split("/");
+            if (parts.length >= 4) { // length must be at least 4 to include a group ID and artifact ID
+                String submodule = parts[2] + "/" + parts[3];
+                return mavenSubmodules.add(submodule);
+            }
+        }
+        return false;
     }
 
     private boolean shouldSkipDueToSubmoduleCount(Path jarFilePath, int mavenSubmoduleCount) {
@@ -81,18 +86,18 @@ public class JarFileProcessor {
     }
 
     private List<ClassFileInfo> extractJarFileInfo(Path jarFilePath) throws IOException {
+        mavenSubmodules.clear();
+
         try (JarFile jarFile = new JarFile(jarFilePath.toFile())) {
             Enumeration<JarEntry> entries = jarFile.entries();
             String initialClassPrefix = null;
-            int mavenSubmoduleCount = 0;
             List<ClassFileInfo> classFileInfos = new ArrayList<>();
 
             while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
 
                 if (isMavenSubmodule(entry)) {
-                    mavenSubmoduleCount++;
-                    if (shouldSkipDueToSubmoduleCount(jarFilePath, mavenSubmoduleCount)) {
+                    if (shouldSkipDueToSubmoduleCount(jarFilePath, mavenSubmodules.size())) {
                         return new ArrayList<>();
                     }
                 }
@@ -109,6 +114,7 @@ public class JarFileProcessor {
                     classFileInfos.add(processClassFile(entry, jarFile));
                 }
             }
+            logger.warn(String.valueOf(mavenSubmodules.size()));
             return classFileInfos;
         }
     }
