@@ -22,7 +22,7 @@ public class BytecodeClassHashingTest {
         BytecodeClass withoutAnnotations = loadBytecodeClass(CLASS_WITHOUT_ANNOTATIONS);
 
         assertNotEquals(withAnnotations.annotations.size(), withoutAnnotations.annotations.size(), "The number of annotations should be different between the two classes.");
-        assertNotEquals(withAnnotations.hashCode(), withoutAnnotations.hashCode(), "The hashcodes of the two classes should be different.");
+        assertNotEquals(withAnnotations.getSignature(), withoutAnnotations.getSignature(), "The hashcodes of the two classes should be different.");
     }
 
     // TODO: disable for now until it works
@@ -34,7 +34,7 @@ public class BytecodeClassHashingTest {
         BytecodeClass packagePrivateClass = loadBytecodeClass(CLASS_WITH_PACKAGE_PRIVATE_INNER_ENUM_CLASS);
         BytecodeClass privateClass = loadBytecodeClass(CLASS_WITH_PRIVATE_INNER_ENUM_CLASS);
 
-        assertNotEquals(packagePrivateClass.hashCode(), privateClass.hashCode(), "The hashcodes of the two classes should be different.");
+        assertNotEquals(packagePrivateClass.getSignature(), privateClass.getSignature(), "The hashcodes of the two classes should be different.");
     }
 
 
@@ -46,7 +46,7 @@ public class BytecodeClassHashingTest {
         BytecodeClass withOneLessMethods = loadBytecodeClass(CLASS_WITH_ONE_LESS_METHODS_CLASS);
 
         assertNotEquals(withMethods.methods.size(), withOneLessMethods.methods.size(), "The number of methods should be different between the two classes");
-        assertNotEquals(withMethods.hashCode(), withOneLessMethods.hashCode(), "The hashcodes of the two classes should be different");
+        assertNotEquals(withMethods.getSignature(), withOneLessMethods.getSignature(), "The hashcodes of the two classes should be different");
     }
 
     private BytecodeClass loadBytecodeClass(String resourceName) throws IOException {

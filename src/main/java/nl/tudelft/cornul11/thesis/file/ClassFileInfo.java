@@ -2,9 +2,9 @@ package nl.tudelft.cornul11.thesis.file;
 
 public class ClassFileInfo {
     private final String fileName;
-    private final int hashCode;
+    private final long hashCode;
 
-    public ClassFileInfo(String fileName, int hashCode) {
+    public ClassFileInfo(String fileName, long hashCode) {
         this.fileName = fileName;
         this.hashCode = hashCode;
     }
@@ -13,7 +13,7 @@ public class ClassFileInfo {
         return fileName;
     }
 
-    public int getHashCode() {
+    public long getHashCode() {
         return hashCode;
     }
 }

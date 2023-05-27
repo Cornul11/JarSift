@@ -7,7 +7,12 @@ public class JavaMethod {
     public String[] exceptions;
 
     @Override
-    public int hashCode() {
-        return super.hashCode();
+    public String toString() {
+        return "JavaMethod{" +
+                "name='" + name + '\'' +
+                ", desc='" + desc + '\'' +
+                ", signature='" + signature + '\'' +
+                ", exceptions=" + java.util.Arrays.toString(exceptions) +
+                '}';
     }
 }

@@ -36,7 +36,7 @@ public class JarFileInferenceProcessor {
             while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
 
-                if (!entry.isDirectory() && entry.getName().endsWith("class")) {
+                if (!entry.isDirectory() && entry.getName().endsWith(".class")) {
                     classFileCount++;
                     classFileInfos.add(processClassFile(entry, jarFile));
                 }
@@ -48,11 +48,11 @@ public class JarFileInferenceProcessor {
         }
     }
 
-    private void checkSignatures(int classFileCount, List<ClassFileInfo> signatures, SignatureDao signatureDao) {
+    public void checkSignatures(int classFileCount, List<ClassFileInfo> signatures, SignatureDao signatureDao) {
         ArrayList<JarFileClassMatchInfo> matches = new ArrayList<>();
         for (ClassFileInfo signature : signatures) {
             logger.info("Checking signature in database: " + signature.getFileName());
-            matches.addAll(signatureDao.returnMatches(Integer.toString(signature.getHashCode())));
+            matches.addAll(signatureDao.returnMatches(Long.toString(signature.getHashCode())));
         }
 
         if (matches.size() > 0) {
@@ -66,9 +66,6 @@ public class JarFileInferenceProcessor {
             frequencyMap = frequencyMap.entrySet().stream()
                     .sorted((Map.Entry.<String, Long>comparingByValue().reversed()))
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, java.util.LinkedHashMap::new));
-
-
-            // compute the percentage of value out of classfilecount
 
             frequencyMap.forEach((key, value) -> {
                 double percentage = (value * 100.0) / classFileCount;
@@ -88,7 +85,9 @@ public class JarFileInferenceProcessor {
             byte[] bytecode = classFileInputStream.readAllBytes();
             BytecodeClass bytecodeClass = BytecodeSignatureExtractor.extractSignature(bytecode);
             // TODO: jsr305 is always the same
-            return new ClassFileInfo(entry.getName(), bytecodeClass.hashCode());
+            return new ClassFileInfo(entry.getName(), bytecodeClass.getSignature());
         }
     }
+
+
 }

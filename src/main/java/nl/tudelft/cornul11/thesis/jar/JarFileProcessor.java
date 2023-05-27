@@ -40,15 +40,14 @@ public class JarFileProcessor {
 
         JarInfo jarInfo = new JarInfo(jarFilePath.toString());
         return commitSignatures(classFileInfos, jarInfo);
-
     }
 
-    private int commitSignatures(List<ClassFileInfo> signatures, JarInfo jarInfo) {
+    public int commitSignatures(List<ClassFileInfo> signatures, JarInfo jarInfo) {
         List<DatabaseManager.Signature> signaturesToInsert = signatures.stream().map(signature -> createSignature(signature, jarInfo)).collect(Collectors.toList());
         return signatureDao.insertSignature(signaturesToInsert);
     }
 
     private DatabaseManager.Signature createSignature(ClassFileInfo signature, JarInfo jarInfo) {
-        return new DatabaseManager.Signature(0, signature.getFileName(), Integer.toString(signature.getHashCode()), jarInfo.getGroupId(), jarInfo.getArtifactId(), jarInfo.getVersion());
+        return new DatabaseManager.Signature(0, signature.getFileName(), Long.toString(signature.getHashCode()), jarInfo.getGroupId(), jarInfo.getArtifactId(), jarInfo.getVersion());
     }
 }

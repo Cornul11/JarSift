@@ -7,12 +7,12 @@ public class BytecodeEnum {
     public int access;
 
     @Override
-    public int hashCode() {
-        int result = 17;
-        result = 31 * result + name.hashCode();
-        result = 31 * result + outerName.hashCode();
-        result = 31 * result + innerName.hashCode();
-        result = 31 * result + access;
-        return result;
+    public String toString() {
+        return "BytecodeEnum{" +
+                "name='" + name + '\'' +
+                ", outerName='" + outerName + '\'' +
+                ", innerName='" + innerName + '\'' +
+                ", access=" + access +
+                '}';
     }
 }

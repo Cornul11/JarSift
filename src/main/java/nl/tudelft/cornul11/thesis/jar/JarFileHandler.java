@@ -120,7 +120,7 @@ public class JarFileHandler {
         try (InputStream classFileInputStream = jarFile.getInputStream(entry)) {
             byte[] bytecode = classFileInputStream.readAllBytes();
             BytecodeClass bytecodeClass = BytecodeSignatureExtractor.extractSignature(bytecode);
-            return new ClassFileInfo(entry.getName(), bytecodeClass.hashCode());
+            return new ClassFileInfo(entry.getName(), bytecodeClass.getSignature());
         }
     }
 }
