@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
@@ -31,31 +32,32 @@ public class JarFileInferenceProcessor {
         try (JarFile jarFile = new JarFile(jarFilePath.toFile())) {
             List<ClassFileInfo> classFileInfos = new ArrayList<>();
             Enumeration<JarEntry> entries = jarFile.entries();
+            int classFileCount = 0;
             while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
 
                 if (!entry.isDirectory() && entry.getName().endsWith("class")) {
+                    classFileCount++;
                     classFileInfos.add(processClassFile(entry, jarFile));
                 }
             }
-            checkSignatures(classFileInfos, signatureDao);
+            checkSignatures(classFileCount, classFileInfos, signatureDao);
         } catch (IOException e) {
             logger.error("Error while processing JAR file: " + jarFilePath, e);
             throw new RuntimeException(e);
         }
     }
 
-    private void checkSignatures(List<ClassFileInfo> signatures, SignatureDao signatureDao) {
+    private void checkSignatures(int classFileCount, List<ClassFileInfo> signatures, SignatureDao signatureDao) {
         ArrayList<JarFileClassMatchInfo> matches = new ArrayList<>();
-
-
         for (ClassFileInfo signature : signatures) {
             logger.info("Checking signature in database: " + signature.getFileName());
             matches.addAll(signatureDao.returnMatches(Integer.toString(signature.getHashCode())));
         }
 
-
         if (matches.size() > 0) {
+            DecimalFormat decimalFormat = new DecimalFormat("#.##");
+
             Map<String, Long> frequencyMap = matches.stream()
                     .collect(Collectors.groupingBy(f -> f.getJarClassGroupId() + "»" + f.getJarClassArtifactId() + "-" + f.getJarClassVersion(),
                             Collectors.counting()));
@@ -65,7 +67,18 @@ public class JarFileInferenceProcessor {
                     .sorted((Map.Entry.<String, Long>comparingByValue().reversed()))
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, java.util.LinkedHashMap::new));
 
-            frequencyMap.forEach((key, value) -> System.out.println("ArtifactId-Version: " + key + ", Count: " + value + " ✅"));
+
+            // compute the percentage of value out of classfilecount
+
+            frequencyMap.forEach((key, value) -> {
+                double percentage = (value * 100.0) / classFileCount;
+                String percentageString = decimalFormat.format(percentage);
+                String status = "✅";
+                String output = String.format("ArtifactId-Version: %s, Count: %d / %d (%s%%) %s",
+                        key, value, classFileCount, percentageString, status);
+
+                System.out.println(output);
+            });
         }
     }
 
@@ -74,6 +87,7 @@ public class JarFileInferenceProcessor {
         try (InputStream classFileInputStream = jarFile.getInputStream(entry)) {
             byte[] bytecode = classFileInputStream.readAllBytes();
             BytecodeClass bytecodeClass = BytecodeSignatureExtractor.extractSignature(bytecode);
+            // TODO: jsr305 is always the same
             return new ClassFileInfo(entry.getName(), bytecodeClass.hashCode());
         }
     }

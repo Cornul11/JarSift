@@ -8,7 +8,9 @@ import org.slf4j.LoggerFactory;
 import java.io.DataInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 public class FileProcessor {
     private final Logger logger = LoggerFactory.getLogger(FileProcessor.class);
@@ -32,6 +34,7 @@ public class FileProcessor {
 
             long endTime = System.currentTimeMillis();
             logger.info("Processed " + fileVisitor.getVisitedFilesCount() + " jar file(s) in " + (endTime - startTime) / 1000 + " seconds (" + (endTime - startTime) + " ms)");
+            jarFileProcessor.printIgnoredUberJars();
         } catch (IOException e) {
             logger.error("Error while processing files", e);
         }

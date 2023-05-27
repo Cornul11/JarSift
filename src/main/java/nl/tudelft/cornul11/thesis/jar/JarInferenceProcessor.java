@@ -7,7 +7,6 @@ import org.slf4j.LoggerFactory;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-
 public class JarInferenceProcessor {
     private final Logger logger = LoggerFactory.getLogger(JarInferenceProcessor.class);
     private final JarFileInferenceProcessor jarFileInferenceProcessor;
