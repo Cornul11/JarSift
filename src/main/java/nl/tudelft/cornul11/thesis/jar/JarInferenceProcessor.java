@@ -1,11 +1,14 @@
 package nl.tudelft.cornul11.thesis.jar;
 
 import nl.tudelft.cornul11.thesis.database.SignatureDao;
+import nl.tudelft.cornul11.thesis.file.ClassFileInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
+import java.util.Map;
 
 public class JarInferenceProcessor {
     private final Logger logger = LoggerFactory.getLogger(JarInferenceProcessor.class);
@@ -15,11 +18,13 @@ public class JarInferenceProcessor {
         this.jarFileInferenceProcessor = new JarFileInferenceProcessor(signatureDao);
     }
 
-    public void processJar(String path) {
+    public Map<String, Long> processJar(String path) {
+        Map<String, Long> frequencyMap = null;
         Path jarPath = Paths.get(path);
         if (jarPath.toString().endsWith(".jar")) {
             logger.info("Inferring libraries in jar file: " + jarPath);
-            jarFileInferenceProcessor.inferJarFile(jarPath);
+            frequencyMap = jarFileInferenceProcessor.inferJarFile(jarPath);
         }
+        return frequencyMap;
     }
 }

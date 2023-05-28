@@ -1,15 +1,26 @@
 package nl.tudelft.cornul11.thesis.cli;
 
+import nl.tudelft.cornul11.thesis.api.ApiClient;
 import nl.tudelft.cornul11.thesis.database.SignatureDao;
 import nl.tudelft.cornul11.thesis.jar.FileProcessor;
 import nl.tudelft.cornul11.thesis.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.jar.JarInferenceProcessor;
+import nl.tudelft.cornul11.thesis.service.DataTransformer;
+import nl.tudelft.cornul11.thesis.service.VulnerabilityService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.Map;
 
 public class CommandRunner {
+    private static final Logger logger = LoggerFactory.getLogger(CommandRunner.class);
     private final CommandLineOptions options;
+    private final ApiClient apiClient;
 
-    public CommandRunner(CommandLineOptions options) {
+    public CommandRunner(CommandLineOptions options, ApiClient apiClient) {
         this.options = options;
+        this.apiClient = apiClient;
     }
 
     public void run() {
@@ -43,8 +54,15 @@ public class CommandRunner {
                 String fileName = options.getFilename();
                 if (fileName != null) {
                     JarInferenceProcessor jarInferenceProcessor = new JarInferenceProcessor(signatureDao);
-                    jarInferenceProcessor.processJar(fileName);
+                    Map<String, Long> frequencyMap = jarInferenceProcessor.processJar(fileName);
 
+                    VulnerabilityService vulnerabilityService = new VulnerabilityService(apiClient);
+
+                    try {
+                        vulnerabilityService.checkForVulnerability(frequencyMap);
+                    } catch (IOException e) {
+                        logger.error("Error while detecting vulnerabilities: " + e.getMessage());
+                    }
                     // performDetectionMode(fileName);
                 } else {
                     System.out.println("File name is required for DETECTION_MODE");
