@@ -45,21 +45,11 @@ public class DatabaseManager {
                 + "groupId TEXT NOT NULL, "
                 + "artifactId TEXT NOT NULL, "
                 + "version TEXT NOT NULL)";
+
+        // TODO: maybe add INDEX on hash column for faster lookups
         try (Statement statement = connection.createStatement()) {
             statement.executeUpdate(createTableQuery);
             logger.info("Signatures table created or already exists.");
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-
-    public void closeConnection() {
-        try {
-            if (connection != null) {
-                connection.close();
-                logger.info("Database connection closed.");
-            }
         } catch (SQLException e) {
             e.printStackTrace();
         }

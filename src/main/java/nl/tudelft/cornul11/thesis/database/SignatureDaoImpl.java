@@ -47,12 +47,30 @@ public class SignatureDaoImpl implements SignatureDao {
     }
 
     @Override
-    public List<JarFileClassMatchInfo> returnMatches(String hash) {
+    public List<JarFileClassMatchInfo> returnMatches(List<String> hashes) {
         List<JarFileClassMatchInfo> matches = new ArrayList<>();
-        String checkQuery = "SELECT * FROM signatures WHERE hash = ?";
+
+        if (hashes.isEmpty()) {
+            return matches;
+        }
+
+        StringBuilder builder = new StringBuilder("SELECT * FROM signatures WHERE hash IN (");
+        for (int i = 0; i < hashes.size(); i++) {
+            builder.append("?");
+            if (i != hashes.size() - 1) {
+                builder.append(",");
+            }
+        }
+        builder.append(")");
+
+        String checkQuery = builder.toString();
+
         // run the query to the database
         try (PreparedStatement statement = connection.prepareStatement(checkQuery)) {
-            statement.setString(1, hash);
+            for (int i = 0; i < hashes.size(); i++) {
+                statement.setString(i + 1, hashes.get(i));
+            }
+
             ResultSet results = statement.executeQuery();
 
             while (results.next()) {
@@ -66,11 +84,10 @@ public class SignatureDaoImpl implements SignatureDao {
                 JarFileClassMatchInfo jarFileClassMatchInfo = new JarFileClassMatchInfo(resultFilename, resultGroupId, resultArtifactId, resultVersion);
                 matches.add(jarFileClassMatchInfo);
             }
-            return matches;
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return null;
+        return matches;
     }
 
     @Override

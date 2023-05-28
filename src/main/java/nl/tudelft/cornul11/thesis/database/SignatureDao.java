@@ -6,7 +6,7 @@ import java.util.List;
 
 public interface SignatureDao {
     int insertSignature(List<DatabaseManager.Signature> signatures);
-    List<JarFileClassMatchInfo> returnMatches(String hash);
+    List<JarFileClassMatchInfo> returnMatches(List<String> hashes);
     List<DatabaseManager.Signature> getAllSignatures();
     void closeConnection();
 }

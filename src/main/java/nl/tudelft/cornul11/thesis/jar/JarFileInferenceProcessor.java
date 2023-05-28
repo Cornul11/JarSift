@@ -47,10 +47,16 @@ public class JarFileInferenceProcessor {
 
     public Map<String, Long> getFrequencyMap(int classFileCount, List<ClassFileInfo> signatures, SignatureDao signatureDao) {
         ArrayList<JarFileClassMatchInfo> matches = new ArrayList<>();
-        for (ClassFileInfo signature : signatures) {
-            logger.info("Checking signature in database: " + signature.getFileName());
-            matches.addAll(signatureDao.returnMatches(Long.toString(signature.getHashCode())));
-        }
+
+        List<String> hashes = signatures.stream()
+                .map(signature -> Long.toString(signature.getHashCode()))
+                .toList();
+
+        matches.addAll(signatureDao.returnMatches(hashes));
+//        for (ClassFileInfo signature : signatures) {
+//            logger.info("Checking signature in database: " + signature.getFileName());
+//            matches.addAll(signatureDao.returnMatches(Long.toString(signature.getHashCode())));
+//        }
 
         if (matches.size() > 0) {
             DecimalFormat decimalFormat = new DecimalFormat("#.##");
