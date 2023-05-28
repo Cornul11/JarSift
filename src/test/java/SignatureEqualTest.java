@@ -1,8 +1,8 @@
-import nl.tudelft.cornul11.thesis.database.SignatureDao;
+import nl.tudelft.cornul11.thesis.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.file.ClassFileInfo;
-import nl.tudelft.cornul11.thesis.file.JarInfo;
-import nl.tudelft.cornul11.thesis.jar.JarFileInferenceProcessor;
-import nl.tudelft.cornul11.thesis.jar.JarFileProcessor;
+import nl.tudelft.cornul11.thesis.file.JarInfoExtractor;
+import nl.tudelft.cornul11.thesis.jarfile.JarSignatureMapper;
+import nl.tudelft.cornul11.thesis.jarfile.FileAnalyzer;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -25,12 +25,12 @@ public class SignatureEqualTest {
      */
     @Test
     public void testSignatureEqual() throws IOException {
-        SignatureDao mockDao = mock(SignatureDao.class);
+        SignatureDAO mockDao = mock(SignatureDAO.class);
 
-        JarFileProcessor realProcessor = new JarFileProcessor(mockDao);
-        JarFileProcessor processor = spy(realProcessor);
-        JarFileInferenceProcessor realInferenceProcessor = new JarFileInferenceProcessor(mockDao);
-        JarFileInferenceProcessor inferenceProcessor = spy(realInferenceProcessor);
+        FileAnalyzer realProcessor = new FileAnalyzer(mockDao);
+        FileAnalyzer processor = spy(realProcessor);
+        JarSignatureMapper realInferenceProcessor = new JarSignatureMapper(mockDao);
+        JarSignatureMapper inferenceProcessor = spy(realInferenceProcessor);
 
         Path testPath = getJarPath(JAR_FILE_PATH);
 
@@ -40,13 +40,13 @@ public class SignatureEqualTest {
 
         // capture the signatures passed to commitSignatures
         ArgumentCaptor<List<ClassFileInfo>> argumentCaptor = ArgumentCaptor.forClass(List.class);
-        verify(processor).commitSignatures(argumentCaptor.capture(), any(JarInfo.class));
+        verify(processor).commitSignatures(argumentCaptor.capture(), any(JarInfoExtractor.class));
 
         List<ClassFileInfo> capturedClassFileInfosFromProcessor = argumentCaptor.getValue();
 
         // capture the method call to checkSignatures
         ArgumentCaptor<List<ClassFileInfo>> checkSignaturesCaptor = ArgumentCaptor.forClass(List.class);
-        verify(inferenceProcessor).getFrequencyMap(anyInt(), checkSignaturesCaptor.capture(), any(SignatureDao.class));
+        verify(inferenceProcessor).getFrequencyMap(anyInt(), checkSignaturesCaptor.capture(), any(SignatureDAO.class));
 
         List<ClassFileInfo> checkedClassFileInfoFromInference = checkSignaturesCaptor.getValue();
 

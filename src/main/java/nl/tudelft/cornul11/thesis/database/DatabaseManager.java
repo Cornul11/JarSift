@@ -30,8 +30,8 @@ public class DatabaseManager {
         return InstanceHolder.instance;
     }
 
-    public SignatureDao getSignatureDao() {
-        return new SignatureDaoImpl(connection);
+    public SignatureDAO getSignatureDao() {
+        return new SignatureDAOImpl(connection);
     }
 
     private void createSchema() {
