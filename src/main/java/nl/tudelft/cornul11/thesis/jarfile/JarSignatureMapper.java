@@ -18,6 +18,7 @@ import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 
 public class JarSignatureMapper {
+    private int totalClassCount = 0;
     private final SignatureDAO signatureDao;
     private final Logger logger = LoggerFactory.getLogger(JarSignatureMapper.class);
 
@@ -25,7 +26,7 @@ public class JarSignatureMapper {
         this.signatureDao = signatureDao;
     }
 
-    public  Map<String, Long> inferJarFile(Path jarFilePath) {
+    public  Map<String, Map<String, Long>> inferJarFile(Path jarFilePath) {
         try (JarFile jarFile = new JarFile(jarFilePath.toFile())) {
             List<ClassFileInfo> classFileInfos = new ArrayList<>();
             Enumeration<JarEntry> entries = jarFile.entries();
@@ -38,6 +39,8 @@ public class JarSignatureMapper {
                     classFileInfos.add(processClassFile(entry, jarFile));
                 }
             }
+            totalClassCount = classFileCount;
+
             return getFrequencyMap(classFileCount, classFileInfos, signatureDao);
         } catch (IOException e) {
             logger.error("Error while processing JAR file: " + jarFilePath, e);
@@ -45,7 +48,7 @@ public class JarSignatureMapper {
         }
     }
 
-    public Map<String, Long> getFrequencyMap(int classFileCount, List<ClassFileInfo> signatures, SignatureDAO signatureDao) {
+    public Map<String, Map<String, Long>> getFrequencyMap(int classFileCount, List<ClassFileInfo> signatures, SignatureDAO signatureDao) {
         ArrayList<ClassMatchInfo> matches = new ArrayList<>();
 
         List<String> hashes = signatures.stream()
@@ -53,26 +56,21 @@ public class JarSignatureMapper {
                 .toList();
 
         matches.addAll(signatureDao.returnMatches(hashes));
-//        for (ClassFileInfo signature : signatures) {
-//            logger.info("Checking signature in database: " + signature.getFileName());
-//            matches.addAll(signatureDao.returnMatches(Long.toString(signature.getHashCode())));
-//        }
+
+        Map<String, Map<String, Long>> libraryVersionMap = new HashMap<>();
 
         if (matches.size() > 0) {
-            DecimalFormat decimalFormat = new DecimalFormat("#.##");
+            matches.forEach(match -> {
+                String library = match.getJarClassGroupId() + ":" + match.getJarClassArtifactId();
+                String version = match.getJarClassVersion();
 
-            Map<String, Long> frequencyMap = matches.stream()
-                    .collect(Collectors.groupingBy(f -> f.getJarClassGroupId() + "/" + f.getJarClassArtifactId() + "/" + f.getJarClassVersion(),
-                            Collectors.counting()));
-
-            // sort frequencymap by value
-            frequencyMap = frequencyMap.entrySet().stream()
-                    .sorted((Map.Entry.<String, Long>comparingByValue().reversed()))
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, java.util.LinkedHashMap::new));
-
-            return frequencyMap;
+                Map<String, Long> versionMap = libraryVersionMap.getOrDefault(library, new HashMap<>());
+                versionMap.put(version, versionMap.getOrDefault(version, 0L) + 1);
+                libraryVersionMap.put(library, versionMap);
+            });
         }
-        return new HashMap<>();
+
+        return libraryVersionMap;
     }
 
     private ClassFileInfo processClassFile(JarEntry entry, JarFile jarFile) throws IOException {
@@ -86,4 +84,7 @@ public class JarSignatureMapper {
     }
 
 
+    public int getTotalClassCount() {
+        return totalClassCount;
+    }
 }

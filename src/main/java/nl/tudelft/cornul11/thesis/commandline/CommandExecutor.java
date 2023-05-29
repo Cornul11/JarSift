@@ -53,12 +53,13 @@ public class CommandExecutor {
                 String fileName = options.getFilename();
                 if (fileName != null) {
                     JarFrequencyAnalyzer jarFrequencyAnalyzer = new JarFrequencyAnalyzer(signatureDao);
-                    Map<String, Long> frequencyMap = jarFrequencyAnalyzer.processJar(fileName);
+                    Map<String, Map<String, Long>> frequencyMap = jarFrequencyAnalyzer.processJar(fileName);
+                    int totalClassCount = jarFrequencyAnalyzer.getTotalClassCount();
 
                     VulnerabilityAnalyzer vulnerabilityAnalyzer = new VulnerabilityAnalyzer(postRequestClient);
 
                     try {
-                        vulnerabilityAnalyzer.checkForVulnerability(frequencyMap);
+                        vulnerabilityAnalyzer.checkForVulnerability(frequencyMap, totalClassCount);
                     } catch (IOException e) {
                         logger.error("Error while detecting vulnerabilities: " + e.getMessage());
                     }
