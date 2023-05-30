@@ -41,7 +41,7 @@ public class SignatureDAOImpl implements SignatureDAO {
             logger.info(totalRowsInserted + " signature row(s) inserted.");
             return totalRowsInserted;
         } catch (SQLException e) {
-                e.printStackTrace();
+            e.printStackTrace();
         }
         return 0;
     }

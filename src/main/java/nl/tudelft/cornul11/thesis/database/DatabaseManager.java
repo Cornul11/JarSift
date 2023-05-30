@@ -1,9 +1,12 @@
 package nl.tudelft.cornul11.thesis.database;
 
-import java.sql.*;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
 
 public class DatabaseManager {
     private static final String DATABASE_URL = "jdbc:sqlite:corpus.sqlite";

@@ -63,6 +63,7 @@ public class JarHandler {
             return classFileInfos;
         }
     }
+
     private boolean isMavenSubmodule(JarEntry entry) {
         if (entry.isDirectory() && entry.getName().startsWith("META-INF/maven/")) {
             String[] parts = entry.getName().split("/");
@@ -108,6 +109,8 @@ public class JarHandler {
     private boolean hasMultiplePackages(Path jarFilePath, JarEntry entry, String initialClassPrefix) {
         String classPrefix = getClassPrefix(entry);
         if (!classPrefix.equals(initialClassPrefix)) {
+            // TODO: junit has more than one package in later version, and gets flagged as an uber-JAR
+            // it has folders ${JAR_root}/org/junit and ${JAR_root}/junit
             logger.warn("JAR file " + jarFilePath + " contains classes from multiple packages, skipping");
             logger.warn("Initial class prefix: " + initialClassPrefix + ", current class prefix: " + classPrefix);
             return true;

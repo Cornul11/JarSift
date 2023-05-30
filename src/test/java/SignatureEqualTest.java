@@ -46,7 +46,7 @@ public class SignatureEqualTest {
 
         // capture the method call to checkSignatures
         ArgumentCaptor<List<ClassFileInfo>> checkSignaturesCaptor = ArgumentCaptor.forClass(List.class);
-        verify(inferenceProcessor).getFrequencyMap(anyInt(), checkSignaturesCaptor.capture(), any(SignatureDAO.class));
+        verify(inferenceProcessor).getFrequencyMap(checkSignaturesCaptor.capture(), any(SignatureDAO.class));
 
         List<ClassFileInfo> checkedClassFileInfoFromInference = checkSignaturesCaptor.getValue();
 

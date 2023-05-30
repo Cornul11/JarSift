@@ -5,7 +5,9 @@ import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
-import javax.xml.parsers.*;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -14,6 +16,7 @@ public class PomFileParser {
 
     private String artifactId;
     private String version;
+
     public PomFileParser(InputStream pomInputStream, String name) throws ParserConfigurationException, SAXException, IOException {
         logger.info("Processing pom.xml file: " + name);
 

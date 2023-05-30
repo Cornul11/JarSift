@@ -1,15 +1,14 @@
 package nl.tudelft.cornul11.thesis.commandline;
 
 import nl.tudelft.cornul11.thesis.api.PostRequestClient;
+import nl.tudelft.cornul11.thesis.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.jarfile.JarFileExplorer;
-import nl.tudelft.cornul11.thesis.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.jarfile.JarFrequencyAnalyzer;
 import nl.tudelft.cornul11.thesis.service.VulnerabilityAnalyzer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.Map;
 
 public class CommandExecutor {
@@ -25,13 +24,13 @@ public class CommandExecutor {
     public void run() {
         if (options.hasHelpOption()) {
             System.out.println("Help message");
-//                printHelpMessage();
+            printHelpMessage();
             return;
         }
 
         if (options.hasVersionOption()) {
             System.out.println("Version: alpha");
-//                printVersion();
+            printVersion();
             return;
         }
 
@@ -58,12 +57,7 @@ public class CommandExecutor {
 
                     VulnerabilityAnalyzer vulnerabilityAnalyzer = new VulnerabilityAnalyzer(postRequestClient);
 
-                    try {
-                        vulnerabilityAnalyzer.checkForVulnerability(frequencyMap, totalClassCount);
-                    } catch (IOException e) {
-                        logger.error("Error while detecting vulnerabilities: " + e.getMessage());
-                    }
-                    // performDetectionMode(fileName);
+                    vulnerabilityAnalyzer.checkForVulnerability(frequencyMap, totalClassCount);
                 } else {
                     System.out.println("File name is required for DETECTION_MODE");
                     printHelpMessage();

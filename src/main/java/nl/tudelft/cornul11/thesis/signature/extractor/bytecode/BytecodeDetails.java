@@ -27,7 +27,9 @@ public class BytecodeDetails {
         LongHashFunction cityHashFunction = LongHashFunction.xx3();
         // TODO: maybe hash all separate fields and then hash them together to create a per-version signature?
         StringBuilder classSignature = new StringBuilder();
-        classSignature.append(name);
+        // TODO: check how often the name differs between the uber and the non-uber, to see whether the name should also
+        // be a part of the signature
+//        classSignature.append(name);
         classSignature.append(extendsType);
         classSignature.append(interfaces.toString());
         classSignature.append(fieldDetails.toString());

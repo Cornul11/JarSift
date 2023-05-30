@@ -6,7 +6,10 @@ import java.util.List;
 
 public interface SignatureDAO {
     int insertSignature(List<DatabaseManager.Signature> signatures);
+
     List<ClassMatchInfo> returnMatches(List<String> hashes);
+
     List<DatabaseManager.Signature> getAllSignatures();
+
     void closeConnection();
 }

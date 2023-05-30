@@ -6,13 +6,10 @@ import java.io.IOException;
 
 public class PostRequestClient {
     private final OkHttpClient client;
-//    private final String apiKey;
-    private final String baseUrl = "https://services.nvd.nist.gov/rest/json/cpes/2.0";
     private final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
-    public PostRequestClient(/*String apiKey*/) {
+    public PostRequestClient() {
         this.client = new OkHttpClient();
-//        this.apiKey = apiKey;
     }
 
     public String makePostRequest(String url, String jsonData) throws IOException {
@@ -20,7 +17,6 @@ public class PostRequestClient {
         Request request = new Request.Builder()
                 .url(url)
                 .post(body)
-//                .addHeader("apiKey", apiKey)
                 .build();
 
         try (Response response = client.newCall(request).execute()) {

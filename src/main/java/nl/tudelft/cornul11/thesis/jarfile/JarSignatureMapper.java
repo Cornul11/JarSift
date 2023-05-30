@@ -11,11 +11,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
-import java.text.DecimalFormat;
 import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
-import java.util.stream.Collectors;
 
 public class JarSignatureMapper {
     private int totalClassCount = 0;
@@ -26,7 +24,7 @@ public class JarSignatureMapper {
         this.signatureDao = signatureDao;
     }
 
-    public  Map<String, Map<String, Long>> inferJarFile(Path jarFilePath) {
+    public Map<String, Map<String, Long>> inferJarFile(Path jarFilePath) {
         try (JarFile jarFile = new JarFile(jarFilePath.toFile())) {
             List<ClassFileInfo> classFileInfos = new ArrayList<>();
             Enumeration<JarEntry> entries = jarFile.entries();
@@ -41,14 +39,14 @@ public class JarSignatureMapper {
             }
             totalClassCount = classFileCount;
 
-            return getFrequencyMap(classFileCount, classFileInfos, signatureDao);
+            return getFrequencyMap(classFileInfos, signatureDao);
         } catch (IOException e) {
             logger.error("Error while processing JAR file: " + jarFilePath, e);
             throw new RuntimeException(e);
         }
     }
 
-    public Map<String, Map<String, Long>> getFrequencyMap(int classFileCount, List<ClassFileInfo> signatures, SignatureDAO signatureDao) {
+    public Map<String, Map<String, Long>> getFrequencyMap(List<ClassFileInfo> signatures, SignatureDAO signatureDao) {
         ArrayList<ClassMatchInfo> matches = new ArrayList<>();
 
         List<String> hashes = signatures.stream()
