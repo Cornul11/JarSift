@@ -43,7 +43,7 @@ public class CommandExecutor {
                 String directoryPath = options.getDirectory();
                 if (directoryPath != null) {
                     JarFileExplorer jarFileExplorer = new JarFileExplorer(signatureDao);
-                    jarFileExplorer.processFiles(directoryPath);
+                    jarFileExplorer.processFiles(directoryPath, options.getLastPath());
                 } else {
                     System.out.println("Directory path is required for CORPUS_GEN_MODE");
                     printHelpMessage();

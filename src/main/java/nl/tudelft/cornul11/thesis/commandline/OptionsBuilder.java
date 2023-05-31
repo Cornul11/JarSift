@@ -35,6 +35,10 @@ public class OptionsBuilder {
         return cmd.getOptionValue("m");
     }
 
+    public String getLastPath() {
+        return cmd.getOptionValue("p");
+    }
+
     private Options buildOptions() {
         Options options = new Options();
 
@@ -67,6 +71,13 @@ public class OptionsBuilder {
                 .hasArg()
                 .argName("mode")
                 .desc("Specify the operation mode: CORPUS_GEN_MODE or DETECTION_MODE")
+                .build());
+
+        options.addOption(Option.builder("p")
+                .longOpt("lastPath")
+                .hasArg()
+                .argName("path")
+                .desc("Specify the last path to continue from")
                 .build());
 
         return options;

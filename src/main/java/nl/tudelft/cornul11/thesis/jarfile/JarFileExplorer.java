@@ -21,8 +21,9 @@ public class JarFileExplorer {
         this.fileAnalyzer = new FileAnalyzer(signatureDao);
     }
 
-    public void processFiles(String path) {
+    public void processFiles(String path, String lastPath) {
         Path rootPath = Paths.get(path);
+        Path lastVisitedPath = lastPath != null ? Paths.get(lastPath) : null;
         try {
             long startTime = System.currentTimeMillis();
 
@@ -30,6 +31,7 @@ public class JarFileExplorer {
             logger.info("Processing files in directory: " + rootPath);
 
             DirectoryExplorer directoryExplorer = new DirectoryExplorer(rootPath, fileAnalyzer);
+            directoryExplorer.setLastVisitedPath(lastVisitedPath);
             Files.walkFileTree(rootPath, directoryExplorer);
 
             long endTime = System.currentTimeMillis();

@@ -27,9 +27,11 @@ public class JarHandler {
         this.ignoredUberJars = ignoredUberJars;
     }
 
-    public List<ClassFileInfo> extractJarFileInfo() throws IOException {
+    public List<ClassFileInfo> extractJarFileInfo() {
         mavenSubmodules.clear();
 
+        // /run/media/dan/tmp_Storage/maven-cache/com/github/gwtmaterialdesign/gwt-material/2.0-rc2/gwt-material-2.0-rc2.jar
+        // TODO: java.util.zip.ZipException: zip file is empty
         try (JarFile jarFile = new JarFile(jarFilePath.toFile())) {
             Enumeration<JarEntry> entries = jarFile.entries();
             String initialClassPrefix = null;
@@ -61,6 +63,9 @@ public class JarHandler {
                 }
             }
             return classFileInfos;
+        } catch (IOException e) {
+            logger.error("Error while processing JAR file " + jarFilePath, e);
+            return new ArrayList<>();
         }
     }
 
@@ -119,7 +124,8 @@ public class JarHandler {
     }
 
     private ClassFileInfo processClassFile(JarEntry entry, JarFile jarFile) throws IOException {
-        logger.info("Processing class file: " + entry.getName());
+        // TODO: make it a bit less verbose for now
+//        logger.info("Processing class file: " + entry.getName());
         try (InputStream classFileInputStream = jarFile.getInputStream(entry)) {
             byte[] bytecode = classFileInputStream.readAllBytes();
             BytecodeDetails bytecodeDetails = BytecodeParser.extractSignature(bytecode);

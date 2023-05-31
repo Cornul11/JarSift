@@ -17,35 +17,51 @@ public class DirectoryExplorer extends SimpleFileVisitor<Path> {
     private final Path rootPath;
     private final FileAnalyzer fileAnalyzer;
     private int totalFiles = 0;
+    private Path lastVisitedPath = null;
+    private boolean shouldProcess = false;
 
     public DirectoryExplorer(Path rootPath, FileAnalyzer fileAnalyzer) {
         this.rootPath = rootPath;
         this.fileAnalyzer = fileAnalyzer;
     }
 
+    public void setLastVisitedPath(Path lastVisitedPath) {
+        this.lastVisitedPath = lastVisitedPath;
+        this.shouldProcess = lastVisitedPath == null;
+    }
+
+    public int getVisitedFilesCount() {
+        return totalFiles;
+    }
+
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-        // TODO: maybe verify not by extension but by magic number
-        if (!isHidden(file) && file.toString().endsWith(".jar")) {
-            logger.info("Processing jar file: " + file);
-            fileAnalyzer.processJarFile(file);
-            totalFiles++;
+        if (shouldProcess) {
+            if (!isHidden(file) && file.toString().endsWith(".jar")) {
+                logger.info("Processing jar file: " + file);
+                fileAnalyzer.processJarFile(file);
+                totalFiles++;
+            }
+        } else if (file.equals(lastVisitedPath)) {
+            shouldProcess = true;
         }
+
         return FileVisitResult.CONTINUE;
     }
 
     @Override
     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+        if (!shouldProcess && dir.equals(lastVisitedPath)) {
+            shouldProcess = true;
+        }
+
         if (isHidden(dir) && !dir.equals(rootPath)) {
             logger.info("Skipping hidden directory: " + dir);
             return FileVisitResult.SKIP_SUBTREE;
         }
+
         logger.info("Processing directory: " + dir);
         return FileVisitResult.CONTINUE;
-    }
-
-    public int getVisitedFilesCount() {
-        return totalFiles;
     }
 
     @Override

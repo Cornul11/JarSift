@@ -23,7 +23,7 @@ public class MainApp {
             System.exit(1);
         }
 
-        Properties config = ConfigurationLoader.loadConfig();
+//        Properties config = ConfigurationLoader.loadConfig();
         PostRequestClient postRequestClient = new PostRequestClient();
 
         CommandExecutor commandExecutor = new CommandExecutor(optionsParser, postRequestClient);
