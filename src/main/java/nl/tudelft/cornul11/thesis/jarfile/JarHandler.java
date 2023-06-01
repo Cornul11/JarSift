@@ -27,7 +27,7 @@ public class JarHandler {
         this.ignoredUberJars = ignoredUberJars;
     }
 
-    public List<ClassFileInfo> extractJarFileInfo() throws IOException {
+    public List<ClassFileInfo> extractJarFileInfo() {
         mavenSubmodules.clear();
 
         try (JarFile jarFile = new JarFile(jarFilePath.toFile())) {
@@ -66,11 +66,12 @@ public class JarHandler {
                 }
             }
             return classFileInfos;
-        } catch (IOException e) {
+        } catch (IOException | IllegalArgumentException | SecurityException e) {
             logger.error("Error while processing JAR file " + jarFilePath, e);
             return new ArrayList<>();
         }
     }
+
     private boolean isMavenSubmodule(JarEntry entry) {
         if (entry.isDirectory() && entry.getName().startsWith("META-INF/maven/")) {
             String[] parts = entry.getName().split("/");

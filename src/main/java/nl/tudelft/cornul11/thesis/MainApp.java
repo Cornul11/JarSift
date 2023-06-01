@@ -23,10 +23,10 @@ public class MainApp {
             System.exit(1);
         }
 
-//        Properties config = ConfigurationLoader.loadConfig();
-        PostRequestClient postRequestClient = new PostRequestClient(/*config.getProperty("apiKey")*/);
+        ConfigurationLoader config = new ConfigurationLoader();
+        PostRequestClient postRequestClient = new PostRequestClient();
 
-        CommandExecutor commandExecutor = new CommandExecutor(optionsParser, postRequestClient);
+        CommandExecutor commandExecutor = new CommandExecutor(optionsParser, postRequestClient, config);
         commandExecutor.run();
     }
 }

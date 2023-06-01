@@ -1,3 +1,5 @@
+*.properties
+
 # IntelliJ specific files
 out/
 .idea/

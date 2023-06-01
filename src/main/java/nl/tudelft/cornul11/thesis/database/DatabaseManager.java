@@ -9,14 +9,13 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 public class DatabaseManager {
-    private static final String DATABASE_URL = "jdbc:sqlite:corpus.sqlite";
     private Connection connection;
     private static final Logger logger = LoggerFactory.getLogger(DatabaseManager.class);
 
 
-    private DatabaseManager() {
+    private DatabaseManager(DatabaseConfig config) {
         try {
-            connection = DriverManager.getConnection(DATABASE_URL);
+            connection = DriverManager.getConnection(config.getUrl(), config.getUsername(), config.getPassword());
             logger.info("Connected to the database.");
             createSchema();
         } catch (SQLException e) {
@@ -26,10 +25,13 @@ public class DatabaseManager {
 
     private static final class InstanceHolder {
         // singleton instance
-        private static final DatabaseManager instance = new DatabaseManager();
+        private static DatabaseManager instance;
     }
 
-    public static DatabaseManager getInstance() {
+    public static DatabaseManager getInstance(DatabaseConfig config) {
+        if (InstanceHolder.instance == null) {
+            InstanceHolder.instance = new DatabaseManager(config);
+        }
         return InstanceHolder.instance;
     }
 
@@ -43,7 +45,7 @@ public class DatabaseManager {
 
     private void createSignaturesTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS signatures (" +
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "id INT PRIMARY KEY AUTO_INCREMENT, "
                 + "filename TEXT NOT NULL, " + "hash TEXT NOT NULL, "
                 + "groupId TEXT NOT NULL, "
                 + "artifactId TEXT NOT NULL, "

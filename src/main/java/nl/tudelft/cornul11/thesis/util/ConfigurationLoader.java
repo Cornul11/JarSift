@@ -1,5 +1,7 @@
 package nl.tudelft.cornul11.thesis.util;
 
+import nl.tudelft.cornul11.thesis.database.DatabaseConfig;
+
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -7,14 +9,25 @@ import java.util.Properties;
 
 public class ConfigurationLoader {
     private static final String CONFIG_FILE_NAME="config.properties";
+    private Properties config;
+    public ConfigurationLoader() {
+        loadConfig();
+    }
 
-    public static Properties loadConfig() {
-        Properties config = new Properties();
+    public void loadConfig() {
+        config = new Properties();
         try (InputStream input = new FileInputStream(CONFIG_FILE_NAME)) {
             config.load(input);
         } catch (IOException e) {
             throw new RuntimeException("Error while loading config file: " + CONFIG_FILE_NAME, e);
         }
-        return config;
+    }
+
+    public DatabaseConfig getDatabaseConfig() {
+        return new DatabaseConfig(
+                config.getProperty("database.url"),
+                config.getProperty("database.username"),
+                config.getProperty("database.password")
+        );
     }
 }

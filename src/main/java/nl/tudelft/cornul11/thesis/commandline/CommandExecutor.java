@@ -1,11 +1,13 @@
 package nl.tudelft.cornul11.thesis.commandline;
 
 import nl.tudelft.cornul11.thesis.api.PostRequestClient;
+import nl.tudelft.cornul11.thesis.database.DatabaseConfig;
 import nl.tudelft.cornul11.thesis.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.jarfile.JarFileExplorer;
 import nl.tudelft.cornul11.thesis.jarfile.JarFrequencyAnalyzer;
 import nl.tudelft.cornul11.thesis.service.VulnerabilityAnalyzer;
+import nl.tudelft.cornul11.thesis.util.ConfigurationLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,10 +17,11 @@ public class CommandExecutor {
     private static final Logger logger = LoggerFactory.getLogger(CommandExecutor.class);
     private final OptionsBuilder options;
     private final PostRequestClient postRequestClient;
-
-    public CommandExecutor(OptionsBuilder options, PostRequestClient postRequestClient) {
+    private final ConfigurationLoader config;
+    public CommandExecutor(OptionsBuilder options, PostRequestClient postRequestClient, ConfigurationLoader config) {
         this.options = options;
         this.postRequestClient = postRequestClient;
+        this.config = config;
     }
 
     public void run() {
@@ -36,7 +39,8 @@ public class CommandExecutor {
 
         String mode = options.getMode();
         if (mode != null) {
-            DatabaseManager databaseManager = DatabaseManager.getInstance();
+            DatabaseConfig databaseConfig = config.getDatabaseConfig();
+            DatabaseManager databaseManager = DatabaseManager.getInstance(databaseConfig);
             SignatureDAO signatureDao = databaseManager.getSignatureDao();
 
             if ("CORPUS_GEN_MODE".equals(mode)) {
