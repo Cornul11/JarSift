@@ -59,7 +59,12 @@ public class JarHandler {
                         ignoredUberJars.add(jarFilePath.toString());
                         return new ArrayList<>();
                     }
-                    classFileInfos.add(processClassFile(entry, jarFile));
+
+                    ClassFileInfo classFileInfo = processClassFile(entry, jarFile);
+
+                    if (classFileInfo != null) {
+                        classFileInfos.add(classFileInfo);
+                    }
                 }
             }
             return classFileInfos;
@@ -123,13 +128,16 @@ public class JarHandler {
         return false;
     }
 
-    private ClassFileInfo processClassFile(JarEntry entry, JarFile jarFile) throws IOException {
+    private ClassFileInfo processClassFile(JarEntry entry, JarFile jarFile) {
         // TODO: make it a bit less verbose for now
 //        logger.info("Processing class file: " + entry.getName());
         try (InputStream classFileInputStream = jarFile.getInputStream(entry)) {
             byte[] bytecode = classFileInputStream.readAllBytes();
             BytecodeDetails bytecodeDetails = BytecodeParser.extractSignature(bytecode);
             return new ClassFileInfo(entry.getName(), bytecodeDetails.getSignature());
+        } catch (IOException | IllegalArgumentException | SecurityException e) {
+            logger.error("Error while processing class file " + entry.getName() + " in JAR file " + jarFilePath, e);
+            return null;
         }
     }
 }

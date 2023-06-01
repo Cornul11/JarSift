@@ -25,6 +25,5 @@ public class BytecodeParser {
         classReader.accept(bytecodeVisitor, ClassReader.EXPAND_FRAMES); // TODO: why EXPAND FRAMES
 
         return bytecodeVisitor.getBytecodeClass();
-
     }
 }

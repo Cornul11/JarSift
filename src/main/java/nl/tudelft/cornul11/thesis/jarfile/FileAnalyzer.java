@@ -7,6 +7,7 @@ import nl.tudelft.cornul11.thesis.file.JarInfoExtractor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -23,9 +24,29 @@ public class FileAnalyzer {
     }
 
     public void printIgnoredUberJars() {
-        for (String ignoredUberJar : ignoredUberJars) {
-            System.out.println(ignoredUberJar);
+        // output the ignored uber jars to a file
+        FileOutputStream fos = null;
+        try {
+            fos = new FileOutputStream("ignored_uber_jars.txt");
+            for (String ignoredUberJar : ignoredUberJars) {
+                fos.write(ignoredUberJar.getBytes());
+                fos.write("\n".getBytes());
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (fos != null) fos.close();
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
         }
+
+
+//        for (String ignoredUberJar : ignoredUberJars) {
+//            System.out.println(ignoredUberJar);
+//        }
+        logger.info("Ignored " + ignoredUberJars.size() + " uber jars");
     }
 
     // TODO: transition to multithreaded operation, process many JARs at once

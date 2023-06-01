@@ -24,7 +24,7 @@ public class MainApp {
         }
 
 //        Properties config = ConfigurationLoader.loadConfig();
-        PostRequestClient postRequestClient = new PostRequestClient();
+        PostRequestClient postRequestClient = new PostRequestClient(/*config.getProperty("apiKey")*/);
 
         CommandExecutor commandExecutor = new CommandExecutor(optionsParser, postRequestClient);
         commandExecutor.run();

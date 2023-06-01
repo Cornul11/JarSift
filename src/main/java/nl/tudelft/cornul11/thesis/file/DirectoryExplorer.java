@@ -51,16 +51,29 @@ public class DirectoryExplorer extends SimpleFileVisitor<Path> {
 
     @Override
     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-        if (!shouldProcess && dir.equals(lastVisitedPath)) {
-            shouldProcess = true;
-        }
+        // supposedly this change would make a huge resume boost
 
+        // If directory is hidden and it's not the root, skip
         if (isHidden(dir) && !dir.equals(rootPath)) {
             logger.info("Skipping hidden directory: " + dir);
             return FileVisitResult.SKIP_SUBTREE;
         }
 
-        logger.info("Processing directory: " + dir);
+        // If shouldProcess is false and the directory is not on the path to the resume point, skip the whole subtree
+        if (!shouldProcess && !lastVisitedPath.startsWith(dir)) {
+            return FileVisitResult.SKIP_SUBTREE;
+        }
+
+        // If the resume point has been reached or passed, set shouldProcess to true
+        if (dir.equals(lastVisitedPath)) {
+            shouldProcess = true;
+        }
+
+        // Log if we're processing
+        if (shouldProcess) {
+            logger.info("Processing directory: " + dir);
+        }
+
         return FileVisitResult.CONTINUE;
     }
 
