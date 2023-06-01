@@ -1,5 +1,6 @@
 package nl.tudelft.cornul11.thesis.database;
 
+import com.zaxxer.hikari.HikariDataSource;
 import nl.tudelft.cornul11.thesis.file.ClassMatchInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,17 +11,18 @@ import java.util.Arrays;
 import java.util.List;
 
 public class SignatureDAOImpl implements SignatureDAO {
-    private Connection connection;
+    private HikariDataSource ds;
     private static final Logger logger = LoggerFactory.getLogger(SignatureDAOImpl.class);
 
-    public SignatureDAOImpl(Connection connection) {
-        this.connection = connection;
+    public SignatureDAOImpl(HikariDataSource ds) {
+        this.ds = ds;
     }
 
     @Override
     public int insertSignature(List<DatabaseManager.Signature> signatures) {
         String insertQuery = "INSERT INTO signatures (filename, hash, groupId, artifactId, version) VALUES (?, ?, ?, ?, ?)";
-        try (PreparedStatement statement = connection.prepareStatement(insertQuery)) {
+        try (Connection connection = ds.getConnection();
+             PreparedStatement statement = connection.prepareStatement(insertQuery)) {
             connection.setAutoCommit(false);
 
             for (DatabaseManager.Signature signature : signatures) {
@@ -66,7 +68,8 @@ public class SignatureDAOImpl implements SignatureDAO {
         String checkQuery = builder.toString();
 
         // run the query to the database
-        try (PreparedStatement statement = connection.prepareStatement(checkQuery)) {
+        try (Connection connection = ds.getConnection();
+             PreparedStatement statement = connection.prepareStatement(checkQuery)) {
             for (int i = 0; i < hashes.size(); i++) {
                 statement.setString(i + 1, hashes.get(i));
             }
@@ -94,7 +97,9 @@ public class SignatureDAOImpl implements SignatureDAO {
     public List<DatabaseManager.Signature> getAllSignatures() {
         List<DatabaseManager.Signature> signatureList = new ArrayList<>();
         String selectQuery = "SELECT id, filename, hash, groupId, artifactId, version FROM signatures";
-        try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery(selectQuery)) {
+        try (Connection connection = ds.getConnection();
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(selectQuery)) {
             while (resultSet.next()) {
                 int id = resultSet.getInt("id");
                 String fileName = resultSet.getString("filename");
@@ -113,13 +118,9 @@ public class SignatureDAOImpl implements SignatureDAO {
 
     @Override
     public void closeConnection() {
-        try {
-            if (connection != null) {
-                connection.close();
-                logger.info("Database connection closed.");
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
+        if (ds != null) {
+            ds.close();
+            logger.info("Database connection closed.");
         }
     }
 }

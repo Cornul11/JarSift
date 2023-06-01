@@ -1,26 +1,28 @@
 package nl.tudelft.cornul11.thesis.database;
 
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 
 public class DatabaseManager {
-    private Connection connection;
+    private HikariDataSource ds;
     private static final Logger logger = LoggerFactory.getLogger(DatabaseManager.class);
 
 
     private DatabaseManager(DatabaseConfig config) {
-        try {
-            connection = DriverManager.getConnection(config.getUrl(), config.getUsername(), config.getPassword());
-            logger.info("Connected to the database.");
-            createSchema();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+        HikariConfig hikariConfig = new HikariConfig();
+        hikariConfig.setJdbcUrl(config.getUrl());
+        hikariConfig.setUsername(config.getUsername());
+        hikariConfig.setPassword(config.getPassword());
+
+        ds = new HikariDataSource(hikariConfig);
+        logger.info("Connected to the database.");
+        createSchema();
     }
 
     private static final class InstanceHolder {
@@ -36,7 +38,7 @@ public class DatabaseManager {
     }
 
     public SignatureDAO getSignatureDao() {
-        return new SignatureDAOImpl(connection);
+        return new SignatureDAOImpl(ds);
     }
 
     private void createSchema() {
@@ -52,7 +54,8 @@ public class DatabaseManager {
                 + "version TEXT NOT NULL)";
 
         // TODO: maybe add INDEX on hash column for faster lookups
-        try (Statement statement = connection.createStatement()) {
+        try (Connection connection = ds.getConnection();
+             Statement statement = connection.createStatement()) {
             statement.executeUpdate(createTableQuery);
             logger.info("Signatures table created or already exists.");
         } catch (SQLException e) {

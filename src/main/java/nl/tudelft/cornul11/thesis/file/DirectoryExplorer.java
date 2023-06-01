@@ -9,6 +9,7 @@ import java.nio.file.FileVisitResult;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.concurrent.BlockingQueue;
 
 import static java.nio.file.Files.isHidden;
 
@@ -19,8 +20,10 @@ public class DirectoryExplorer extends SimpleFileVisitor<Path> {
     private int totalFiles = 0;
     private Path lastVisitedPath = null;
     private boolean shouldProcess = false;
+    private final BlockingQueue<Path> queue;
 
-    public DirectoryExplorer(Path rootPath, FileAnalyzer fileAnalyzer) {
+    public DirectoryExplorer(BlockingQueue<Path> queue, Path rootPath, FileAnalyzer fileAnalyzer) {
+        this.queue = queue;
         this.rootPath = rootPath;
         this.fileAnalyzer = fileAnalyzer;
     }
@@ -38,8 +41,8 @@ public class DirectoryExplorer extends SimpleFileVisitor<Path> {
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
         if (shouldProcess) {
             if (!isHidden(file) && file.toString().endsWith(".jar")) {
-                logger.info("Processing jar file: " + file);
-                fileAnalyzer.processJarFile(file);
+                queue.offer(file);
+//                fileAnalyzer.processJarFile(file);
                 totalFiles++;
             }
         } else if (file.equals(lastVisitedPath)) {

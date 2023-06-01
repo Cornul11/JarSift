@@ -49,7 +49,6 @@ public class FileAnalyzer {
         logger.info("Ignored " + ignoredUberJars.size() + " uber jars");
     }
 
-    // TODO: transition to multithreaded operation, process many JARs at once
     public int processJarFile(Path jarFilePath) {
         JarHandler jarHandler = new JarHandler(jarFilePath, ignoredUberJars);
         List<ClassFileInfo> classFileInfos = jarHandler.extractJarFileInfo();

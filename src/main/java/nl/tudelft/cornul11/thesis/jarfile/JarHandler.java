@@ -6,6 +6,7 @@ import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.BytecodeParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
@@ -66,6 +67,9 @@ public class JarHandler {
                 }
             }
             return classFileInfos;
+        } catch (FileNotFoundException e) {
+            // silenced, this is because of the POISON PILL
+            return new ArrayList<>();
         } catch (IOException | IllegalArgumentException | SecurityException e) {
             logger.error("Error while processing JAR file " + jarFilePath, e);
             return new ArrayList<>();
