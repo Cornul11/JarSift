@@ -24,7 +24,7 @@ public class JarProcessor implements Runnable {
         try {
             while (true) {
                 Path file = queue.take(); // this will block if the queue is empty
-                if (file == POISON_PILL) {
+                if (POISON_PILL.equals(file)) {
                     // end-of-stream marker encountered
                     break;
                 }

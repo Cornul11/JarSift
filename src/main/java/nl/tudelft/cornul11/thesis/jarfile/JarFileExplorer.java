@@ -21,8 +21,10 @@ public class JarFileExplorer {
     private final FileAnalyzer fileAnalyzer;
     // Add a Poison Pill Object to signal end of queue processing
     private static final Path POISON_PILL = Paths.get("");
+    private final SignatureDAO signatureDao;
 
     public JarFileExplorer(SignatureDAO signatureDao) {
+        this.signatureDao = signatureDao;
         this.fileAnalyzer = new FileAnalyzer(signatureDao);
     }
 
@@ -41,7 +43,7 @@ public class JarFileExplorer {
             }
 
             logger.info("Processing files in directory: " + rootPath);
-            DirectoryExplorer directoryExplorer = new DirectoryExplorer(queue, rootPath, fileAnalyzer);
+            DirectoryExplorer directoryExplorer = new DirectoryExplorer(queue, rootPath);
             directoryExplorer.setLastVisitedPath(lastVisitedPath);
             Files.walkFileTree(rootPath, directoryExplorer);
 
@@ -53,7 +55,7 @@ public class JarFileExplorer {
             // Wait for all tasks to complete
             executor.shutdown();
             try {
-                if (!executor.awaitTermination(20, TimeUnit.SECONDS)) {
+                if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
                     List<Runnable> remainingTasks = executor.shutdownNow(); // Force remaining tasks to terminate
                     logger.info(remainingTasks.size() + " tasks remaining, forcing shutdown");
                 }
@@ -65,6 +67,9 @@ public class JarFileExplorer {
             long endTime = System.currentTimeMillis();
             logger.info("Processed " + directoryExplorer.getVisitedFilesCount() + " jar file(s) in " + (endTime - startTime) / 1000 + " seconds (" + (endTime - startTime) + " ms)");
             fileAnalyzer.printIgnoredUberJars();
+
+            logger.info("Closing database connection");
+            signatureDao.closeConnection();
         } catch (IOException e) {
             logger.error("Error while processing files", e);
         }

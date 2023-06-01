@@ -70,8 +70,6 @@ public class CommandExecutor {
                 System.out.println("Invalid mode specified: " + mode);
                 printHelpMessage();
             }
-
-            signatureDao.closeConnection();
         } else {
             System.out.println("No mode specified");
             printHelpMessage();

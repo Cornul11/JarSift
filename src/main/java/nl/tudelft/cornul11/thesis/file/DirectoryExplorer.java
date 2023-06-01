@@ -16,16 +16,14 @@ import static java.nio.file.Files.isHidden;
 public class DirectoryExplorer extends SimpleFileVisitor<Path> {
     private final Logger logger = LoggerFactory.getLogger(DirectoryExplorer.class);
     private final Path rootPath;
-    private final FileAnalyzer fileAnalyzer;
     private int totalFiles = 0;
     private Path lastVisitedPath = null;
     private boolean shouldProcess = false;
     private final BlockingQueue<Path> queue;
 
-    public DirectoryExplorer(BlockingQueue<Path> queue, Path rootPath, FileAnalyzer fileAnalyzer) {
+    public DirectoryExplorer(BlockingQueue<Path> queue, Path rootPath) {
         this.queue = queue;
         this.rootPath = rootPath;
-        this.fileAnalyzer = fileAnalyzer;
     }
 
     public void setLastVisitedPath(Path lastVisitedPath) {
