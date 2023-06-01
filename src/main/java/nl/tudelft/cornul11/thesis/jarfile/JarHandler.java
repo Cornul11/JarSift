@@ -129,7 +129,7 @@ public class JarHandler {
     }
 
     private ClassFileInfo processClassFile(JarEntry entry, JarFile jarFile) throws IOException {
-        logger.info("Processing class file: " + entry.getName());
+//        logger.debug("Processing class file: " + entry.getName()); // TODO: this make the logs too verbose
         try (InputStream classFileInputStream = jarFile.getInputStream(entry)) {
             byte[] bytecode = classFileInputStream.readAllBytes();
             BytecodeDetails bytecodeDetails = BytecodeParser.extractSignature(bytecode);

@@ -8,15 +8,16 @@ import java.io.InputStream;
 import java.util.Properties;
 
 public class ConfigurationLoader {
-    private static final String CONFIG_FILE_NAME="config.properties";
+    private static final String CONFIG_FILE_NAME = "config.properties";
     private Properties config;
+
     public ConfigurationLoader() {
         loadConfig();
     }
 
     public void loadConfig() {
         config = new Properties();
-        try (InputStream input = new FileInputStream(CONFIG_FILE_NAME)) {
+        try (InputStream input = getClass().getClassLoader().getResourceAsStream(CONFIG_FILE_NAME)) {
             config.load(input);
         } catch (IOException e) {
             throw new RuntimeException("Error while loading config file: " + CONFIG_FILE_NAME, e);
