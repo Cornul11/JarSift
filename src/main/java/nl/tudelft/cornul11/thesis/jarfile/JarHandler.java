@@ -27,11 +27,9 @@ public class JarHandler {
         this.ignoredUberJars = ignoredUberJars;
     }
 
-    public List<ClassFileInfo> extractJarFileInfo() {
+    public List<ClassFileInfo> extractJarFileInfo() throws IOException {
         mavenSubmodules.clear();
 
-        // /run/media/dan/tmp_Storage/maven-cache/com/github/gwtmaterialdesign/gwt-material/2.0-rc2/gwt-material-2.0-rc2.jar
-        // TODO: java.util.zip.ZipException: zip file is empty
         try (JarFile jarFile = new JarFile(jarFilePath.toFile())) {
             Enumeration<JarEntry> entries = jarFile.entries();
             String initialClassPrefix = null;
@@ -73,7 +71,6 @@ public class JarHandler {
             return new ArrayList<>();
         }
     }
-
     private boolean isMavenSubmodule(JarEntry entry) {
         if (entry.isDirectory() && entry.getName().startsWith("META-INF/maven/")) {
             String[] parts = entry.getName().split("/");
@@ -119,8 +116,6 @@ public class JarHandler {
     private boolean hasMultiplePackages(Path jarFilePath, JarEntry entry, String initialClassPrefix) {
         String classPrefix = getClassPrefix(entry);
         if (!classPrefix.equals(initialClassPrefix)) {
-            // TODO: junit has more than one package in later version, and gets flagged as an uber-JAR
-            // it has folders ${JAR_root}/org/junit and ${JAR_root}/junit
             logger.warn("JAR file " + jarFilePath + " contains classes from multiple packages, skipping");
             logger.warn("Initial class prefix: " + initialClassPrefix + ", current class prefix: " + classPrefix);
             return true;
@@ -128,16 +123,12 @@ public class JarHandler {
         return false;
     }
 
-    private ClassFileInfo processClassFile(JarEntry entry, JarFile jarFile) {
-        // TODO: make it a bit less verbose for now
-//        logger.info("Processing class file: " + entry.getName());
+    private ClassFileInfo processClassFile(JarEntry entry, JarFile jarFile) throws IOException {
+        logger.info("Processing class file: " + entry.getName());
         try (InputStream classFileInputStream = jarFile.getInputStream(entry)) {
             byte[] bytecode = classFileInputStream.readAllBytes();
             BytecodeDetails bytecodeDetails = BytecodeParser.extractSignature(bytecode);
             return new ClassFileInfo(entry.getName(), bytecodeDetails.getSignature());
-        } catch (IOException | IllegalArgumentException | SecurityException e) {
-            logger.error("Error while processing class file " + entry.getName() + " in JAR file " + jarFilePath, e);
-            return null;
         }
     }
 }
