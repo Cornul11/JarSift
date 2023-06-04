@@ -38,7 +38,9 @@ public class BytecodeClassVisitor extends ClassVisitor {
         annotationDetails.desc = desc;
         annotationDetails.visible = visible;
         bytecodeDetails.annotations.add(annotationDetails);
-        return super.visitAnnotation(desc, visible);
+
+        AnnotationVisitor av = super.visitAnnotation(desc, visible);
+        return new BytecodeAnnotationVisitor(ASM8, av, annotationDetails);
     }
 
     public void visitAttribute(Attribute attr) {
@@ -79,7 +81,7 @@ public class BytecodeClassVisitor extends ClassVisitor {
     public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
         MethodDetails method = new MethodDetails();
         method.name = name;
-        method.desc = desc;
+        method.setDesc(desc);
         method.signature = signature;
         method.exceptions = exceptions;
 

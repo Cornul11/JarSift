@@ -49,6 +49,14 @@ public class BytecodeDetailsHashingTest {
         assertNotEquals(withMethods.getSignature(), withOneLessMethods.getSignature(), "The hashcodes of the two classes should be different");
     }
 
+//    @Test
+//    public void testSomething() throws IOException {
+//        BytecodeDetails xx1 = loadBytecodeClass(CLASS_1);
+//        BytecodeDetails xx2 = loadBytecodeClass(CLASS_2);
+//
+//
+//    }
+
     private BytecodeDetails loadBytecodeClass(String resourceName) throws IOException {
         InputStream inputStream = getClass().getClassLoader().getResourceAsStream(resourceName);
         if (inputStream == null) {

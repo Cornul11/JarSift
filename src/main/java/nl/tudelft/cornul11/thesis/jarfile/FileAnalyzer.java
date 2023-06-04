@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 
 public class FileAnalyzer {
     private final List<String> ignoredUberJars = new ArrayList<>();
+    private final List<String> insertedLibraries = new ArrayList<>();
     private final SignatureDAO signatureDao;
     private final Logger logger = LoggerFactory.getLogger(FileAnalyzer.class);
 
@@ -43,15 +44,32 @@ public class FileAnalyzer {
             }
         }
 
+        try {
+            fos = new FileOutputStream("processed_jars.txt");
+            for (String jar : insertedLibraries) {
+                fos.write(jar.getBytes());
+                fos.write("\n".getBytes());
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (fos != null) fos.close();
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+        }
+
 
 //        for (String ignoredUberJar : ignoredUberJars) {
 //            System.out.println(ignoredUberJar);
 //        }
         logger.info("Ignored " + ignoredUberJars.size() + " uber jars");
+        logger.info("Actually inserted " + insertedLibraries.size() + " JARs");
     }
 
     public int processJarFile(Path jarFilePath) {
-        JarHandler jarHandler = new JarHandler(jarFilePath, ignoredUberJars);
+        JarHandler jarHandler = new JarHandler(jarFilePath, ignoredUberJars, insertedLibraries);
         List<ClassFileInfo> classFileInfos = jarHandler.extractJarFileInfo();
 
         StringBuilder sb = new StringBuilder();

@@ -20,12 +20,14 @@ public class JarHandler {
 
     private final Path jarFilePath;
     private final List<String> ignoredUberJars;
+    private final List<String> insertedLibraries;
     private final Set<String> mavenSubmodules = new HashSet<>();
     private final Logger logger = LoggerFactory.getLogger(JarHandler.class);
 
-    public JarHandler(Path jarFilePath, List<String> ignoredUberJars) {
+    public JarHandler(Path jarFilePath, List<String> ignoredUberJars, List<String> insertedLibraries) {
         this.jarFilePath = jarFilePath;
         this.ignoredUberJars = ignoredUberJars;
+        this.insertedLibraries = insertedLibraries;
     }
 
     public List<ClassFileInfo> extractJarFileInfo() {
@@ -50,6 +52,8 @@ public class JarHandler {
 
                 if (isJarFile(entry)) {
                     logger.warn("Found nested JAR file in " + jarFilePath + ", skipping");
+                    ignoredUberJars.add(jarFilePath.toString());
+                    return new ArrayList<>();
                 }
 
                 if (isClassFile(entry)) {
@@ -66,11 +70,13 @@ public class JarHandler {
                     }
                 }
             }
+            insertedLibraries.add(jarFilePath.toString());
             return classFileInfos;
         } catch (FileNotFoundException e) {
             // silenced, this is because of the POISON PILL
             return new ArrayList<>();
         } catch (IOException | IllegalArgumentException | SecurityException e) {
+            ignoredUberJars.add(jarFilePath.toString());
             logger.error("Error while processing JAR file " + jarFilePath, e);
             return new ArrayList<>();
         }

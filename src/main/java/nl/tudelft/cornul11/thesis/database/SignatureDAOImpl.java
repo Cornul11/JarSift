@@ -64,28 +64,6 @@ public class SignatureDAOImpl implements SignatureDAO {
             logger.info(totalRowsInserted + " signature row(s) inserted.");
         } catch (SQLException e) {
             e.printStackTrace();
-
-            // Extract the filename causing the exception
-            if (e instanceof BatchUpdateException batchUpdateException) {
-                int[] updateCounts = batchUpdateException.getUpdateCounts();
-                int maxLen = 0;
-                String maxLenFilename = "";
-                for (int i = 0; i < updateCounts.length; i++) {
-                    if (updateCounts[i] == Statement.EXECUTE_FAILED) {
-                        String filename = signatures.get(i).fileName();
-                        int filenameLength = filename.length();
-                        System.out.println("Failed filename: " + filename);
-                        System.out.println("Filename length: " + filenameLength);
-                        if (filenameLength > maxLen) {
-                            maxLen = filenameLength;
-                            maxLenFilename = filename;
-                        }
-                    }
-                }
-                System.out.println("Max length: " + maxLen);
-                System.out.println("Max length filename: " + maxLenFilename);
-            }
-            System.exit(0);
         }
 
         return totalRowsInserted;
