@@ -81,7 +81,6 @@ public class JarSignatureMapper {
         }
     }
 
-
     public int getTotalClassCount() {
         return totalClassCount;
     }

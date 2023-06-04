@@ -1,5 +1,6 @@
 package nl.tudelft.cornul11.thesis.jarfile;
 
+import net.openhft.hashing.LongHashFunction;
 import nl.tudelft.cornul11.thesis.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.file.ClassFileInfo;
@@ -53,18 +54,25 @@ public class FileAnalyzer {
         JarHandler jarHandler = new JarHandler(jarFilePath, ignoredUberJars);
         List<ClassFileInfo> classFileInfos = jarHandler.extractJarFileInfo();
 
+        StringBuilder sb = new StringBuilder();
+        for (ClassFileInfo classFileInfo : classFileInfos) {
+            sb.append(classFileInfo.getHashCode());
+        }
+        LongHashFunction xx = LongHashFunction.xx();
+        String jarHash = String.valueOf(xx.hashChars(sb.toString()));
+
         // If the classFileInfos is empty, then no need to proceed further.
         if (classFileInfos.isEmpty()) {
             return 0;
         }
 
         JarInfoExtractor jarInfoExtractor = new JarInfoExtractor(jarFilePath.toString());
-        return commitSignatures(classFileInfos, jarInfoExtractor);
+        return commitSignatures(classFileInfos, jarInfoExtractor, jarHash);
     }
 
-    public int commitSignatures(List<ClassFileInfo> signatures, JarInfoExtractor jarInfoExtractor) {
+    public int commitSignatures(List<ClassFileInfo> signatures, JarInfoExtractor jarInfoExtractor, String jarHash) {
         List<DatabaseManager.Signature> signaturesToInsert = signatures.stream().map(signature -> createSignature(signature, jarInfoExtractor)).collect(Collectors.toList());
-        return signatureDao.insertSignature(signaturesToInsert);
+        return signatureDao.insertSignatures(signaturesToInsert, jarHash);
     }
 
     private DatabaseManager.Signature createSignature(ClassFileInfo signature, JarInfoExtractor jarInfoExtractor) {

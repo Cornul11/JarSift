@@ -7,10 +7,10 @@ import java.util.Arrays;
 
 import static org.objectweb.asm.Opcodes.ASM8;
 
-public class BytecodeVisitor extends ClassVisitor {
+public class BytecodeClassVisitor extends ClassVisitor {
     private final BytecodeDetails bytecodeDetails = new BytecodeDetails();
 
-    public BytecodeVisitor() {
+    public BytecodeClassVisitor() {
         super(ASM8);
     }
 
@@ -31,7 +31,6 @@ public class BytecodeVisitor extends ClassVisitor {
 
     public void visitOuterClass(String owner, String name, String desc) {
         // TODO:
-
     }
 
     public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
@@ -78,7 +77,14 @@ public class BytecodeVisitor extends ClassVisitor {
     }
 
     public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
+        MethodDetails method = new MethodDetails();
+        method.name = name;
+        method.desc = desc;
+        method.signature = signature;
+        method.exceptions = exceptions;
+
         if ("<init>".equals(name)) {
+            // This is a constructor
             ConstructorDetails constructor = new ConstructorDetails();
             constructor.name = name;
             constructor.desc = desc;
@@ -86,14 +92,12 @@ public class BytecodeVisitor extends ClassVisitor {
             constructor.exceptions = exceptions;
             bytecodeDetails.constructors.add(constructor);
         } else {
-            MethodDetails method = new MethodDetails();
-            method.name = name;
-            method.desc = desc;
-            method.signature = signature;
-            method.exceptions = exceptions;
+            // This is a method
             bytecodeDetails.methods.add(method);
         }
-        return super.visitMethod(access, name, desc, signature, exceptions);
+
+        MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
+        return new BytecodeMethodVisitor(ASM8, mv, method);
     }
 
     public void visitEnd() {

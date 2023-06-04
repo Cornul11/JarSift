@@ -54,15 +54,15 @@ public class JarFileExplorer {
 
             // Wait for all tasks to complete
             executor.shutdown();
-            try {
-                if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+
+            while (!executor.isTerminated()) {
+                try {
+                    executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+                } catch (InterruptedException e) {
                     List<Runnable> remainingTasks = executor.shutdownNow(); // Force remaining tasks to terminate
-                    logger.info(remainingTasks.size() + " tasks remaining, forcing shutdown");
+                    logger.error("Interrupted while waiting for tasks to complete", e);
+                    Thread.currentThread().interrupt();
                 }
-            } catch (InterruptedException e) {
-                List<Runnable> remainingTasks = executor.shutdownNow(); // Force remaining tasks to terminate
-                logger.error("Interrupted while waiting for tasks to complete", e);
-                Thread.currentThread().interrupt();
             }
             long endTime = System.currentTimeMillis();
             logger.info("Processed " + directoryExplorer.getVisitedFilesCount() + " jar file(s) in " + (endTime - startTime) / 1000 + " seconds (" + (endTime - startTime) + " ms)");

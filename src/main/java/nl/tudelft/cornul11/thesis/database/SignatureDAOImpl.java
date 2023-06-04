@@ -19,33 +19,76 @@ public class SignatureDAOImpl implements SignatureDAO {
     }
 
     @Override
-    public int insertSignature(List<DatabaseManager.Signature> signatures) {
-        String insertQuery = "INSERT INTO signatures (filename, hash, groupId, artifactId, version) VALUES (?, ?, ?, ?, ?)";
-        try (Connection connection = ds.getConnection();
-             PreparedStatement statement = connection.prepareStatement(insertQuery)) {
+    public int insertSignatures(List<DatabaseManager.Signature> signatures, String jarHash) {
+        String insertLibraryQuery = "INSERT INTO libraries (groupId, artifactId, version, hash) VALUES (?, ?, ?, ?)";
+        String insertSignatureQuery = "INSERT INTO signatures (filename, hash, jar_id) VALUES (?, ?, ?)";
+
+        int totalRowsInserted = 0;
+
+        try (Connection connection = ds.getConnection()) {
             connection.setAutoCommit(false);
 
-            for (DatabaseManager.Signature signature : signatures) {
-                statement.setString(1, signature.fileName());
-                statement.setString(2, signature.hash());
-                statement.setString(3, signature.groupID());
-                statement.setString(4, signature.artifactId());
-                statement.setString(5, signature.version());
-                statement.addBatch();
+            // Insert Library metadata
+            PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery, Statement.RETURN_GENERATED_KEYS);
+            DatabaseManager.Signature firstSignature = signatures.get(0);
+            libraryStatement.setString(1, firstSignature.groupID());
+            libraryStatement.setString(2, firstSignature.artifactId());
+            libraryStatement.setString(3, firstSignature.version());
+            libraryStatement.setString(4, jarHash);
+            libraryStatement.executeUpdate();
+
+            // Get generated key
+            ResultSet generatedKeys = libraryStatement.getGeneratedKeys();
+            if (generatedKeys.next()) {
+                int libraryId = generatedKeys.getInt(1);
+
+                // Prepare the statement for batch processing
+                PreparedStatement signatureStatement = connection.prepareStatement(insertSignatureQuery);
+
+                // Insert signatures
+                for (DatabaseManager.Signature signature : signatures) {
+                    signatureStatement.setString(1, signature.fileName());
+                    signatureStatement.setString(2, signature.hash());
+                    signatureStatement.setInt(3, libraryId);
+                    signatureStatement.addBatch();
+                }
+
+                // Execute batch and get affected rows
+                int[] affectedRows = signatureStatement.executeBatch();
+                totalRowsInserted += Arrays.stream(affectedRows).sum();
             }
 
-            int[] rowsInserted = statement.executeBatch();
             connection.commit();
             connection.setAutoCommit(true);
 
-            int totalRowsInserted = Arrays.stream(rowsInserted).sum();
-
             logger.info(totalRowsInserted + " signature row(s) inserted.");
-            return totalRowsInserted;
         } catch (SQLException e) {
             e.printStackTrace();
+
+            // Extract the filename causing the exception
+            if (e instanceof BatchUpdateException batchUpdateException) {
+                int[] updateCounts = batchUpdateException.getUpdateCounts();
+                int maxLen = 0;
+                String maxLenFilename = "";
+                for (int i = 0; i < updateCounts.length; i++) {
+                    if (updateCounts[i] == Statement.EXECUTE_FAILED) {
+                        String filename = signatures.get(i).fileName();
+                        int filenameLength = filename.length();
+                        System.out.println("Failed filename: " + filename);
+                        System.out.println("Filename length: " + filenameLength);
+                        if (filenameLength > maxLen) {
+                            maxLen = filenameLength;
+                            maxLenFilename = filename;
+                        }
+                    }
+                }
+                System.out.println("Max length: " + maxLen);
+                System.out.println("Max length filename: " + maxLenFilename);
+            }
+            System.exit(0);
         }
-        return 0;
+
+        return totalRowsInserted;
     }
 
     @Override

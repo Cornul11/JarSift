@@ -18,6 +18,7 @@ public class CommandExecutor {
     private final OptionsBuilder options;
     private final PostRequestClient postRequestClient;
     private final ConfigurationLoader config;
+
     public CommandExecutor(OptionsBuilder options, PostRequestClient postRequestClient, ConfigurationLoader config) {
         this.options = options;
         this.postRequestClient = postRequestClient;

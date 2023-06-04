@@ -19,6 +19,16 @@ public class DatabaseManager {
         hikariConfig.setJdbcUrl(config.getUrl());
         hikariConfig.setUsername(config.getUsername());
         hikariConfig.setPassword(config.getPassword());
+        hikariConfig.addDataSourceProperty("cachePrepStmts", config.getCachePrepStmts());
+        hikariConfig.addDataSourceProperty("prepStmtCacheSize", config.getPrepStmtCacheSize());
+        hikariConfig.addDataSourceProperty("prepStmtCacheSqlLimit", config.getPrepStmtCacheSqlLimit());
+        hikariConfig.addDataSourceProperty("useServerPrepStmts", config.getUseServerPrepStmts());
+        hikariConfig.addDataSourceProperty("useLocalSessionState", config.getUseLocalSessionState());
+        hikariConfig.addDataSourceProperty("rewriteBatchedStatements", config.getRewriteBatchedStatements());
+        hikariConfig.addDataSourceProperty("cacheResultSetMetadata", config.getCacheResultSetMetadata());
+        hikariConfig.addDataSourceProperty("cacheServerConfiguration", config.getCacheServerConfiguration());
+        hikariConfig.addDataSourceProperty("elideSetAutoCommits", config.getElideSetAutoCommits());
+        hikariConfig.addDataSourceProperty("maintainTimeStats", config.getMaintainTimeStats());
 
         ds = new HikariDataSource(hikariConfig);
         logger.info("Connected to the database.");
@@ -42,18 +52,50 @@ public class DatabaseManager {
     }
 
     private void createSchema() {
+        createJarsTable();
         createSignaturesTable();
+        addIndexes();
+    }
+
+    private void addIndexes() {
+        String createHashIndexQuery = "CREATE INDEX idx_hash ON signatures (hash)";
+        String createJarIdIndexQuery = "CREATE INDEX idx_jar_id ON signatures (jar_id)";
+
+        try (Connection connection = ds.getConnection();
+             Statement statement = connection.createStatement()) {
+            statement.executeUpdate(createHashIndexQuery);
+            statement.executeUpdate(createJarIdIndexQuery);
+            logger.info("Indexes created on signatures table.");
+        } catch (SQLException e) {
+            logger.error("Error while creating indexes on signatures table.", e);
+        }
+    }
+
+    private void createJarsTable() {
+        String createTableQuery = "CREATE TABLE IF NOT EXISTS libraries (" +
+                "id INT PRIMARY KEY AUTO_INCREMENT, "
+                + "groupId VARCHAR(255) NOT NULL, "
+                + "artifactId VARCHAR(255) NOT NULL, "
+                + "version VARCHAR(255) NOT NULL, "
+                + "hash VARCHAR(255) NOT NULL)"; // TODO: change to INT or BIGINT
+
+        try (Connection connection = ds.getConnection();
+             Statement statement = connection.createStatement()) {
+            statement.executeUpdate(createTableQuery);
+            logger.info("Jars table created or already exists.");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 
     private void createSignaturesTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS signatures (" +
                 "id INT PRIMARY KEY AUTO_INCREMENT, "
-                + "filename TEXT NOT NULL, " + "hash TEXT NOT NULL, "
-                + "groupId TEXT NOT NULL, "
-                + "artifactId TEXT NOT NULL, "
-                + "version TEXT NOT NULL)";
+                + "jar_id INT NOT NULL, "
+                + "filename VARCHAR(511) NOT NULL, "
+                + "hash VARCHAR(255) NOT NULL, " // TODO: change to INT or BIGINT
+                + "FOREIGN KEY (jar_id) REFERENCES libraries(id))";
 
-        // TODO: maybe add INDEX on hash column for faster lookups
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {
             statement.executeUpdate(createTableQuery);

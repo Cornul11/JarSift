@@ -21,9 +21,9 @@ public class BytecodeParser {
 
     public static BytecodeDetails extractSignature(byte[] bytecode) {
         ClassReader classReader = new ClassReader(bytecode);
-        BytecodeVisitor bytecodeVisitor = new BytecodeVisitor();
-        classReader.accept(bytecodeVisitor, ClassReader.EXPAND_FRAMES); // TODO: why EXPAND FRAMES
+        BytecodeClassVisitor bytecodeClassVisitor = new BytecodeClassVisitor();
+        classReader.accept(bytecodeClassVisitor, ClassReader.EXPAND_FRAMES); // TODO: why EXPAND FRAMES
 
-        return bytecodeVisitor.getBytecodeClass();
+        return bytecodeClassVisitor.getBytecodeClass();
     }
 }

@@ -13,7 +13,6 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
 
 public class SignatureEqualTest {
@@ -24,7 +23,7 @@ public class SignatureEqualTest {
      * In other words, the signatures are equal both when the corpus is being created, and when we extract the signatures
      */
     @Test
-    public void testSignatureEqual() throws IOException {
+    public void testSignatureEqual() {
         SignatureDAO mockDao = mock(SignatureDAO.class);
 
         FileAnalyzer realProcessor = new FileAnalyzer(mockDao);
@@ -40,7 +39,7 @@ public class SignatureEqualTest {
 
         // capture the signatures passed to commitSignatures
         ArgumentCaptor<List<ClassFileInfo>> argumentCaptor = ArgumentCaptor.forClass(List.class);
-        verify(processor).commitSignatures(argumentCaptor.capture(), any(JarInfoExtractor.class));
+        verify(processor).commitSignatures(argumentCaptor.capture(), any(JarInfoExtractor.class), anyString());
 
         List<ClassFileInfo> capturedClassFileInfosFromProcessor = argumentCaptor.getValue();
 

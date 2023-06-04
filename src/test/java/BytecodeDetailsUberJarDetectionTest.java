@@ -110,7 +110,7 @@ public class BytecodeDetailsUberJarDetectionTest {
     }
 
     private void prepareSignatureDaoMock() {
-        Mockito.when(signatureDao.insertSignature(Mockito.anyList())).thenAnswer(invocation -> {
+        Mockito.when(signatureDao.insertSignatures(Mockito.anyList(), Mockito.anyString())).thenAnswer(invocation -> {
             List<DatabaseManager.Signature> signatures = invocation.getArgument(0);
             return signatures.size();
         });
