@@ -16,7 +16,8 @@ import java.util.jar.JarFile;
 
 public class JarHandler {
     private static final int MAX_SUBMODULES = 1;
-    private static final Set<String> EXCEPTIONS = Set.of("META-INF/", "META-INF/versions/", "module-info.class", "test/");
+    private static final Set<String> PREFIX_EXCEPTIONS = Set.of("META-INF/", "META-INF/versions/", "test/");
+    private static final Set<String> FILENAME_EXCEPTIONS = Set.of("module-info.class", "package-info.class");
 
     private final Path jarFilePath;
     private final List<String> ignoredUberJars;
@@ -102,7 +103,17 @@ public class JarHandler {
     }
 
     private static boolean shouldSkip(JarEntry entry) {
-        return EXCEPTIONS.stream().anyMatch(entry.getName()::startsWith);
+        return matchesPrefixExceptions(entry) || matchesFilenameExceptions(entry);
+    }
+
+    private static boolean matchesPrefixExceptions(JarEntry entry) {
+        return PREFIX_EXCEPTIONS.stream()
+                .anyMatch(prefix -> entry.getName().startsWith(prefix));
+    }
+
+    private static boolean matchesFilenameExceptions(JarEntry entry) {
+        return FILENAME_EXCEPTIONS.stream()
+                .anyMatch(filename -> entry.getName().contains(filename));
     }
 
     private boolean isJarFile(JarEntry entry) {

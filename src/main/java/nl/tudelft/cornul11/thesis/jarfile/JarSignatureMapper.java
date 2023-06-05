@@ -53,8 +53,12 @@ public class JarSignatureMapper {
                 .map(signature -> Long.toString(signature.getHashCode()))
                 .toList();
 
-        matches.addAll(signatureDao.returnMatches(hashes));
+        System.out.println(hashes.size());
 
+        matches.addAll(signatureDao.returnLibraryMatches(hashes));
+        signatureDao.returnNewLibraryMatches(hashes, 100);
+
+        System.exit(0);
         Map<String, Map<String, Long>> libraryVersionMap = new HashMap<>();
 
         if (matches.size() > 0) {

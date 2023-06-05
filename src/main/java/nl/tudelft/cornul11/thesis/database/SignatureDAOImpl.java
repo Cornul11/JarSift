@@ -2,9 +2,11 @@ package nl.tudelft.cornul11.thesis.database;
 
 import com.zaxxer.hikari.HikariDataSource;
 import nl.tudelft.cornul11.thesis.file.ClassMatchInfo;
+import nl.tudelft.cornul11.thesis.file.LibraryMatchInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.FileOutputStream;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -70,14 +72,79 @@ public class SignatureDAOImpl implements SignatureDAO {
     }
 
     @Override
-    public List<ClassMatchInfo> returnMatches(List<String> hashes) {
+    public List<LibraryMatchInfo> returnNewLibraryMatches(List<String> hashes, int limit) {
+        List<LibraryMatchInfo> matches = new ArrayList<>();
+
+        if (hashes.isEmpty()) {
+            return matches;
+        }
+
+        StringBuilder builder = new StringBuilder(
+                "SELECT l.groupId, l.artifactId, l.version, COUNT(s.filename) AS classFileCount " +
+                        "FROM libraries l " +
+                        "INNER JOIN signatures s ON l.id = s.jar_id " +
+                        "WHERE s.hash IN ("
+        );
+        for (int i = 0; i < hashes.size(); i++) {
+            builder.append("?");
+            if (i != hashes.size() - 1) {
+                builder.append(",");
+            }
+        }
+        builder.append(") ");
+        builder.append("GROUP BY l.groupId, l.artifactId, l.version ");
+        builder.append("ORDER BY classFileCount DESC ");
+        builder.append("LIMIT ?");
+
+        String checkQuery = builder.toString();
+//        System.out.println(checkQuery);
+        // run the query to the database
+        try (Connection connection = ds.getConnection();
+             PreparedStatement statement = connection.prepareStatement(checkQuery)) {
+            for (int i = 0; i < hashes.size(); i++) {
+                statement.setString(i + 1, hashes.get(i));
+            }
+            statement.setInt(hashes.size() + 1, limit);
+
+            try {
+                // save to a new file the SQL query
+                FileOutputStream fos = new FileOutputStream("query.txt");
+                fos.write(statement.toString().getBytes());
+                fos.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            // print the statement in its current form
+            System.out.println(statement);
+            ResultSet results = statement.executeQuery();
+
+            while (results.next()) {
+                String resultGroupId = results.getString("groupId");
+                String resultArtifactId = results.getString("artifactId");
+                String resultVersion = results.getString("version");
+                int resultClassFileCount = results.getInt("classFileCount");
+
+//                logger.info("Found match for " + resultGroupId + " artifactId " + resultArtifactId + " version " + resultVersion + " with " + resultClassFileCount + " class files");
+
+                LibraryMatchInfo libraryMatchInfo = new LibraryMatchInfo(resultGroupId, resultArtifactId, resultVersion, resultClassFileCount);
+                matches.add(libraryMatchInfo);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return matches;
+    }
+
+    @Override
+    public List<ClassMatchInfo> returnLibraryMatches(List<String> hashes) {
         List<ClassMatchInfo> matches = new ArrayList<>();
 
         if (hashes.isEmpty()) {
             return matches;
         }
 
-        StringBuilder builder = new StringBuilder("SELECT * FROM signatures WHERE hash IN (");
+        StringBuilder builder = new StringBuilder("SELECT s.filename, l.groupId, l.artifactId, l.version FROM signatures s INNER JOIN libraries l ON s.jar_id = l.id WHERE s.hash IN (");
         for (int i = 0; i < hashes.size(); i++) {
             builder.append("?");
             if (i != hashes.size() - 1) {
@@ -112,29 +179,6 @@ public class SignatureDAOImpl implements SignatureDAO {
             e.printStackTrace();
         }
         return matches;
-    }
-
-    @Override
-    public List<DatabaseManager.Signature> getAllSignatures() {
-        List<DatabaseManager.Signature> signatureList = new ArrayList<>();
-        String selectQuery = "SELECT id, filename, hash, groupId, artifactId, version FROM signatures";
-        try (Connection connection = ds.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(selectQuery)) {
-            while (resultSet.next()) {
-                int id = resultSet.getInt("id");
-                String fileName = resultSet.getString("filename");
-                String hash = resultSet.getString("hash");
-                String groupId = resultSet.getString("groupId");
-                String artifactId = resultSet.getString("artifactId");
-                String version = resultSet.getString("version");
-                DatabaseManager.Signature signature = new DatabaseManager.Signature(id, fileName, hash, groupId, artifactId, version);
-                signatureList.add(signature);
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return signatureList;
     }
 
     @Override
