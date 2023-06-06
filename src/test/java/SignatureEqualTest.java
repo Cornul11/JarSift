@@ -6,7 +6,6 @@ import nl.tudelft.cornul11.thesis.jarfile.FileAnalyzer;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
@@ -45,7 +44,7 @@ public class SignatureEqualTest {
 
         // capture the method call to checkSignatures
         ArgumentCaptor<List<ClassFileInfo>> checkSignaturesCaptor = ArgumentCaptor.forClass(List.class);
-        verify(inferenceProcessor).getFrequencyMap(checkSignaturesCaptor.capture(), any(SignatureDAO.class));
+        verify(inferenceProcessor).getTopMatches(checkSignaturesCaptor.capture(), any(SignatureDAO.class));
 
         List<ClassFileInfo> checkedClassFileInfoFromInference = checkSignaturesCaptor.getValue();
 

@@ -1,16 +1,18 @@
 package nl.tudelft.cornul11.thesis.database;
 
 import com.zaxxer.hikari.HikariDataSource;
-import nl.tudelft.cornul11.thesis.file.ClassMatchInfo;
 import nl.tudelft.cornul11.thesis.file.LibraryMatchInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.FileOutputStream;
+import java.nio.file.Files;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class SignatureDAOImpl implements SignatureDAO {
     private HikariDataSource ds;
@@ -70,116 +72,109 @@ public class SignatureDAOImpl implements SignatureDAO {
 
         return totalRowsInserted;
     }
-
     @Override
-    public List<LibraryMatchInfo> returnNewLibraryMatches(List<String> hashes, int limit) {
-        List<LibraryMatchInfo> matches = new ArrayList<>();
+    public List<LibraryMatchInfo> returnTopLibraryMatches(List<String> hashes) {
+        String placeholders = String.join(", ", Collections.nCopies(hashes.size(), "?"));
+        String query = "SELECT libraries.groupId, libraries.artifactId, libraries.version, COUNT(*) as count " +
+                "FROM signatures " +
+                "JOIN libraries ON signatures.jar_id = libraries.id " +
+                "WHERE signatures.hash IN (" + placeholders + ") " +
+                "GROUP BY libraries.groupId, libraries.artifactId, libraries.version";
 
-        if (hashes.isEmpty()) {
-            return matches;
-        }
+        String hashesJoined = String.join(", ", hashes.stream()
+                .map(hash -> "'" + hash + "'")
+                .collect(Collectors.toList()));
 
-        StringBuilder builder = new StringBuilder(
-                "SELECT l.groupId, l.artifactId, l.version, COUNT(s.filename) AS classFileCount " +
-                        "FROM libraries l " +
-                        "INNER JOIN signatures s ON l.id = s.jar_id " +
-                        "WHERE s.hash IN ("
-        );
-        for (int i = 0; i < hashes.size(); i++) {
-            builder.append("?");
-            if (i != hashes.size() - 1) {
-                builder.append(",");
-            }
-        }
-        builder.append(") ");
-        builder.append("GROUP BY l.groupId, l.artifactId, l.version ");
-        builder.append("ORDER BY classFileCount DESC ");
-        builder.append("LIMIT ?");
+        String actualQuery = "SELECT libraries.groupId, libraries.artifactId, libraries.version, COUNT(*) as count " +
+                "FROM signatures " +
+                "JOIN libraries ON signatures.jar_id = libraries.id " +
+                "WHERE signatures.hash IN (" + hashesJoined + ") " +
+                "GROUP BY libraries.groupId, libraries.artifactId, libraries.version";
 
-        String checkQuery = builder.toString();
-//        System.out.println(checkQuery);
-        // run the query to the database
-        try (Connection connection = ds.getConnection();
-             PreparedStatement statement = connection.prepareStatement(checkQuery)) {
-            for (int i = 0; i < hashes.size(); i++) {
-                statement.setString(i + 1, hashes.get(i));
-            }
-            statement.setInt(hashes.size() + 1, limit);
-
-            try {
-                // save to a new file the SQL query
-                FileOutputStream fos = new FileOutputStream("query.txt");
-                fos.write(statement.toString().getBytes());
-                fos.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-
-            // print the statement in its current form
-            System.out.println(statement);
-            ResultSet results = statement.executeQuery();
-
-            while (results.next()) {
-                String resultGroupId = results.getString("groupId");
-                String resultArtifactId = results.getString("artifactId");
-                String resultVersion = results.getString("version");
-                int resultClassFileCount = results.getInt("classFileCount");
-
-//                logger.info("Found match for " + resultGroupId + " artifactId " + resultArtifactId + " version " + resultVersion + " with " + resultClassFileCount + " class files");
-
-                LibraryMatchInfo libraryMatchInfo = new LibraryMatchInfo(resultGroupId, resultArtifactId, resultVersion, resultClassFileCount);
-                matches.add(libraryMatchInfo);
-            }
-        } catch (SQLException e) {
+        try (FileOutputStream fos = new FileOutputStream("query.sql")) {
+            fos.write(actualQuery.getBytes());
+        } catch (Exception e) {
             e.printStackTrace();
         }
-        return matches;
-    }
 
-    @Override
-    public List<ClassMatchInfo> returnLibraryMatches(List<String> hashes) {
-        List<ClassMatchInfo> matches = new ArrayList<>();
+        List<LibraryMatchInfo> libraryHashesCount = new ArrayList<>();
 
-        if (hashes.isEmpty()) {
-            return matches;
-        }
-
-        StringBuilder builder = new StringBuilder("SELECT s.filename, l.groupId, l.artifactId, l.version FROM signatures s INNER JOIN libraries l ON s.jar_id = l.id WHERE s.hash IN (");
-        for (int i = 0; i < hashes.size(); i++) {
-            builder.append("?");
-            if (i != hashes.size() - 1) {
-                builder.append(",");
-            }
-        }
-        builder.append(")");
-
-        String checkQuery = builder.toString();
-
-        // run the query to the database
         try (Connection connection = ds.getConnection();
-             PreparedStatement statement = connection.prepareStatement(checkQuery)) {
+             PreparedStatement statement = connection.prepareStatement(query)) {
             for (int i = 0; i < hashes.size(); i++) {
                 statement.setString(i + 1, hashes.get(i));
             }
 
-            ResultSet results = statement.executeQuery();
+            ResultSet resultSet = statement.executeQuery();
+            while (resultSet.next()) {
+                String resultGroupId = resultSet.getString("groupId");
+                String resultArtifactId = resultSet.getString("artifactId");
+                String resultVersion = resultSet.getString("version");
+                int resultCount = resultSet.getInt("count");
 
-            while (results.next()) {
-                String resultFilename = results.getString("filename");
-                String resultGroupId = results.getString("groupId");
-                String resultArtifactId = results.getString("artifactId");
-                String resultVersion = results.getString("version");
-
-                logger.info("Found match for " + resultFilename + " in artifactId " + resultArtifactId + " version " + resultVersion);
-
-                ClassMatchInfo classMatchInfo = new ClassMatchInfo(resultFilename, resultGroupId, resultArtifactId, resultVersion);
-                matches.add(classMatchInfo);
+                LibraryMatchInfo libraryMatchInfo = new LibraryMatchInfo(resultGroupId, resultArtifactId, resultVersion, resultCount);
+                libraryHashesCount.add(libraryMatchInfo);
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return matches;
+
+        return libraryHashesCount;
     }
+
+//
+//    @Override
+//    public List<LibraryMatchInfo> returnTopLibraryMatches(List<String> hashes) {
+//        List<LibraryMatchInfo> matches = new ArrayList<>();
+//
+//        if (hashes.isEmpty()) {
+//            return matches;
+//        }
+//
+//        StringBuilder builder = new StringBuilder(
+//                "SELECT l.groupId, l.artifactId, MAX(l.version) as version, t.classFileCount " +
+//                        "FROM ( " +
+//                        "SELECT s.jar_id, COUNT(*) as classFileCount " +
+//                        "FROM signatures s " +
+//                        "WHERE s.hash IN ("
+//        );
+//        for (int i = 0; i < hashes.size(); i++) {
+//            builder.append("?");
+//            if (i != hashes.size() - 1) {
+//                builder.append(",");
+//            }
+//        }
+//        builder.append(") ");
+//        builder.append("GROUP BY s.jar_id) t ");
+//        builder.append("JOIN libraries l ON l.id = t.jar_id ");
+//        builder.append("GROUP BY l.groupId, l.artifactId ");
+//        builder.append("ORDER BY t.classFileCount DESC");
+//
+//        String checkQuery = builder.toString();
+//
+//        // run the query to the database
+//        try (Connection connection = ds.getConnection();
+//             PreparedStatement statement = connection.prepareStatement(checkQuery)) {
+//            for (int i = 0; i < hashes.size(); i++) {
+//                statement.setString(i + 1, hashes.get(i));
+//            }
+//
+//            ResultSet results = statement.executeQuery();
+//
+//            while (results.next()) {
+//                String resultGroupId = results.getString("groupId");
+//                String resultArtifactId = results.getString("artifactId");
+//                String resultVersion = results.getString("version");
+//                int resultClassFileCount = results.getInt("classFileCount");
+//
+//                LibraryMatchInfo libraryMatchInfo = new LibraryMatchInfo(resultGroupId, resultArtifactId, resultVersion, resultClassFileCount);
+//                matches.add(libraryMatchInfo);
+//            }
+//        } catch (SQLException e) {
+//            e.printStackTrace();
+//        }
+//        return matches;
+//    }
 
     @Override
     public void closeConnection() {

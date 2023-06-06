@@ -12,6 +12,10 @@
         </encoder>
     </appender>
 
+    <!-- We do not need the entire query being printed to the screen -->
+    <logger name="org.mariadb.jdbc.client.impl.StandardClient" level="WARN" additivity="false" />
+
+
     <root level="debug">
         <appender-ref ref="STDOUT" />
         <appender-ref ref="FILE" />

@@ -16,8 +16,8 @@ public class JarFrequencyAnalyzer {
         this.jarSignatureMapper = new JarSignatureMapper(signatureDao);
     }
 
-    public Map<String, Map<String, Long>> processJar(String path) {
-        Map<String, Map<String, Long>> frequencyMap = null;
+    public Map<String, Long> processJar(String path) {
+        Map<String, Long> frequencyMap = null;
         Path jarPath = Paths.get(path);
         if (jarPath.toString().endsWith(".jar")) {
             logger.info("Inferring libraries in jar file: " + jarPath);

@@ -2,7 +2,7 @@ package nl.tudelft.cornul11.thesis.jarfile;
 
 import nl.tudelft.cornul11.thesis.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.file.ClassFileInfo;
-import nl.tudelft.cornul11.thesis.file.ClassMatchInfo;
+import nl.tudelft.cornul11.thesis.file.LibraryMatchInfo;
 import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.BytecodeDetails;
 import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.BytecodeParser;
 import org.slf4j.Logger;
@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.stream.Collectors;
 
 public class JarSignatureMapper {
     private int totalClassCount = 0;
@@ -24,7 +25,7 @@ public class JarSignatureMapper {
         this.signatureDao = signatureDao;
     }
 
-    public Map<String, Map<String, Long>> inferJarFile(Path jarFilePath) {
+    public Map<String, Long> inferJarFile(Path jarFilePath) {
         try (JarFile jarFile = new JarFile(jarFilePath.toFile())) {
             List<ClassFileInfo> classFileInfos = new ArrayList<>();
             Enumeration<JarEntry> entries = jarFile.entries();
@@ -39,40 +40,40 @@ public class JarSignatureMapper {
             }
             totalClassCount = classFileCount;
 
-            return getFrequencyMap(classFileInfos, signatureDao);
+            return getTopMatches(classFileInfos, signatureDao);
         } catch (IOException e) {
             logger.error("Error while processing JAR file: " + jarFilePath, e);
             throw new RuntimeException(e);
         }
     }
 
-    public Map<String, Map<String, Long>> getFrequencyMap(List<ClassFileInfo> signatures, SignatureDAO signatureDao) {
-        ArrayList<ClassMatchInfo> matches = new ArrayList<>();
-
+    public Map<String, Long> getTopMatches(List<ClassFileInfo> signatures, SignatureDAO signatureDao) {
         List<String> hashes = signatures.stream()
                 .map(signature -> Long.toString(signature.getHashCode()))
                 .toList();
 
-        System.out.println(hashes.size());
+        // get the top library matches based on hashes
+        List<LibraryMatchInfo> matches = signatureDao.returnTopLibraryMatches(hashes);
 
-        matches.addAll(signatureDao.returnLibraryMatches(hashes));
-        signatureDao.returnNewLibraryMatches(hashes, 100);
-
-        System.exit(0);
-        Map<String, Map<String, Long>> libraryVersionMap = new HashMap<>();
+        Map<String, LibraryMatchInfo> libraryVersionMap = new HashMap<>();
 
         if (matches.size() > 0) {
-            matches.forEach(match -> {
-                String library = match.getJarClassGroupId() + ":" + match.getJarClassArtifactId();
-                String version = match.getJarClassVersion();
-
-                Map<String, Long> versionMap = libraryVersionMap.getOrDefault(library, new HashMap<>());
-                versionMap.put(version, versionMap.getOrDefault(version, 0L) + 1);
-                libraryVersionMap.put(library, versionMap);
-            });
+            libraryVersionMap = matches.stream()
+                    .collect(Collectors.toMap(
+                            match -> match.getGroupId() + ":" + match.getArtifactId(), // key
+                            match -> match, // value
+                            // merge function, in case of key collision, keep the version with maximum count
+                            (existing, newOne) -> existing.getClassFileCount() > newOne.getClassFileCount() ? existing : newOne
+                    ));
         }
 
-        return libraryVersionMap;
+        // Transform to Map with String keys and Long values
+        Map<String, Long> libraryVersionCountMap = libraryVersionMap.entrySet().stream()
+                .collect(Collectors.toMap(
+                        entry -> entry.getKey() + ":" + entry.getValue().getVersion(),
+                        entry -> (long) entry.getValue().getClassFileCount()));
+
+        return libraryVersionCountMap;
     }
 
     private ClassFileInfo processClassFile(JarEntry entry, JarFile jarFile) throws IOException {
@@ -81,6 +82,7 @@ public class JarSignatureMapper {
             byte[] bytecode = classFileInputStream.readAllBytes();
             BytecodeDetails bytecodeDetails = BytecodeParser.extractSignature(bytecode);
             // TODO: jsr305 is always the same
+            System.out.println(bytecodeDetails.getSignature());
             return new ClassFileInfo(entry.getName(), bytecodeDetails.getSignature());
         }
     }

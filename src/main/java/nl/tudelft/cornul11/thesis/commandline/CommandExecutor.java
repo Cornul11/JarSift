@@ -57,12 +57,12 @@ public class CommandExecutor {
                 String fileName = options.getFilename();
                 if (fileName != null) {
                     JarFrequencyAnalyzer jarFrequencyAnalyzer = new JarFrequencyAnalyzer(signatureDao);
-                    Map<String, Map<String, Long>> frequencyMap = jarFrequencyAnalyzer.processJar(fileName);
+                    Map<String, Long> frequencyMap = jarFrequencyAnalyzer.processJar(fileName);
                     int totalClassCount = jarFrequencyAnalyzer.getTotalClassCount();
 
-                    VulnerabilityAnalyzer vulnerabilityAnalyzer = new VulnerabilityAnalyzer(postRequestClient);
+                    VulnerabilityAnalyzer vulnerabilityAnalyzer = new VulnerabilityAnalyzer(postRequestClient, totalClassCount);
 
-                    vulnerabilityAnalyzer.checkForVulnerability(frequencyMap, totalClassCount);
+                    vulnerabilityAnalyzer.checkForVulnerability(frequencyMap);
                 } else {
                     System.out.println("File name is required for DETECTION_MODE");
                     printHelpMessage();
