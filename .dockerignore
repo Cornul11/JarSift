@@ -1,0 +1,12 @@
+# ignore everything
+*
+
+# don't ignore Dockerfile(s), and docker-compose
+!Dockerfile*
+!docker-compose.yml
+
+# don't ignore pom.xml file
+!pom.xml
+
+# don't ignore src folder
+!src/

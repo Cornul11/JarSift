@@ -122,60 +122,6 @@ public class SignatureDAOImpl implements SignatureDAO {
         return libraryHashesCount;
     }
 
-//
-//    @Override
-//    public List<LibraryMatchInfo> returnTopLibraryMatches(List<String> hashes) {
-//        List<LibraryMatchInfo> matches = new ArrayList<>();
-//
-//        if (hashes.isEmpty()) {
-//            return matches;
-//        }
-//
-//        StringBuilder builder = new StringBuilder(
-//                "SELECT l.groupId, l.artifactId, MAX(l.version) as version, t.classFileCount " +
-//                        "FROM ( " +
-//                        "SELECT s.jar_id, COUNT(*) as classFileCount " +
-//                        "FROM signatures s " +
-//                        "WHERE s.hash IN ("
-//        );
-//        for (int i = 0; i < hashes.size(); i++) {
-//            builder.append("?");
-//            if (i != hashes.size() - 1) {
-//                builder.append(",");
-//            }
-//        }
-//        builder.append(") ");
-//        builder.append("GROUP BY s.jar_id) t ");
-//        builder.append("JOIN libraries l ON l.id = t.jar_id ");
-//        builder.append("GROUP BY l.groupId, l.artifactId ");
-//        builder.append("ORDER BY t.classFileCount DESC");
-//
-//        String checkQuery = builder.toString();
-//
-//        // run the query to the database
-//        try (Connection connection = ds.getConnection();
-//             PreparedStatement statement = connection.prepareStatement(checkQuery)) {
-//            for (int i = 0; i < hashes.size(); i++) {
-//                statement.setString(i + 1, hashes.get(i));
-//            }
-//
-//            ResultSet results = statement.executeQuery();
-//
-//            while (results.next()) {
-//                String resultGroupId = results.getString("groupId");
-//                String resultArtifactId = results.getString("artifactId");
-//                String resultVersion = results.getString("version");
-//                int resultClassFileCount = results.getInt("classFileCount");
-//
-//                LibraryMatchInfo libraryMatchInfo = new LibraryMatchInfo(resultGroupId, resultArtifactId, resultVersion, resultClassFileCount);
-//                matches.add(libraryMatchInfo);
-//            }
-//        } catch (SQLException e) {
-//            e.printStackTrace();
-//        }
-//        return matches;
-//    }
-
     @Override
     public void closeConnection() {
         if (ds != null) {
