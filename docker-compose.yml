@@ -4,6 +4,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile-app
+    volumes:
+      - ./jars:/usr/src/app/jars
+      - ./config.properties:/usr/src/app/config.properties
+    environment:
+      - DIRECTORY=jars
     depends_on:
       - db
   db:
@@ -12,8 +17,13 @@ services:
       dockerfile: Dockerfile-db
     ports:
       - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
       - MYSQL_DATABASE=${MYSQL_DATABASE}
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+
+volumes:
+  mariadb_data:

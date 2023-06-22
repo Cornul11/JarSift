@@ -81,6 +81,8 @@ public class SignatureDAOImpl implements SignatureDAO {
                 "WHERE signatures.hash IN (" + placeholders + ") " +
                 "GROUP BY libraries.groupId, libraries.artifactId, libraries.version";
 
+
+        // needed for debugging actually
         String hashesJoined = String.join(", ", hashes.stream()
                 .map(hash -> "'" + hash + "'")
                 .collect(Collectors.toList()));
@@ -96,6 +98,7 @@ public class SignatureDAOImpl implements SignatureDAO {
         } catch (Exception e) {
             e.printStackTrace();
         }
+        // TODO: remove all this debugging stuff
 
         List<LibraryMatchInfo> libraryHashesCount = new ArrayList<>();
 

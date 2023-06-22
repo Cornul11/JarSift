@@ -7,6 +7,7 @@ import java.io.InputStream;
 
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
+// TODO: add more tests for different class features
 public class BytecodeDetailsHashingTest {
     private static final String CLASS_WITH_PACKAGE_PRIVATE_INNER_ENUM_CLASS = "class/inner/enum/ClassWithPackagePrivateInnerEnum.class";
     private static final String CLASS_WITH_ANNOTATIONS = "interface/annotation/ClassWithAnnotation.class";

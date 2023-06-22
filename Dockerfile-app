@@ -1,9 +1,14 @@
 FROM maven:3.8.1-openjdk-17-slim AS build
 WORKDIR /usr/src/app
 COPY . /usr/src/app
-RUN mvn -f /usr/src/app/pom.xml clean package
+# to avoid downloading maven stuff each time
+RUN mvn -f /usr/src/app/pom.xml dependency:go-offline
+
+COPY . /usr/src/app
+RUN mvn -f /usr/src/app/pom.xml clean package dependency:copy-dependencies
 
 FROM openjdk:17-slim
 WORKDIR /usr/src/app
 COPY --from=build /usr/src/app/target/thesis-1.0-SNAPSHOT.jar /usr/src/app
-ENTRYPOINT ["java", "-jar", "thesis-1.0-SNAPSHOT.jar"]
+COPY --from=build /usr/src/app/target/dependency /usr/src/app/libs
+ENTRYPOINT java -cp /usr/src/app/libs/*:/usr/src/app/thesis-1.0-SNAPSHOT.jar nl.tudelft.cornul11.thesis.MainApp -m CORPUS_GEN_MODE -d ${DIRECTORY}
