@@ -25,7 +25,7 @@ public class JarSignatureMapper {
         this.signatureDao = signatureDao;
     }
 
-    public Map<String, Long> inferJarFile(Path jarFilePath) {
+    public Map<String, Map<String, Object>> inferJarFile(Path jarFilePath) {
         try (JarFile jarFile = new JarFile(jarFilePath.toFile())) {
             List<ClassFileInfo> classFileInfos = new ArrayList<>();
             Enumeration<JarEntry> entries = jarFile.entries();
@@ -47,7 +47,7 @@ public class JarSignatureMapper {
         }
     }
 
-    public Map<String, Long> getTopMatches(List<ClassFileInfo> signatures, SignatureDAO signatureDao) {
+    public Map<String, Map<String, Object>> getTopMatches(List<ClassFileInfo> signatures, SignatureDAO signatureDao) {
         List<String> hashes = signatures.stream()
                 .map(signature -> Long.toString(signature.getHashCode()))
                 .toList();
@@ -68,10 +68,12 @@ public class JarSignatureMapper {
         }
 
         // Transform to Map with String keys and Long values
-        Map<String, Long> libraryVersionCountMap = libraryVersionMap.entrySet().stream()
+        Map<String, Map<String, Object>> libraryVersionCountMap = libraryVersionMap.entrySet().stream()
                 .collect(Collectors.toMap(
                         entry -> entry.getKey() + ":" + entry.getValue().getVersion(),
-                        entry -> (long) entry.getValue().getClassFileCount()));
+                        entry -> Map.of("count", (long) entry.getValue().getClassFileCount(),
+                                "total", (long) entry.getValue().getTotalCount(),
+                                "ratio", ((double)entry.getValue().getClassFileCount())/entry.getValue().getTotalCount())));
 
         return libraryVersionCountMap;
     }
@@ -82,7 +84,6 @@ public class JarSignatureMapper {
             byte[] bytecode = classFileInputStream.readAllBytes();
             BytecodeDetails bytecodeDetails = BytecodeParser.extractSignature(bytecode);
             // TODO: jsr305 is always the same
-            System.out.println(bytecodeDetails.getSignature());
             return new ClassFileInfo(entry.getName(), bytecodeDetails.getSignature());
         }
     }

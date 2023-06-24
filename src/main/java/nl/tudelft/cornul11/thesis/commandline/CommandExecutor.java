@@ -57,7 +57,7 @@ public class CommandExecutor {
                 String fileName = options.getFilename();
                 if (fileName != null) {
                     JarFrequencyAnalyzer jarFrequencyAnalyzer = new JarFrequencyAnalyzer(signatureDao);
-                    Map<String, Long> frequencyMap = jarFrequencyAnalyzer.processJar(fileName);
+                    Map<String, Map<String, Object>> frequencyMap = jarFrequencyAnalyzer.processJar(fileName);
                     int totalClassCount = jarFrequencyAnalyzer.getTotalClassCount();
 
                     VulnerabilityAnalyzer vulnerabilityAnalyzer = new VulnerabilityAnalyzer(postRequestClient, totalClassCount);

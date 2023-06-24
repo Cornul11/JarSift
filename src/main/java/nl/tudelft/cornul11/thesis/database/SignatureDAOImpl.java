@@ -75,7 +75,7 @@ public class SignatureDAOImpl implements SignatureDAO {
     @Override
     public List<LibraryMatchInfo> returnTopLibraryMatches(List<String> hashes) {
         String placeholders = String.join(", ", Collections.nCopies(hashes.size(), "?"));
-        String query = "SELECT libraries.groupId, libraries.artifactId, libraries.version, COUNT(*) as count " +
+        String query = "SELECT libraries.groupId, libraries.artifactId, libraries.version, COUNT(*) as matchedCount, (SELECT COUNT(*) FROM signatures WHERE signatures.jar_id = libraries.id) as totalCount " +
                 "FROM signatures " +
                 "JOIN libraries ON signatures.jar_id = libraries.id " +
                 "WHERE signatures.hash IN (" + placeholders + ") " +
@@ -113,9 +113,10 @@ public class SignatureDAOImpl implements SignatureDAO {
                 String resultGroupId = resultSet.getString("groupId");
                 String resultArtifactId = resultSet.getString("artifactId");
                 String resultVersion = resultSet.getString("version");
-                int resultCount = resultSet.getInt("count");
+                int resultMatchedCount = resultSet.getInt("matchedCount");
+                int resultTotalCount = resultSet.getInt("totalCount");
 
-                LibraryMatchInfo libraryMatchInfo = new LibraryMatchInfo(resultGroupId, resultArtifactId, resultVersion, resultCount);
+                LibraryMatchInfo libraryMatchInfo = new LibraryMatchInfo(resultGroupId, resultArtifactId, resultVersion, resultMatchedCount, resultTotalCount);
                 libraryHashesCount.add(libraryMatchInfo);
             }
         } catch (SQLException e) {

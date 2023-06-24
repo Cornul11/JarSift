@@ -1,2 +1,3 @@
-FROM mariadb:latest
+# latest should not be used as more recent versions are incompatible with older docker versions
+FROM mariadb:10.7
 EXPOSE 3306

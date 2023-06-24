@@ -6,12 +6,14 @@ public class LibraryMatchInfo {
     private String version;
     private int classFileCount;
 
+    private int totalClassFileCount;
 
-    public LibraryMatchInfo(String groupId, String artifactId, String version, int classFileCount) {
+    public LibraryMatchInfo(String groupId, String artifactId, String version, int classFileCount, int totalClassFileCount) {
         this.groupId = groupId;
-        this.artifactId =artifactId ;
+        this.artifactId = artifactId;
         this.version = version;
         this.classFileCount = classFileCount;
+        this.totalClassFileCount = totalClassFileCount;
     }
 
     public String getGroupId() {
@@ -28,5 +30,9 @@ public class LibraryMatchInfo {
 
     public int getClassFileCount() {
         return classFileCount;
+    }
+
+    public double getTotalCount() {
+        return totalClassFileCount;
     }
 }
