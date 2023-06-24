@@ -25,49 +25,82 @@ public class SignatureDAOImpl implements SignatureDAO {
     @Override
     public int insertSignatures(List<DatabaseManager.Signature> signatures, String jarHash) {
         String insertLibraryQuery = "INSERT INTO libraries (groupId, artifactId, version, hash) VALUES (?, ?, ?, ?)";
-        String insertSignatureQuery = "INSERT INTO signatures (filename, hash, jar_id) VALUES (?, ?, ?)";
+        String findOrInsertSignatureQuery = "INSERT INTO signatures (hash) SELECT * FROM (SELECT ?) AS tmp WHERE NOT EXISTS (SELECT hash FROM signatures WHERE hash = ?) LIMIT 1;";
+        String getSignatureIdQuery = "SELECT id FROM signatures WHERE hash = ?";
+        String insertLibrarySignatureQuery = "INSERT INTO library_signature (library_id, signature_id, filename) VALUES (?, ?, ?)";
 
         int totalRowsInserted = 0;
+        boolean success = false;
+        // ugly way of fighting deadlocks
+        while (!success) {
+            try (Connection connection = ds.getConnection()) {
+                connection.setAutoCommit(false);
 
-        try (Connection connection = ds.getConnection()) {
-            connection.setAutoCommit(false);
+                // Insert Library metadata
+                PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery, Statement.RETURN_GENERATED_KEYS);
+                DatabaseManager.Signature firstSignature = signatures.get(0);
+                libraryStatement.setString(1, firstSignature.groupID());
+                libraryStatement.setString(2, firstSignature.artifactId());
+                libraryStatement.setString(3, firstSignature.version());
+                libraryStatement.setString(4, jarHash);
+                libraryStatement.executeUpdate();
 
-            // Insert Library metadata
-            PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery, Statement.RETURN_GENERATED_KEYS);
-            DatabaseManager.Signature firstSignature = signatures.get(0);
-            libraryStatement.setString(1, firstSignature.groupID());
-            libraryStatement.setString(2, firstSignature.artifactId());
-            libraryStatement.setString(3, firstSignature.version());
-            libraryStatement.setString(4, jarHash);
-            libraryStatement.executeUpdate();
+                // Get generated key
+                ResultSet generatedKeys = libraryStatement.getGeneratedKeys();
+                if (generatedKeys.next()) {
+                    int libraryId = generatedKeys.getInt(1);
 
-            // Get generated key
-            ResultSet generatedKeys = libraryStatement.getGeneratedKeys();
-            if (generatedKeys.next()) {
-                int libraryId = generatedKeys.getInt(1);
+                    for (DatabaseManager.Signature signature : signatures) {
+                        // find or insert signature
+                        PreparedStatement findOrInsertStatement = connection.prepareStatement(findOrInsertSignatureQuery);
+                        findOrInsertStatement.setString(1, signature.hash());
+                        findOrInsertStatement.setString(2, signature.hash());
+                        findOrInsertStatement.executeUpdate();
 
-                // Prepare the statement for batch processing
-                PreparedStatement signatureStatement = connection.prepareStatement(insertSignatureQuery);
+                        // get signature ID
+                        PreparedStatement getSignatureIdStatement = connection.prepareStatement(getSignatureIdQuery);
+                        getSignatureIdStatement.setString(1, signature.hash());
+                        ResultSet resultSet = getSignatureIdStatement.executeQuery();
+                        if (resultSet.next()) {
+                            int signatureId = resultSet.getInt(1);
 
-                // Insert signatures
-                for (DatabaseManager.Signature signature : signatures) {
-                    signatureStatement.setString(1, signature.fileName());
-                    signatureStatement.setString(2, signature.hash());
-                    signatureStatement.setInt(3, libraryId);
-                    signatureStatement.addBatch();
+                            // insert into library_signature
+                            PreparedStatement librarySignatureStatement = connection.prepareStatement(insertLibrarySignatureQuery);
+                            librarySignatureStatement.setInt(1, libraryId);
+                            librarySignatureStatement.setInt(2, signatureId);
+                            librarySignatureStatement.setString(3, signature.fileName());
+                            librarySignatureStatement.executeUpdate();
+
+                            totalRowsInserted++;
+                        }
+                    }
                 }
 
-                // Execute batch and get affected rows
-                int[] affectedRows = signatureStatement.executeBatch();
-                totalRowsInserted += Arrays.stream(affectedRows).sum();
+                connection.commit();
+                connection.setAutoCommit(true);
+
+                logger.info(totalRowsInserted + " signature row(s) inserted.");
+
+                success = true;
+            } catch (SQLException e) {
+                if (e.getErrorCode() == 1213) {
+                    logger.warn("Deadlock detected. Retrying...");
+
+                    // Add delay
+                    try {
+                        // sleep for a random amount of time between 1 and 2 seconds
+                        Thread.sleep(1000 + (int)(Math.random() * 1000));
+//                        Thread.sleep(1000);  // Sleep for 1 second
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        // Handle interruption here, e.g. break the loop or return
+                        break;
+                    }
+                } else {
+                    e.printStackTrace();
+                    break;
+                }
             }
-
-            connection.commit();
-            connection.setAutoCommit(true);
-
-            logger.info(totalRowsInserted + " signature row(s) inserted.");
-        } catch (SQLException e) {
-            e.printStackTrace();
         }
 
         return totalRowsInserted;
@@ -75,30 +108,12 @@ public class SignatureDAOImpl implements SignatureDAO {
     @Override
     public List<LibraryMatchInfo> returnTopLibraryMatches(List<String> hashes) {
         String placeholders = String.join(", ", Collections.nCopies(hashes.size(), "?"));
-        String query = "SELECT libraries.groupId, libraries.artifactId, libraries.version, COUNT(*) as matchedCount, (SELECT COUNT(*) FROM signatures WHERE signatures.jar_id = libraries.id) as totalCount " +
-                "FROM signatures " +
-                "JOIN libraries ON signatures.jar_id = libraries.id " +
+        String query = "SELECT libraries.groupId, libraries.artifactId, libraries.version, COUNT(*) as matchedCount, " +
+                "(SELECT COUNT(*) FROM library_signature WHERE library_signature.library_id = libraries.id) as totalCount " +
+                "FROM library_signature " +
+                "JOIN libraries ON library_signature.library_id = libraries.id " +
                 "WHERE signatures.hash IN (" + placeholders + ") " +
                 "GROUP BY libraries.groupId, libraries.artifactId, libraries.version";
-
-
-        // needed for debugging actually
-        String hashesJoined = String.join(", ", hashes.stream()
-                .map(hash -> "'" + hash + "'")
-                .collect(Collectors.toList()));
-
-        String actualQuery = "SELECT libraries.groupId, libraries.artifactId, libraries.version, COUNT(*) as count " +
-                "FROM signatures " +
-                "JOIN libraries ON signatures.jar_id = libraries.id " +
-                "WHERE signatures.hash IN (" + hashesJoined + ") " +
-                "GROUP BY libraries.groupId, libraries.artifactId, libraries.version";
-
-        try (FileOutputStream fos = new FileOutputStream("query.sql")) {
-            fos.write(actualQuery.getBytes());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        // TODO: remove all this debugging stuff
 
         List<LibraryMatchInfo> libraryHashesCount = new ArrayList<>();
 

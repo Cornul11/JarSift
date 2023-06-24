@@ -52,26 +52,29 @@ public class DatabaseManager {
     }
 
     private void createSchema() {
-        createJarsTable();
+        createLibrariesTable();
         createSignaturesTable();
+        createLibrarySignatureTable();
         addIndexes();
     }
 
     private void addIndexes() {
         String createHashIndexQuery = "CREATE INDEX idx_hash ON signatures (hash)";
-        String createJarIdIndexQuery = "CREATE INDEX idx_jar_id ON signatures (jar_id)";
+        String createLibraryIdIndexQuery = "CREATE INDEX idx_library_id ON library_signature (library_id)";
+        String createSignatureIdIndexQuery = "CREATE INDEX idx_signature_id ON library_signature (signature_id)";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {
             statement.executeUpdate(createHashIndexQuery);
-            statement.executeUpdate(createJarIdIndexQuery);
+            statement.executeUpdate(createLibraryIdIndexQuery);
+            statement.executeUpdate(createSignatureIdIndexQuery);
             logger.info("Indexes created on signatures table.");
         } catch (SQLException e) {
             logger.error("Error while creating indexes on signatures table.", e);
         }
     }
 
-    private void createJarsTable() {
+    private void createLibrariesTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS libraries (" +
                 "id INT PRIMARY KEY AUTO_INCREMENT, "
                 + "groupId VARCHAR(255) NOT NULL, "
@@ -82,7 +85,7 @@ public class DatabaseManager {
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {
             statement.executeUpdate(createTableQuery);
-            logger.info("Jars table created or already exists.");
+            logger.info("Libraries table created or already exists.");
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -90,16 +93,30 @@ public class DatabaseManager {
 
     private void createSignaturesTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS signatures (" +
-                "id INT PRIMARY KEY AUTO_INCREMENT, "
-                + "jar_id INT NOT NULL, "
-                + "filename VARCHAR(511) NOT NULL, "
-                + "hash VARCHAR(255) NOT NULL, " // TODO: change to INT or BIGINT
-                + "FOREIGN KEY (jar_id) REFERENCES libraries(id))";
+                "id INT PRIMARY KEY AUTO_INCREMENT, " +
+                "hash VARCHAR(255) NOT NULL)";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {
             statement.executeUpdate(createTableQuery);
             logger.info("Signatures table created or already exists.");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void createLibrarySignatureTable() {
+        String createTableQuery = "CREATE TABLE IF NOT EXISTS library_signature (" +
+                "library_id INT NOT NULL, " +
+                "signature_id INT NOT NULL, " +
+                "filename VARCHAR(511) NOT NULL, " +
+                "FOREIGN KEY (library_id) REFERENCES libraries(id), " +
+                "FOREIGN KEY (signature_id) REFERENCES signatures(id))";
+
+        try (Connection connection = ds.getConnection();
+             Statement statement = connection.createStatement()) {
+            statement.executeUpdate(createTableQuery);
+            logger.info("Library-Signature table created or already exists.");
         } catch (SQLException e) {
             e.printStackTrace();
         }
