@@ -1,4 +1,5 @@
 import nl.tudelft.cornul11.thesis.database.SignatureDAO;
+import nl.tudelft.cornul11.thesis.database.Task;
 import nl.tudelft.cornul11.thesis.file.ClassFileInfo;
 import nl.tudelft.cornul11.thesis.file.JarInfoExtractor;
 import nl.tudelft.cornul11.thesis.jarfile.JarSignatureMapper;
@@ -9,6 +10,7 @@ import org.mockito.ArgumentCaptor;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -24,8 +26,9 @@ public class SignatureEqualTest {
     @Test
     public void testSignatureEqual() {
         SignatureDAO mockDao = mock(SignatureDAO.class);
+        BlockingQueue<Task> mockTaskQueue = mock(BlockingQueue.class);
 
-        FileAnalyzer realProcessor = new FileAnalyzer(mockDao);
+        FileAnalyzer realProcessor = new FileAnalyzer(mockDao, mockTaskQueue);
         FileAnalyzer processor = spy(realProcessor);
         JarSignatureMapper realInferenceProcessor = new JarSignatureMapper(mockDao);
         JarSignatureMapper inferenceProcessor = spy(realInferenceProcessor);

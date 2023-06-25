@@ -8,6 +8,7 @@ import java.util.List;
 public interface SignatureDAO {
     int insertSignatures(List<DatabaseManager.Signature> signatures, String jarHash);
 
+    Task createTask(List<DatabaseManager.Signature> signatures, String jarHash);
     List<LibraryMatchInfo> returnTopLibraryMatches(List<String> hashes);
     void closeConnection();
 }

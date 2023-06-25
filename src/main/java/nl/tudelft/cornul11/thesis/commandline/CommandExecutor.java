@@ -1,9 +1,7 @@
 package nl.tudelft.cornul11.thesis.commandline;
 
 import nl.tudelft.cornul11.thesis.api.PostRequestClient;
-import nl.tudelft.cornul11.thesis.database.DatabaseConfig;
-import nl.tudelft.cornul11.thesis.database.DatabaseManager;
-import nl.tudelft.cornul11.thesis.database.SignatureDAO;
+import nl.tudelft.cornul11.thesis.database.*;
 import nl.tudelft.cornul11.thesis.jarfile.JarFileExplorer;
 import nl.tudelft.cornul11.thesis.jarfile.JarFrequencyAnalyzer;
 import nl.tudelft.cornul11.thesis.service.VulnerabilityAnalyzer;
@@ -12,6 +10,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class CommandExecutor {
     private static final Logger logger = LoggerFactory.getLogger(CommandExecutor.class);

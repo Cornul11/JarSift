@@ -1,5 +1,6 @@
 import nl.tudelft.cornul11.thesis.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.database.SignatureDAO;
+import nl.tudelft.cornul11.thesis.database.Task;
 import nl.tudelft.cornul11.thesis.jarfile.FileAnalyzer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -28,12 +30,15 @@ public class BytecodeDetailsUberJarDetectionTest {
     @Mock
     private SignatureDAO signatureDao;
 
+    @Mock
+    private BlockingQueue<Task> taskQueue;
+
     private FileAnalyzer fileAnalyzer;
 
     @BeforeEach
     public void setUp() {
         MockitoAnnotations.openMocks(this);
-        fileAnalyzer = new FileAnalyzer(signatureDao);
+        fileAnalyzer = new FileAnalyzer(signatureDao, taskQueue);
     }
 
     @Test

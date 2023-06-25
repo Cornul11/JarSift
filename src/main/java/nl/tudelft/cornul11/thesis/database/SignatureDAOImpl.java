@@ -23,20 +23,24 @@ public class SignatureDAOImpl implements SignatureDAO {
     }
 
     @Override
+    public Task createTask(List<DatabaseManager.Signature> signatures, String jarHash) {
+        return () -> insertSignatures(signatures, jarHash);
+    }
+
+    @Override
     public int insertSignatures(List<DatabaseManager.Signature> signatures, String jarHash) {
         String insertLibraryQuery = "INSERT INTO libraries (groupId, artifactId, version, hash) VALUES (?, ?, ?, ?)";
-        String findOrInsertSignatureQuery = "INSERT INTO signatures (hash) SELECT * FROM (SELECT ?) AS tmp WHERE NOT EXISTS (SELECT hash FROM signatures WHERE hash = ?) LIMIT 1;";
+        String findOrInsertSignatureQuery = "INSERT IGNORE INTO signatures (hash) VALUES (?)";
         String getSignatureIdQuery = "SELECT id FROM signatures WHERE hash = ?";
         String insertLibrarySignatureQuery = "INSERT INTO library_signature (library_id, signature_id, filename) VALUES (?, ?, ?)";
 
         int totalRowsInserted = 0;
         boolean success = false;
-        // ugly way of fighting deadlocks
+
         while (!success) {
             try (Connection connection = ds.getConnection()) {
                 connection.setAutoCommit(false);
 
-                // Insert Library metadata
                 PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery, Statement.RETURN_GENERATED_KEYS);
                 DatabaseManager.Signature firstSignature = signatures.get(0);
                 libraryStatement.setString(1, firstSignature.groupID());
@@ -45,27 +49,22 @@ public class SignatureDAOImpl implements SignatureDAO {
                 libraryStatement.setString(4, jarHash);
                 libraryStatement.executeUpdate();
 
-                // Get generated key
                 ResultSet generatedKeys = libraryStatement.getGeneratedKeys();
                 if (generatedKeys.next()) {
                     int libraryId = generatedKeys.getInt(1);
 
+                    PreparedStatement findOrInsertStatement = connection.prepareStatement(findOrInsertSignatureQuery);
+                    PreparedStatement librarySignatureStatement = connection.prepareStatement(insertLibrarySignatureQuery);
+
                     for (DatabaseManager.Signature signature : signatures) {
-                        // find or insert signature
-                        PreparedStatement findOrInsertStatement = connection.prepareStatement(findOrInsertSignatureQuery);
                         findOrInsertStatement.setString(1, signature.hash());
-                        findOrInsertStatement.setString(2, signature.hash());
                         findOrInsertStatement.executeUpdate();
 
-                        // get signature ID
                         PreparedStatement getSignatureIdStatement = connection.prepareStatement(getSignatureIdQuery);
                         getSignatureIdStatement.setString(1, signature.hash());
                         ResultSet resultSet = getSignatureIdStatement.executeQuery();
                         if (resultSet.next()) {
                             int signatureId = resultSet.getInt(1);
-
-                            // insert into library_signature
-                            PreparedStatement librarySignatureStatement = connection.prepareStatement(insertLibrarySignatureQuery);
                             librarySignatureStatement.setInt(1, libraryId);
                             librarySignatureStatement.setInt(2, signatureId);
                             librarySignatureStatement.setString(3, signature.fileName());
@@ -83,17 +82,14 @@ public class SignatureDAOImpl implements SignatureDAO {
 
                 success = true;
             } catch (SQLException e) {
-                if (e.getErrorCode() == 1213) {
+                if (e.getErrorCode() == 1213) { // 1213 = ER_LOCK_DEADLOCK
                     logger.warn("Deadlock detected. Retrying...");
 
-                    // Add delay
                     try {
                         // sleep for a random amount of time between 1 and 2 seconds
-                        Thread.sleep(1000 + (int)(Math.random() * 1000));
-//                        Thread.sleep(1000);  // Sleep for 1 second
+                        Thread.sleep(1000 + (int) (Math.random() * 1000));
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
-                        // Handle interruption here, e.g. break the loop or return
                         break;
                     }
                 } else {
@@ -105,6 +101,7 @@ public class SignatureDAOImpl implements SignatureDAO {
 
         return totalRowsInserted;
     }
+
     @Override
     public List<LibraryMatchInfo> returnTopLibraryMatches(List<String> hashes) {
         String placeholders = String.join(", ", Collections.nCopies(hashes.size(), "?"));
@@ -112,6 +109,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                 "(SELECT COUNT(*) FROM library_signature WHERE library_signature.library_id = libraries.id) as totalCount " +
                 "FROM library_signature " +
                 "JOIN libraries ON library_signature.library_id = libraries.id " +
+                "JOIN signatures ON library_signature.signature_id = signatures.id " +
                 "WHERE signatures.hash IN (" + placeholders + ") " +
                 "GROUP BY libraries.groupId, libraries.artifactId, libraries.version";
 

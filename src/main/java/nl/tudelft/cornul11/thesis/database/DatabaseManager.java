@@ -50,14 +50,12 @@ public class DatabaseManager {
     public SignatureDAO getSignatureDao() {
         return new SignatureDAOImpl(ds);
     }
-
     private void createSchema() {
         createLibrariesTable();
         createSignaturesTable();
         createLibrarySignatureTable();
         addIndexes();
     }
-
     private void addIndexes() {
         String createHashIndexQuery = "CREATE INDEX idx_hash ON signatures (hash)";
         String createLibraryIdIndexQuery = "CREATE INDEX idx_library_id ON library_signature (library_id)";
@@ -94,7 +92,7 @@ public class DatabaseManager {
     private void createSignaturesTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS signatures (" +
                 "id INT PRIMARY KEY AUTO_INCREMENT, " +
-                "hash VARCHAR(255) NOT NULL)";
+                "hash VARCHAR(255) NOT NULL UNIQUE)";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {
