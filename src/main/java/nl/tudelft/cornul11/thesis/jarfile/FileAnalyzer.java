@@ -3,7 +3,6 @@ package nl.tudelft.cornul11.thesis.jarfile;
 import net.openhft.hashing.LongHashFunction;
 import nl.tudelft.cornul11.thesis.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.database.SignatureDAO;
-import nl.tudelft.cornul11.thesis.database.Task;
 import nl.tudelft.cornul11.thesis.file.ClassFileInfo;
 import nl.tudelft.cornul11.thesis.file.JarInfoExtractor;
 import org.slf4j.Logger;
@@ -14,24 +13,18 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
 import java.util.stream.Collectors;
 
 public class FileAnalyzer {
     private final List<String> ignoredUberJars = new ArrayList<>();
     private final List<String> insertedLibraries = new ArrayList<>();
-//    private final SignatureDAO taskCreator;
     private final SignatureDAO signatureDao;
 
-//    private final BlockingQueue<Task> taskQueue;
     private final Logger logger = LoggerFactory.getLogger(FileAnalyzer.class);
 
 
-//    public FileAnalyzer(SignatureDAO taskCreator, BlockingQueue<Task> taskQueue) {
     public FileAnalyzer(SignatureDAO signatureDao) {
-//        this.taskCreator = taskCreator;
         this.signatureDao = signatureDao;
-//        this.taskQueue = taskQueue;
     }
 
     public void printIgnoredUberJars() {
@@ -70,14 +63,10 @@ public class FileAnalyzer {
         }
 
 
-//        for (String ignoredUberJar : ignoredUberJars) {
-//            System.out.println(ignoredUberJar);
-//        }
         logger.info("Ignored " + ignoredUberJars.size() + " uber jars");
         logger.info("Actually inserted " + insertedLibraries.size() + " JARs");
     }
 
-//    public void processJarFile(Path jarFilePath) {
     public int processJarFile(Path jarFilePath) {
         JarHandler jarHandler = new JarHandler(jarFilePath, ignoredUberJars, insertedLibraries);
         List<ClassFileInfo> classFileInfos = jarHandler.extractJarFileInfo();
@@ -92,26 +81,16 @@ public class FileAnalyzer {
         // If the classFileInfos is empty, then no need to proceed further.
         if (classFileInfos.isEmpty()) {
             return 0;
-//            return;
         }
 
         JarInfoExtractor jarInfoExtractor = new JarInfoExtractor(jarFilePath.toString());
-//        commitSignatures(classFileInfos, jarInfoExtractor, jarHash);
         return commitSignatures(classFileInfos, jarInfoExtractor, jarHash);
     }
 
-//    public void commitSignatures(List<ClassFileInfo> signatures, JarInfoExtractor jarInfoExtractor, String jarHash) {
     public int commitSignatures(List<ClassFileInfo> signatures, JarInfoExtractor jarInfoExtractor, String jarHash) {
 
         List<DatabaseManager.Signature> signaturesToInsert = signatures.stream().map(signature -> createSignature(signature, jarInfoExtractor)).collect(Collectors.toList());
         return signatureDao.insertSignatures(signaturesToInsert, jarHash);
-//        List<DatabaseManager.Signature> signaturesToInsert = signatures.stream().map(signature -> createSignature(signature, jarInfoExtractor)).collect(Collectors.toList());
-//        Task task = taskCreator.createTask(signaturesToInsert, jarHash);
-//        try {
-//            taskQueue.put(task);
-//        } catch (InterruptedException e) {
-//            throw new RuntimeException(e);
-//        }
     }
 
     private DatabaseManager.Signature createSignature(ClassFileInfo signature, JarInfoExtractor jarInfoExtractor) {

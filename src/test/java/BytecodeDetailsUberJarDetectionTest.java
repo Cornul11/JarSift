@@ -1,6 +1,5 @@
 import nl.tudelft.cornul11.thesis.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.database.SignatureDAO;
-import nl.tudelft.cornul11.thesis.database.Task;
 import nl.tudelft.cornul11.thesis.jarfile.FileAnalyzer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,15 +29,13 @@ public class BytecodeDetailsUberJarDetectionTest {
     @Mock
     private SignatureDAO signatureDao;
 
-    @Mock
-    private BlockingQueue<Task> taskQueue;
 
     private FileAnalyzer fileAnalyzer;
 
     @BeforeEach
     public void setUp() {
         MockitoAnnotations.openMocks(this);
-        fileAnalyzer = new FileAnalyzer(signatureDao, taskQueue);
+        fileAnalyzer = new FileAnalyzer(signatureDao);
     }
 
     @Test

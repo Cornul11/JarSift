@@ -2,7 +2,6 @@ package nl.tudelft.cornul11.thesis.jarfile;
 
 import nl.tudelft.cornul11.thesis.database.DatabaseWriterThread;
 import nl.tudelft.cornul11.thesis.database.SignatureDAO;
-import nl.tudelft.cornul11.thesis.database.Task;
 import nl.tudelft.cornul11.thesis.file.DirectoryExplorer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,11 +23,10 @@ public class JarFileExplorer {
     // Add a Poison Pill Object to signal end of queue processing
     private static final Path POISON_PILL = Paths.get("");
     private final SignatureDAO signatureDao;
-    private final BlockingQueue<Task> taskQueue = new LinkedBlockingQueue<>();;
 
     public JarFileExplorer(SignatureDAO signatureDao) {
         this.signatureDao = signatureDao;
-        this.fileAnalyzer = new FileAnalyzer(signatureDao/*, taskQueue*/);
+        this.fileAnalyzer = new FileAnalyzer(signatureDao);
     }
 
     public void processFiles(String path, String lastPath) {
@@ -36,12 +34,8 @@ public class JarFileExplorer {
         Path lastVisitedPath = lastPath != null ? Paths.get(lastPath) : null;
         try {
             long startTime = System.currentTimeMillis();
-//
-//            ExecutorService databaseWriterExecutor = Executors.newSingleThreadExecutor();
-//            databaseWriterExecutor.execute(new DatabaseWriterThread(taskQueue));
 
             // TODO: add tqdm-like progress bar (maybe)
-
 
             // create and start JarProcessor threads
             ExecutorService executor = Executors.newFixedThreadPool(NUM_CONSUMER_THREADS);
@@ -75,29 +69,12 @@ public class JarFileExplorer {
             logger.info("Processed " + directoryExplorer.getVisitedFilesCount() + " jar file(s) in " + (endTime - startTime) / 1000 + " seconds (" + (endTime - startTime) + " ms)");
             fileAnalyzer.printIgnoredUberJars();
 
-            taskQueue.offer(DatabaseWriterThread.getPoisonTask());
-//            databaseWriterExecutor.shutdown();
-
-            long current = System.currentTimeMillis();
-            logger.info("Waiting for database writer thread to finish");
-//            while (!databaseWriterExecutor.isTerminated()) {
-//                try {
-//                    databaseWriterExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
-//                } catch (InterruptedException e) {
-//                    List<Runnable> remainingTasks = databaseWriterExecutor.shutdownNow(); // Force remaining tasks to terminate
-//                    logger.error("Interrupted while waiting for tasks to complete", e);
-//                    Thread.currentThread().interrupt();
-//                }
-//            }
-//            logger.info("Database writer thread finished in " + (System.currentTimeMillis() - current) / 1000 + " seconds (" + (System.currentTimeMillis() - current) + " ms)");
-
             logger.info("Closing database connection");
             signatureDao.closeConnection();
         } catch (IOException e) {
             logger.error("Error while processing files", e);
         }
     }
-
 
     private static boolean isJavaClass(Path file) {
         // 0xCAFEBABE is the magic number for Java class files

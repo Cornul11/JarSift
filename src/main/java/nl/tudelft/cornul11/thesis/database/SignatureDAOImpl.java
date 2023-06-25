@@ -23,11 +23,6 @@ public class SignatureDAOImpl implements SignatureDAO {
     }
 
     @Override
-    public Task createTask(List<DatabaseManager.Signature> signatures, String jarHash) {
-        return () -> insertSignatures(signatures, jarHash);
-    }
-
-    @Override
     public int insertSignatures(List<DatabaseManager.Signature> signatures, String jarHash) {
         String insertLibraryQuery = "INSERT INTO libraries (groupId, artifactId, version, hash) VALUES (?, ?, ?, ?)";
         String findOrInsertSignatureQuery = "INSERT IGNORE INTO signatures (hash) VALUES (?)";
