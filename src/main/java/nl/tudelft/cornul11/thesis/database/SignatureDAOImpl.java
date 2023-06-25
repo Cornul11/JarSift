@@ -78,7 +78,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                 success = true;
             } catch (SQLException e) {
                 if (e.getErrorCode() == 1213) { // 1213 = ER_LOCK_DEADLOCK
-                    logger.warn("Deadlock detected. Retrying...");
+                    logger.error("Deadlock detected. Retrying...");
 
                     try {
                         // sleep for a random amount of time between 1 and 2 seconds

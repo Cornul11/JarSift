@@ -1,8 +1,8 @@
 package nl.tudelft.cornul11.thesis.jarfile;
 
-import nl.tudelft.cornul11.thesis.database.DatabaseWriterThread;
 import nl.tudelft.cornul11.thesis.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.file.DirectoryExplorer;
+import nl.tudelft.cornul11.thesis.util.ConfigurationLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,9 +24,9 @@ public class JarFileExplorer {
     private static final Path POISON_PILL = Paths.get("");
     private final SignatureDAO signatureDao;
 
-    public JarFileExplorer(SignatureDAO signatureDao) {
+    public JarFileExplorer(SignatureDAO signatureDao, ConfigurationLoader config) {
         this.signatureDao = signatureDao;
-        this.fileAnalyzer = new FileAnalyzer(signatureDao);
+        this.fileAnalyzer = new FileAnalyzer(signatureDao, config);
     }
 
     public void processFiles(String path, String lastPath) {
@@ -68,7 +68,7 @@ public class JarFileExplorer {
             long endTime = System.currentTimeMillis();
             logger.info("Processed " + directoryExplorer.getVisitedFilesCount() + " jar file(s) in " + (endTime - startTime) / 1000 + " seconds (" + (endTime - startTime) + " ms)");
             fileAnalyzer.printIgnoredUberJars();
-
+            fileAnalyzer.printStats();
             logger.info("Closing database connection");
             signatureDao.closeConnection();
         } catch (IOException e) {

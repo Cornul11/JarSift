@@ -5,6 +5,7 @@ import nl.tudelft.cornul11.thesis.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.file.ClassFileInfo;
 import nl.tudelft.cornul11.thesis.file.JarInfoExtractor;
+import nl.tudelft.cornul11.thesis.util.ConfigurationLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,11 +20,11 @@ public class FileAnalyzer {
     private final List<String> ignoredUberJars = new ArrayList<>();
     private final List<String> insertedLibraries = new ArrayList<>();
     private final SignatureDAO signatureDao;
-
     private final Logger logger = LoggerFactory.getLogger(FileAnalyzer.class);
-
-
-    public FileAnalyzer(SignatureDAO signatureDao) {
+    private final List<Long> uniqueHashes = new ArrayList<>();
+    private final ConfigurationLoader config;
+    public FileAnalyzer(SignatureDAO signatureDao, ConfigurationLoader config) {
+        this.config = config;
         this.signatureDao = signatureDao;
     }
 
@@ -68,7 +69,7 @@ public class FileAnalyzer {
     }
 
     public int processJarFile(Path jarFilePath) {
-        JarHandler jarHandler = new JarHandler(jarFilePath, ignoredUberJars, insertedLibraries);
+        JarHandler jarHandler = new JarHandler(jarFilePath, ignoredUberJars, insertedLibraries, config);
         List<ClassFileInfo> classFileInfos = jarHandler.extractJarFileInfo();
 
         StringBuilder sb = new StringBuilder();
@@ -88,9 +89,18 @@ public class FileAnalyzer {
     }
 
     public int commitSignatures(List<ClassFileInfo> signatures, JarInfoExtractor jarInfoExtractor, String jarHash) {
-
+        for (ClassFileInfo signature : signatures) {
+            if (!uniqueHashes.contains(signature.getHashCode())) {
+                uniqueHashes.add(signature.getHashCode());
+            }
+        }
         List<DatabaseManager.Signature> signaturesToInsert = signatures.stream().map(signature -> createSignature(signature, jarInfoExtractor)).collect(Collectors.toList());
         return signatureDao.insertSignatures(signaturesToInsert, jarHash);
+    }
+
+    public void printStats() {
+        // TODO: investigate why the number of unique hashes is not constant for a constant given set of JARs
+        logger.info("Total number of unique hashes: " + uniqueHashes.size());
     }
 
     private DatabaseManager.Signature createSignature(ClassFileInfo signature, JarInfoExtractor jarInfoExtractor) {

@@ -21,15 +21,10 @@ public class BytecodeDetails {
     public long getSignature() {
         // TODO: move the hashing function outside of this class
         // this function should only return the signature, not hash it
-        // TODO: work on the actual signature to take into account more things so that
-        // the signature is more unique
 
         LongHashFunction cityHashFunction = LongHashFunction.xx3();
-        // TODO: maybe hash all separate fields and then hash them together to create a per-version signature?
         StringBuilder classSignature = new StringBuilder();
-        // TODO: check how often the name differs between the uber and the non-uber, to see whether the name should also
-        // be a part of the signature
-//        classSignature.append(name);
+
         classSignature.append(extendsType);
         classSignature.append(interfaces.toString());
         classSignature.append(fieldDetails.toString());

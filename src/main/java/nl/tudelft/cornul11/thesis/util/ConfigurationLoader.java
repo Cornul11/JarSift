@@ -24,6 +24,10 @@ public class ConfigurationLoader {
         }
     }
 
+    public boolean ignoreUberJars() {
+        return Boolean.parseBoolean(config.getProperty("ignoreUberJars"));
+    }
+
     public DatabaseConfig getDatabaseConfig() {
         return new DatabaseConfig(
                 config.getProperty("database.url"),

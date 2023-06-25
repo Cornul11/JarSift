@@ -3,6 +3,7 @@ package nl.tudelft.cornul11.thesis.jarfile;
 import nl.tudelft.cornul11.thesis.file.ClassFileInfo;
 import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.BytecodeDetails;
 import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.BytecodeParser;
+import nl.tudelft.cornul11.thesis.util.ConfigurationLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,11 +25,13 @@ public class JarHandler {
     private final List<String> insertedLibraries;
     private final Set<String> mavenSubmodules = new HashSet<>();
     private final Logger logger = LoggerFactory.getLogger(JarHandler.class);
+    private final boolean ignoreUberJars;
 
-    public JarHandler(Path jarFilePath, List<String> ignoredUberJars, List<String> insertedLibraries) {
+    public JarHandler(Path jarFilePath, List<String> ignoredUberJars, List<String> insertedLibraries, ConfigurationLoader config) {
         this.jarFilePath = jarFilePath;
         this.ignoredUberJars = ignoredUberJars;
         this.insertedLibraries = insertedLibraries;
+        this.ignoreUberJars = config.ignoreUberJars();
     }
 
     public List<ClassFileInfo> extractJarFileInfo() {
@@ -43,8 +46,10 @@ public class JarHandler {
                 JarEntry entry = entries.nextElement();
 
                 if (isMavenSubmodule(entry) && shouldSkipDueToSubmoduleCount()) {
-                    ignoredUberJars.add(jarFilePath.toString());
-                    return new ArrayList<>();
+                    if (ignoreUberJars) {
+                        ignoredUberJars.add(jarFilePath.toString());
+                        return new ArrayList<>();
+                    }
                 }
 
                 if (shouldSkip(entry)) {
@@ -52,16 +57,20 @@ public class JarHandler {
                 }
 
                 if (isJarFile(entry)) {
-                    logger.warn("Found nested JAR file in " + jarFilePath + ", skipping");
-                    ignoredUberJars.add(jarFilePath.toString());
-                    return new ArrayList<>();
+                    if (ignoreUberJars) {
+                        logger.warn("Found nested JAR file in " + jarFilePath + ", skipping");
+                        ignoredUberJars.add(jarFilePath.toString());
+                        return new ArrayList<>();
+                    }
                 }
 
                 if (isClassFile(entry)) {
                     initialClassPrefix = getInitialClassPrefix(entry, initialClassPrefix);
-                    if (hasMultiplePackages(jarFilePath, entry, initialClassPrefix)) {
-                        ignoredUberJars.add(jarFilePath.toString());
-                        return new ArrayList<>();
+                    if (ignoreUberJars) {
+                        if (hasMultiplePackages(jarFilePath, entry, initialClassPrefix)) {
+                            ignoredUberJars.add(jarFilePath.toString());
+                            return new ArrayList<>();
+                        }
                     }
 
                     ClassFileInfo classFileInfo = processClassFile(entry, jarFile);
@@ -146,7 +155,7 @@ public class JarHandler {
     }
 
     private ClassFileInfo processClassFile(JarEntry entry, JarFile jarFile) throws IOException {
-//        logger.debug("Processing class file: " + entry.getName()); // TODO: this make the logs too verbose
+//        logger.debug("Processing class file: " + entry.getName()); // TODO: this makes the logs too verbose
         try (InputStream classFileInputStream = jarFile.getInputStream(entry)) {
             byte[] bytecode = classFileInputStream.readAllBytes();
             BytecodeDetails bytecodeDetails = BytecodeParser.extractSignature(bytecode);

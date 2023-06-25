@@ -57,13 +57,11 @@ public class DatabaseManager {
         addIndexes();
     }
     private void addIndexes() {
-        String createHashIndexQuery = "CREATE INDEX idx_hash ON signatures (hash)";
         String createLibraryIdIndexQuery = "CREATE INDEX idx_library_id ON library_signature (library_id)";
         String createSignatureIdIndexQuery = "CREATE INDEX idx_signature_id ON library_signature (signature_id)";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {
-            statement.executeUpdate(createHashIndexQuery);
             statement.executeUpdate(createLibraryIdIndexQuery);
             statement.executeUpdate(createSignatureIdIndexQuery);
             logger.info("Indexes created on signatures table.");
@@ -92,7 +90,7 @@ public class DatabaseManager {
     private void createSignaturesTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS signatures (" +
                 "id INT PRIMARY KEY AUTO_INCREMENT, " +
-                "hash VARCHAR(255) NOT NULL UNIQUE)";
+                "hash VARCHAR(255) NOT NULL UNIQUE)"; // if this is UNIQUE, then we don't need the index
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {
