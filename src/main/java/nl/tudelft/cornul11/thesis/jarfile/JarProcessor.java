@@ -34,7 +34,10 @@ public class JarProcessor implements Runnable {
                 logger.info("Finished processing file: " + file);
             }
         } catch (InterruptedException e) {
+            logger.error("Thread interrupted while waiting for file in the queue");
             Thread.currentThread().interrupt();
+        } catch (Exception e) {
+            logger.error("Exception while processing file", e);
         }
     }
 }
