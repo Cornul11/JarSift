@@ -5,13 +5,13 @@ import org.objectweb.asm.*;
 
 import java.util.Arrays;
 
-import static org.objectweb.asm.Opcodes.ASM8;
+import static org.objectweb.asm.Opcodes.ASM9;
 
 public class BytecodeClassVisitor extends ClassVisitor {
     private final BytecodeDetails bytecodeDetails = new BytecodeDetails();
 
     public BytecodeClassVisitor() {
-        super(ASM8);
+        super(ASM9);
     }
 
     public BytecodeDetails getBytecodeClass() {
@@ -40,7 +40,7 @@ public class BytecodeClassVisitor extends ClassVisitor {
         bytecodeDetails.annotations.add(annotationDetails);
 
         AnnotationVisitor av = super.visitAnnotation(desc, visible);
-        return new BytecodeAnnotationVisitor(ASM8, av, annotationDetails);
+        return new BytecodeAnnotationVisitor(ASM9, av, annotationDetails);
     }
 
     public void visitAttribute(Attribute attr) {
@@ -99,7 +99,7 @@ public class BytecodeClassVisitor extends ClassVisitor {
         }
 
         MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
-        return new BytecodeMethodVisitor(ASM8, mv, method);
+        return new BytecodeMethodVisitor(ASM9, mv, method);
     }
 
     public void visitEnd() {
