@@ -89,6 +89,7 @@ public class FileAnalyzer {
     }
 
     public int commitSignatures(List<ClassFileInfo> signatures, JarInfoExtractor jarInfoExtractor, String jarHash) {
+        logger.info("Committing signatures for JAR: " + jarInfoExtractor.getArtifactId() + " version: " + jarInfoExtractor.getVersion());
         for (ClassFileInfo signature : signatures) {
             if (!uniqueHashes.contains(signature.getHashCode())) {
                 uniqueHashes.add(signature.getHashCode());

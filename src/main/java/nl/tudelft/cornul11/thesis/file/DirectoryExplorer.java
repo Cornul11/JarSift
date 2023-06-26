@@ -39,6 +39,7 @@ public class DirectoryExplorer extends SimpleFileVisitor<Path> {
         if (shouldProcess) {
             if (!isHidden(file) && file.toString().endsWith(".jar")) {
                 queue.offer(file);
+                logger.info("Added file to the queue: " + file + "; current queue size = " + queue.size());
 //                fileAnalyzer.processJarFile(file);
                 totalFiles++;
             }

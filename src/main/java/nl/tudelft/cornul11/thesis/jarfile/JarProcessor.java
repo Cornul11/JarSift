@@ -23,6 +23,7 @@ public class JarProcessor implements Runnable {
     public void run() {
         try {
             while (true) {
+                logger.debug("Waiting for file in the queue, current queue size = " + queue.size());
                 Path file = queue.take(); // this will block if the queue is empty
                 if (POISON_PILL.equals(file)) {
                     // end-of-stream marker encountered
@@ -30,6 +31,7 @@ public class JarProcessor implements Runnable {
                 }
                 logger.info("Processing file: " + file);
                 fileAnalyzer.processJarFile(file);
+                logger.info("Finished processing file: " + file);
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

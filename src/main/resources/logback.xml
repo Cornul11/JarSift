@@ -6,18 +6,18 @@
     </appender>
 
     <appender name="FILE" class="ch.qos.logback.core.FileAppender">
-        <file>logFile.log</file>
+        <file>logs/logFile.log</file>
         <encoder>
             <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
     <!-- We do not need the entire query being printed to the screen -->
-    <logger name="org.mariadb.jdbc.client.impl.StandardClient" level="WARN" additivity="false" />
+    <logger name="org.mariadb.jdbc.client.impl.StandardClient" level="WARN" additivity="false"/>
 
 
     <root level="debug">
-        <appender-ref ref="STDOUT" />
-        <appender-ref ref="FILE" />
+        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="FILE"/>
     </root>
 </configuration>

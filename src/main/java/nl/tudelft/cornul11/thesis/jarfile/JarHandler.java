@@ -37,11 +37,12 @@ public class JarHandler {
     public List<ClassFileInfo> extractJarFileInfo() {
         mavenSubmodules.clear();
 
+        logger.info("Attempting to process " + jarFilePath);
         try (JarFile jarFile = new JarFile(jarFilePath.toFile())) {
             Enumeration<JarEntry> entries = jarFile.entries();
             String initialClassPrefix = null;
             List<ClassFileInfo> classFileInfos = new ArrayList<>();
-
+            logger.info("Processing " + jarFilePath + " with " + jarFile.size() + " entries");
             while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
 
@@ -80,6 +81,7 @@ public class JarHandler {
                     }
                 }
             }
+            logger.info("Finished processing " + jarFilePath);
             insertedLibraries.add(jarFilePath.toString());
             return classFileInfos;
         } catch (FileNotFoundException e) {

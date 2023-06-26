@@ -5,17 +5,13 @@ import nl.tudelft.cornul11.thesis.file.LibraryMatchInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.FileOutputStream;
-import java.nio.file.Files;
 import java.sql.*;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class SignatureDAOImpl implements SignatureDAO {
-    private HikariDataSource ds;
+    private final HikariDataSource ds;
     private static final Logger logger = LoggerFactory.getLogger(SignatureDAOImpl.class);
 
     public SignatureDAOImpl(HikariDataSource ds) {

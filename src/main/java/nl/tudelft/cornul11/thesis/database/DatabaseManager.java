@@ -50,12 +50,14 @@ public class DatabaseManager {
     public SignatureDAO getSignatureDao() {
         return new SignatureDAOImpl(ds);
     }
+
     private void createSchema() {
         createLibrariesTable();
         createSignaturesTable();
         createLibrarySignatureTable();
         addIndexes();
     }
+
     private void addIndexes() {
         String createLibraryIdIndexQuery = "CREATE INDEX idx_library_id ON library_signature (library_id)";
         String createSignatureIdIndexQuery = "CREATE INDEX idx_signature_id ON library_signature (signature_id)";
