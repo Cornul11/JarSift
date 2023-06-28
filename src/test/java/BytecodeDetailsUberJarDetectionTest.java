@@ -1,4 +1,3 @@
-import nl.tudelft.cornul11.thesis.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.jarfile.FileAnalyzer;
 import nl.tudelft.cornul11.thesis.model.Signature;
@@ -13,7 +12,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;

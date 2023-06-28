@@ -78,7 +78,7 @@ public class FileAnalyzer {
             sb.append(classFileInfo.getHashCode());
         }
         LongHashFunction xx = LongHashFunction.xx();
-        String jarHash = String.valueOf(xx.hashChars(sb.toString()));
+        long jarHash = xx.hashChars(sb.toString());
 
         // If the classFileInfos is empty, then no need to proceed further.
         if (classFileInfos.isEmpty()) {
@@ -89,7 +89,7 @@ public class FileAnalyzer {
         return commitSignatures(classFileInfos, jarInfoExtractor, jarHash);
     }
 
-    public int commitSignatures(List<ClassFileInfo> signatures, JarInfoExtractor jarInfoExtractor, String jarHash) {
+    public int commitSignatures(List<ClassFileInfo> signatures, JarInfoExtractor jarInfoExtractor, long jarHash) {
         logger.info("Committing signatures for JAR: " + jarInfoExtractor.getArtifactId() + " version: " + jarInfoExtractor.getVersion());
         for (ClassFileInfo signature : signatures) {
             if (!uniqueHashes.contains(signature.getHashCode())) {

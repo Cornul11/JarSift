@@ -61,11 +61,13 @@ public class DatabaseManager {
     private void addIndexes() {
         String createLibraryIdIndexQuery = "CREATE INDEX idx_library_id ON library_signature (library_id)";
         String createSignatureIdIndexQuery = "CREATE INDEX idx_signature_id ON library_signature (signature_id)";
+        String createSignatureHashIndexQuery = "CREATE INDEX idx_signature_hash ON signatures (hash)";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {
             statement.executeUpdate(createLibraryIdIndexQuery);
             statement.executeUpdate(createSignatureIdIndexQuery);
+            statement.executeUpdate(createSignatureHashIndexQuery);
             logger.info("Indexes created on signatures table.");
         } catch (SQLException e) {
             logger.error("Error while creating indexes on signatures table.", e);
@@ -78,7 +80,7 @@ public class DatabaseManager {
                 + "groupId VARCHAR(255) NOT NULL, "
                 + "artifactId VARCHAR(255) NOT NULL, "
                 + "version VARCHAR(255) NOT NULL, "
-                + "hash VARCHAR(255) NOT NULL)"; // TODO: change to INT or BIGINT
+                + "hash BIGINT NOT NULL)"; // TODO: change to INT or BIGINT
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {
@@ -92,7 +94,7 @@ public class DatabaseManager {
     private void createSignaturesTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS signatures (" +
                 "id INT PRIMARY KEY AUTO_INCREMENT, " +
-                "hash VARCHAR(255) NOT NULL UNIQUE)"; // if this is UNIQUE, then we don't need the index
+                "hash BIGINT NOT NULL UNIQUE)"; // if this is UNIQUE, then we don't need the index
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {

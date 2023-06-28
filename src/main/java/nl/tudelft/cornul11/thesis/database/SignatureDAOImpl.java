@@ -20,7 +20,7 @@ public class SignatureDAOImpl implements SignatureDAO {
     }
 
     @Override
-    public int insertSignatures(List<Signature> signatures, String jarHash) {
+    public int insertSignatures(List<Signature> signatures, long jarHash) {
         String insertLibraryQuery = "INSERT INTO libraries (groupId, artifactId, version, hash) VALUES (?, ?, ?, ?)";
         String findOrInsertSignatureQuery = "INSERT IGNORE INTO signatures (hash) VALUES (?)";
         String getSignatureIdQuery = "SELECT id FROM signatures WHERE hash = ?";
@@ -38,7 +38,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                 libraryStatement.setString(1, firstSignature.getGroupID());
                 libraryStatement.setString(2, firstSignature.getArtifactId());
                 libraryStatement.setString(3, firstSignature.getVersion());
-                libraryStatement.setString(4, jarHash);
+                libraryStatement.setLong(4, jarHash);
                 libraryStatement.executeUpdate();
 
                 ResultSet generatedKeys = libraryStatement.getGeneratedKeys();
@@ -95,22 +95,33 @@ public class SignatureDAOImpl implements SignatureDAO {
     }
 
     @Override
-    public List<LibraryMatchInfo> returnTopLibraryMatches(List<String> hashes) {
+    public List<LibraryMatchInfo> returnTopLibraryMatches(List<Long> hashes) {
+        long startTime = System.currentTimeMillis();
+
+        // Create placeholders for the IN clause
         String placeholders = String.join(", ", Collections.nCopies(hashes.size(), "?"));
-        String query = "SELECT libraries.groupId, libraries.artifactId, libraries.version, COUNT(*) as matchedCount, " +
-                "(SELECT COUNT(*) FROM library_signature WHERE library_signature.library_id = libraries.id) as totalCount " +
+
+        // Create the countQuery
+        String countQuery = "SELECT library_id, COUNT(*) as totalCount " +
+                "FROM library_signature " +
+                "GROUP BY library_id";
+
+        // Create the mainQuery
+        String mainQuery = "SELECT libraries.groupId, libraries.artifactId, libraries.version, COUNT(*) as matchedCount, totalCountTable.totalCount " +
                 "FROM library_signature " +
                 "JOIN libraries ON library_signature.library_id = libraries.id " +
                 "JOIN signatures ON library_signature.signature_id = signatures.id " +
+                "LEFT JOIN (" + countQuery + ") as totalCountTable ON library_signature.library_id = totalCountTable.library_id " +
                 "WHERE signatures.hash IN (" + placeholders + ") " +
-                "GROUP BY libraries.groupId, libraries.artifactId, libraries.version";
+                "GROUP BY libraries.groupId, libraries.artifactId, libraries.version, totalCountTable.totalCount";
+
 
         List<LibraryMatchInfo> libraryHashesCount = new ArrayList<>();
 
         try (Connection connection = ds.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
+             PreparedStatement statement = connection.prepareStatement(mainQuery)) {
             for (int i = 0; i < hashes.size(); i++) {
-                statement.setString(i + 1, hashes.get(i));
+                statement.setLong(i + 1, hashes.get(i));
             }
 
             ResultSet resultSet = statement.executeQuery();
@@ -127,6 +138,9 @@ public class SignatureDAOImpl implements SignatureDAO {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+
+        long endTime = System.currentTimeMillis();
+        logger.info("Top matches query took " + (endTime - startTime) / 1000.0 + " seconds.");
 
         return libraryHashesCount;
     }

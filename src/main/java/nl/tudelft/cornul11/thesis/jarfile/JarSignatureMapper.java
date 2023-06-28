@@ -48,8 +48,9 @@ public class JarSignatureMapper {
     }
 
     public Map<String, Map<String, Object>> getTopMatches(List<ClassFileInfo> signatures, SignatureDAO signatureDao) {
-        List<String> hashes = signatures.stream()
-                .map(signature -> Long.toString(signature.getHashCode()))
+        logger.info("Getting top matches for " + signatures.size() + " signatures");
+        List<Long> hashes = signatures.stream()
+                .map(signature -> signature.getHashCode())
                 .collect(Collectors.toList());
 
         // get the top library matches based on hashes

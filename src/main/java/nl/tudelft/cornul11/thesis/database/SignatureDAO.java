@@ -7,7 +7,7 @@ import nl.tudelft.cornul11.thesis.model.Signature;
 import java.util.List;
 
 public interface SignatureDAO {
-    int insertSignatures(List<Signature> signatures, String jarHash);
-    List<LibraryMatchInfo> returnTopLibraryMatches(List<String> hashes);
+    int insertSignatures(List<Signature> signatures, long jarHash);
+    List<LibraryMatchInfo> returnTopLibraryMatches(List<Long> hashes);
     void closeConnection();
 }

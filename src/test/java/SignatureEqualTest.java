@@ -11,7 +11,6 @@ import org.mockito.Mockito;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -43,7 +42,7 @@ public class SignatureEqualTest {
 
         // capture the signatures passed to commitSignatures
         ArgumentCaptor<List<ClassFileInfo>> argumentCaptor = ArgumentCaptor.forClass(List.class);
-        verify(processor).commitSignatures(argumentCaptor.capture(), any(JarInfoExtractor.class), anyString());
+        verify(processor).commitSignatures(argumentCaptor.capture(), any(JarInfoExtractor.class), anyLong());
 
         List<ClassFileInfo> capturedClassFileInfosFromProcessor = argumentCaptor.getValue();
 
