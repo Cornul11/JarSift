@@ -1,6 +1,7 @@
 import nl.tudelft.cornul11.thesis.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.jarfile.FileAnalyzer;
+import nl.tudelft.cornul11.thesis.model.Signature;
 import nl.tudelft.cornul11.thesis.util.ConfigurationLoader;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -119,7 +120,7 @@ public class BytecodeDetailsUberJarDetectionTest {
 
     private void prepareSignatureDaoMock() {
         Mockito.when(signatureDao.insertSignatures(Mockito.anyList(), Mockito.anyString())).thenAnswer(invocation -> {
-            List<DatabaseManager.Signature> signatures = invocation.getArgument(0);
+            List<Signature> signatures = invocation.getArgument(0);
             return signatures.size();
         });
     }

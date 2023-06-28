@@ -119,8 +119,4 @@ public class DatabaseManager {
             e.printStackTrace();
         }
     }
-
-    public record Signature(int id, String fileName, String hash, String groupID, String artifactId, String version) {
-    }
-
 }

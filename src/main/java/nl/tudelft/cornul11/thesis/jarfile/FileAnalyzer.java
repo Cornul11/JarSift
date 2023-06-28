@@ -5,6 +5,7 @@ import nl.tudelft.cornul11.thesis.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.file.ClassFileInfo;
 import nl.tudelft.cornul11.thesis.file.JarInfoExtractor;
+import nl.tudelft.cornul11.thesis.model.Signature;
 import nl.tudelft.cornul11.thesis.util.ConfigurationLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -95,7 +96,7 @@ public class FileAnalyzer {
                 uniqueHashes.add(signature.getHashCode());
             }
         }
-        List<DatabaseManager.Signature> signaturesToInsert = signatures.stream().map(signature -> createSignature(signature, jarInfoExtractor)).collect(Collectors.toList());
+        List<Signature> signaturesToInsert = signatures.stream().map(signature -> createSignature(signature, jarInfoExtractor)).collect(Collectors.toList());
         return signatureDao.insertSignatures(signaturesToInsert, jarHash);
     }
 
@@ -104,7 +105,7 @@ public class FileAnalyzer {
         logger.info("Total number of unique hashes: " + uniqueHashes.size());
     }
 
-    private DatabaseManager.Signature createSignature(ClassFileInfo signature, JarInfoExtractor jarInfoExtractor) {
-        return new DatabaseManager.Signature(0, signature.getFileName(), Long.toString(signature.getHashCode()), jarInfoExtractor.getGroupId(), jarInfoExtractor.getArtifactId(), jarInfoExtractor.getVersion());
+    private Signature createSignature(ClassFileInfo signature, JarInfoExtractor jarInfoExtractor) {
+        return new Signature(0, signature.getFileName(), Long.toString(signature.getHashCode()), jarInfoExtractor.getGroupId(), jarInfoExtractor.getArtifactId(), jarInfoExtractor.getVersion());
     }
 }

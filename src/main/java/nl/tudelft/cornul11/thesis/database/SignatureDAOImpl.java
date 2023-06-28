@@ -2,6 +2,7 @@ package nl.tudelft.cornul11.thesis.database;
 
 import com.zaxxer.hikari.HikariDataSource;
 import nl.tudelft.cornul11.thesis.file.LibraryMatchInfo;
+import nl.tudelft.cornul11.thesis.model.Signature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,7 +20,7 @@ public class SignatureDAOImpl implements SignatureDAO {
     }
 
     @Override
-    public int insertSignatures(List<DatabaseManager.Signature> signatures, String jarHash) {
+    public int insertSignatures(List<Signature> signatures, String jarHash) {
         String insertLibraryQuery = "INSERT INTO libraries (groupId, artifactId, version, hash) VALUES (?, ?, ?, ?)";
         String findOrInsertSignatureQuery = "INSERT IGNORE INTO signatures (hash) VALUES (?)";
         String getSignatureIdQuery = "SELECT id FROM signatures WHERE hash = ?";
@@ -33,10 +34,10 @@ public class SignatureDAOImpl implements SignatureDAO {
                 connection.setAutoCommit(false);
 
                 PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery, Statement.RETURN_GENERATED_KEYS);
-                DatabaseManager.Signature firstSignature = signatures.get(0);
-                libraryStatement.setString(1, firstSignature.groupID());
-                libraryStatement.setString(2, firstSignature.artifactId());
-                libraryStatement.setString(3, firstSignature.version());
+                Signature firstSignature = signatures.get(0);
+                libraryStatement.setString(1, firstSignature.getGroupID());
+                libraryStatement.setString(2, firstSignature.getArtifactId());
+                libraryStatement.setString(3, firstSignature.getVersion());
                 libraryStatement.setString(4, jarHash);
                 libraryStatement.executeUpdate();
 
@@ -47,18 +48,18 @@ public class SignatureDAOImpl implements SignatureDAO {
                     PreparedStatement findOrInsertStatement = connection.prepareStatement(findOrInsertSignatureQuery);
                     PreparedStatement librarySignatureStatement = connection.prepareStatement(insertLibrarySignatureQuery);
 
-                    for (DatabaseManager.Signature signature : signatures) {
-                        findOrInsertStatement.setString(1, signature.hash());
+                    for (Signature signature : signatures) {
+                        findOrInsertStatement.setString(1, signature.getHash());
                         findOrInsertStatement.executeUpdate();
 
                         PreparedStatement getSignatureIdStatement = connection.prepareStatement(getSignatureIdQuery);
-                        getSignatureIdStatement.setString(1, signature.hash());
+                        getSignatureIdStatement.setString(1, signature.getHash());
                         ResultSet resultSet = getSignatureIdStatement.executeQuery();
                         if (resultSet.next()) {
                             int signatureId = resultSet.getInt(1);
                             librarySignatureStatement.setInt(1, libraryId);
                             librarySignatureStatement.setInt(2, signatureId);
-                            librarySignatureStatement.setString(3, signature.fileName());
+                            librarySignatureStatement.setString(3, signature.getFileName());
                             librarySignatureStatement.executeUpdate();
 
                             totalRowsInserted++;
