@@ -11,6 +11,8 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 public class SignatureDAOImpl implements SignatureDAO {
     private final HikariDataSource ds;
@@ -25,12 +27,8 @@ public class SignatureDAOImpl implements SignatureDAO {
     public int insertLibrary(JarInfoExtractor jarInfoExtractor, long jarHash) {
         String insertLibraryQuery = "INSERT INTO libraries (groupId, artifactId, version, hash, isUberJar) VALUES (?, ?, ?, ?, ?)";
 
-        boolean success = false;
-        while (!success) {
-            try (Connection connection = ds.getConnection()) {
-                connection.setAutoCommit(false);
-
-                PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery, Statement.RETURN_GENERATED_KEYS);
+        executeWithDeadlockRetry(connection -> {
+            try (PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery, Statement.RETURN_GENERATED_KEYS)) {
                 libraryStatement.setString(1, jarInfoExtractor.getGroupId());
                 libraryStatement.setString(2, jarInfoExtractor.getArtifactId());
                 libraryStatement.setString(3, jarInfoExtractor.getVersion());
@@ -38,28 +36,12 @@ public class SignatureDAOImpl implements SignatureDAO {
                 libraryStatement.setBoolean(5, true);
                 libraryStatement.executeUpdate();
 
-                connection.commit();
-                connection.setAutoCommit(true);
-
                 logger.info("Library row inserted.");
-                success = true;
             } catch (SQLException e) {
-                if (e.getErrorCode() == 1213) { // 1213 = ER_LOCK_DEADLOCK
-                    logger.error("Deadlock detected. Retrying...");
-
-                    try {
-                        // sleep for a random amount of time between 1 and 2 seconds
-                        Thread.sleep(1000 + (int) (Math.random() * 1000));
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
-                } else {
-                    e.printStackTrace();
-                    break;
-                }
+                e.printStackTrace();
             }
-        }
+        });
+
         return 0;
     }
 
@@ -70,12 +52,10 @@ public class SignatureDAOImpl implements SignatureDAO {
         String getSignatureIdQuery = "SELECT id FROM signatures WHERE hash = ?";
         String insertLibrarySignatureQuery = "INSERT INTO library_signature (library_id, signature_id) VALUES (?, ?)";
 
-        int totalRowsInserted = 0;
-        boolean success = false;
 
-        while (!success) {
-            try (Connection connection = ds.getConnection()) {
-                connection.setAutoCommit(false);
+        AtomicInteger totalRowsInserted = new AtomicInteger();
+        executeWithDeadlockRetry(connection -> {
+            try {
 
                 PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery, Statement.RETURN_GENERATED_KEYS);
                 Signature firstSignature = signatures.get(0);
@@ -106,36 +86,18 @@ public class SignatureDAOImpl implements SignatureDAO {
                             librarySignatureStatement.setInt(2, signatureId);
                             librarySignatureStatement.executeUpdate();
 
-                            totalRowsInserted++;
+                            totalRowsInserted.getAndIncrement();
                         }
                     }
                 }
 
-                connection.commit();
-                connection.setAutoCommit(true);
-
                 logger.info(totalRowsInserted + " signature row(s) inserted.");
-
-                success = true;
             } catch (SQLException e) {
-                if (e.getErrorCode() == 1213) { // 1213 = ER_LOCK_DEADLOCK
-                    logger.error("Deadlock detected. Retrying...");
-
-                    try {
-                        // sleep for a random amount of time between 1 and 2 seconds
-                        Thread.sleep(1000 + (int) (Math.random() * 1000));
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
-                } else {
-                    e.printStackTrace();
-                    break;
-                }
+                e.printStackTrace();
             }
-        }
+        });
 
-        return totalRowsInserted;
+        return totalRowsInserted.get();
     }
 
     @Override
@@ -187,6 +149,37 @@ public class SignatureDAOImpl implements SignatureDAO {
         logger.info("Top matches query took " + (endTime - startTime) / 1000.0 + " seconds.");
 
         return libraryHashesCount;
+    }
+
+    private void executeWithDeadlockRetry(Consumer<Connection> action) {
+        boolean success = false;
+        while (!success) {
+            try (Connection connection = ds.getConnection()) {
+                connection.setAutoCommit(false);
+                action.accept(connection);
+                connection.commit();
+                connection.setAutoCommit(true);
+                success = true;
+            } catch (SQLException e) {
+                if (e.getErrorCode() == 1213) { // 1213 = ER_LOCK_DEADLOCK
+                    handleDeadlock();
+                } else {
+                    e.printStackTrace();
+                    break;
+                }
+            }
+        }
+    }
+
+    private void handleDeadlock() {
+        logger.error("Deadlock detected. Retrying...");
+        try {
+            // sleep for a random amount of time between 1 and 2 seconds
+            Thread.sleep(1000 + (int) (Math.random() * 1000));
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(ie);
+        }
     }
 
     @Override
