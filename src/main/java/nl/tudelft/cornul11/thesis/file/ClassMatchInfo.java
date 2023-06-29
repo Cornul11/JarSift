@@ -1,10 +1,10 @@
 package nl.tudelft.cornul11.thesis.file;
 
 public class ClassMatchInfo {
-    private String jarClassName;
-    private String jarClassVersion;
-    private String jarClassArtifactId;
-    private String jarClassGroupId;
+    private final String jarClassName;
+    private final String jarClassVersion;
+    private final String jarClassArtifactId;
+    private final String jarClassGroupId;
 
 
     public ClassMatchInfo(String jarClassName, String jarClassGroupId, String jarClassArtifactId, String jarClassVersion) {

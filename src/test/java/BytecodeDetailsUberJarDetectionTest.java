@@ -54,13 +54,13 @@ public class BytecodeDetailsUberJarDetectionTest {
     }
 
     @Test
-    public void testUberJarWithManyClasspathDetection() throws IOException {
+    public void testUberJarWithManyClasspathsDetection() throws IOException {
         prepareSignatureDaoMock();
 
         Path jarPath = getJarPath(JAR_WITH_MULTIPLE_CLASSPATH);
         int totalClassFilesProcessed = fileAnalyzer.processJarFile(jarPath);
 
-        assertEquals(0, totalClassFilesProcessed, "No class files should be processed");
+        assertNotEquals(0, totalClassFilesProcessed, "All class files should be processed");
     }
 
     @Test

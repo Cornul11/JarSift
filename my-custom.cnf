@@ -1,0 +1,4 @@
+[mysqld]
+innodb_buffer_pool_size = 8G
+innodb_read_io_threads = 16
+innodb_write_io_threads = 16

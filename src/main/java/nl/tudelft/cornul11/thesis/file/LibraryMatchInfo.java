@@ -1,12 +1,12 @@
 package nl.tudelft.cornul11.thesis.file;
 
 public class LibraryMatchInfo {
-    private String groupId;
-    private String artifactId;
-    private String version;
-    private int classFileCount;
+    private final String groupId;
+    private final String artifactId;
+    private final String version;
+    private final int classFileCount;
 
-    private int totalClassFileCount;
+    private final int totalClassFileCount;
 
     public LibraryMatchInfo(String groupId, String artifactId, String version, int classFileCount, int totalClassFileCount) {
         this.groupId = groupId;

@@ -66,14 +66,6 @@ public class JarHandler {
                 }
 
                 if (isClassFile(entry)) {
-                    initialClassPrefix = getInitialClassPrefix(entry, initialClassPrefix);
-                    if (ignoreUberJars) {
-                        if (hasMultiplePackages(jarFilePath, entry, initialClassPrefix)) {
-                            ignoredUberJars.add(jarFilePath.toString());
-                            return new ArrayList<>();
-                        }
-                    }
-
                     ClassFileInfo classFileInfo = processClassFile(entry, jarFile);
 
                     if (classFileInfo != null) {

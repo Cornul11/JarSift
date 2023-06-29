@@ -1,7 +1,6 @@
 package nl.tudelft.cornul11.thesis.jarfile;
 
 import net.openhft.hashing.LongHashFunction;
-import nl.tudelft.cornul11.thesis.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.file.ClassFileInfo;
 import nl.tudelft.cornul11.thesis.file.JarInfoExtractor;
@@ -80,13 +79,17 @@ public class FileAnalyzer {
         LongHashFunction xx = LongHashFunction.xx();
         long jarHash = xx.hashChars(sb.toString());
 
-        // If the classFileInfos is empty, then no need to proceed further.
-        if (classFileInfos.isEmpty()) {
-            return 0;
+        JarInfoExtractor jarInfoExtractor = new JarInfoExtractor(jarFilePath.toString());
+        if (classFileInfos.isEmpty()) { // it's probably an uber-JAR, let's still add it to the db
+            return commitLibrary(jarInfoExtractor, jarHash);
         }
 
-        JarInfoExtractor jarInfoExtractor = new JarInfoExtractor(jarFilePath.toString());
         return commitSignatures(classFileInfos, jarInfoExtractor, jarHash);
+    }
+
+    public int commitLibrary(JarInfoExtractor jarInfoExtractor, long jarHash) {
+        logger.info("Committing library: " + jarInfoExtractor.getArtifactId() + " version: " + jarInfoExtractor.getVersion());
+        return signatureDao.insertLibrary(jarInfoExtractor, jarHash);
     }
 
     public int commitSignatures(List<ClassFileInfo> signatures, JarInfoExtractor jarInfoExtractor, long jarHash) {

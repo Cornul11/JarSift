@@ -14,8 +14,8 @@ import java.io.InputStream;
 public class PomFileParser {
     private final Logger logger = LoggerFactory.getLogger(PomFileParser.class);
 
-    private String artifactId;
-    private String version;
+    private final String artifactId;
+    private final String version;
 
     public PomFileParser(InputStream pomInputStream, String name) throws ParserConfigurationException, SAXException, IOException {
         logger.info("Processing pom.xml file: " + name);

@@ -10,7 +10,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 public class DatabaseManager {
-    private HikariDataSource ds;
+    private final HikariDataSource ds;
     private static final Logger logger = LoggerFactory.getLogger(DatabaseManager.class);
 
 
@@ -80,7 +80,8 @@ public class DatabaseManager {
                 + "groupId VARCHAR(255) NOT NULL, "
                 + "artifactId VARCHAR(255) NOT NULL, "
                 + "version VARCHAR(255) NOT NULL, "
-                + "hash BIGINT NOT NULL)"; // TODO: change to INT or BIGINT
+                + "hash BIGINT NOT NULL, "
+                + "isUberJar BOOLEAN NOT NULL)";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {
@@ -94,7 +95,7 @@ public class DatabaseManager {
     private void createSignaturesTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS signatures (" +
                 "id INT PRIMARY KEY AUTO_INCREMENT, " +
-                "hash BIGINT NOT NULL UNIQUE)"; // if this is UNIQUE, then we don't need the index
+                "hash BIGINT NOT NULL UNIQUE)";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {
@@ -108,10 +109,19 @@ public class DatabaseManager {
     private void createLibrarySignatureTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS library_signature (" +
                 "library_id INT NOT NULL, " +
-                "signature_id INT NOT NULL, " +
-                "filename VARCHAR(511) NOT NULL, " +
-                "FOREIGN KEY (library_id) REFERENCES libraries(id), " +
-                "FOREIGN KEY (signature_id) REFERENCES signatures(id))";
+                "signature_id INT NOT NULL) " +
+                "PARTITION BY RANGE (library_id) (" +
+                "PARTITION p0 VALUES LESS THAN (300000)," +
+                "PARTITION p1 VALUES LESS THAN (600000)," +
+                "PARTITION p2 VALUES LESS THAN (900000)," +
+                "PARTITION p3 VALUES LESS THAN (1200000)," +
+                "PARTITION p4 VALUES LESS THAN (1500000)," +
+                "PARTITION p5 VALUES LESS THAN (1800000)," +
+                "PARTITION p6 VALUES LESS THAN (2100000)," +
+                "PARTITION p7 VALUES LESS THAN (2400000)," +
+                "PARTITION p8 VALUES LESS THAN (2700000)," +
+                "PARTITION p9 VALUES LESS THAN (3000000)," +
+                "PARTITION p10 VALUES LESS THAN MAXVALUE)";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {

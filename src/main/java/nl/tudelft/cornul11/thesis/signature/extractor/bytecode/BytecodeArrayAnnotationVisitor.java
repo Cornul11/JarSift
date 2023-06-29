@@ -5,7 +5,7 @@ import org.objectweb.asm.AnnotationVisitor;
 import java.util.List;
 
 public class BytecodeArrayAnnotationVisitor extends AnnotationVisitor {
-    private List<Object> values;
+    private final List<Object> values;
 
     public BytecodeArrayAnnotationVisitor(int api, AnnotationVisitor annotationVisitor, List<Object> values) {
         super(api, annotationVisitor);

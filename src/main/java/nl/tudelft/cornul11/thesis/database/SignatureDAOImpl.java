@@ -1,6 +1,7 @@
 package nl.tudelft.cornul11.thesis.database;
 
 import com.zaxxer.hikari.HikariDataSource;
+import nl.tudelft.cornul11.thesis.file.JarInfoExtractor;
 import nl.tudelft.cornul11.thesis.file.LibraryMatchInfo;
 import nl.tudelft.cornul11.thesis.model.Signature;
 import org.slf4j.Logger;
@@ -14,17 +15,60 @@ import java.util.List;
 public class SignatureDAOImpl implements SignatureDAO {
     private final HikariDataSource ds;
     private static final Logger logger = LoggerFactory.getLogger(SignatureDAOImpl.class);
+    private final long startTime = System.currentTimeMillis();
 
     public SignatureDAOImpl(HikariDataSource ds) {
         this.ds = ds;
     }
 
     @Override
+    public int insertLibrary(JarInfoExtractor jarInfoExtractor, long jarHash) {
+        String insertLibraryQuery = "INSERT INTO libraries (groupId, artifactId, version, hash, isUberJar) VALUES (?, ?, ?, ?, ?)";
+
+        boolean success = false;
+        while (!success) {
+            try (Connection connection = ds.getConnection()) {
+                connection.setAutoCommit(false);
+
+                PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery, Statement.RETURN_GENERATED_KEYS);
+                libraryStatement.setString(1, jarInfoExtractor.getGroupId());
+                libraryStatement.setString(2, jarInfoExtractor.getArtifactId());
+                libraryStatement.setString(3, jarInfoExtractor.getVersion());
+                libraryStatement.setLong(4, jarHash);
+                libraryStatement.setBoolean(5, true);
+                libraryStatement.executeUpdate();
+
+                connection.commit();
+                connection.setAutoCommit(true);
+
+                logger.info("Library row inserted.");
+                success = true;
+            } catch (SQLException e) {
+                if (e.getErrorCode() == 1213) { // 1213 = ER_LOCK_DEADLOCK
+                    logger.error("Deadlock detected. Retrying...");
+
+                    try {
+                        // sleep for a random amount of time between 1 and 2 seconds
+                        Thread.sleep(1000 + (int) (Math.random() * 1000));
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                } else {
+                    e.printStackTrace();
+                    break;
+                }
+            }
+        }
+        return 0;
+    }
+
+    @Override
     public int insertSignatures(List<Signature> signatures, long jarHash) {
-        String insertLibraryQuery = "INSERT INTO libraries (groupId, artifactId, version, hash) VALUES (?, ?, ?, ?)";
+        String insertLibraryQuery = "INSERT INTO libraries (groupId, artifactId, version, hash, isUberJar) VALUES (?, ?, ?, ?, ?)";
         String findOrInsertSignatureQuery = "INSERT IGNORE INTO signatures (hash) VALUES (?)";
         String getSignatureIdQuery = "SELECT id FROM signatures WHERE hash = ?";
-        String insertLibrarySignatureQuery = "INSERT INTO library_signature (library_id, signature_id, filename) VALUES (?, ?, ?)";
+        String insertLibrarySignatureQuery = "INSERT INTO library_signature (library_id, signature_id) VALUES (?, ?)";
 
         int totalRowsInserted = 0;
         boolean success = false;
@@ -39,6 +83,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                 libraryStatement.setString(2, firstSignature.getArtifactId());
                 libraryStatement.setString(3, firstSignature.getVersion());
                 libraryStatement.setLong(4, jarHash);
+                libraryStatement.setBoolean(5, false);
                 libraryStatement.executeUpdate();
 
                 ResultSet generatedKeys = libraryStatement.getGeneratedKeys();
@@ -59,7 +104,6 @@ public class SignatureDAOImpl implements SignatureDAO {
                             int signatureId = resultSet.getInt(1);
                             librarySignatureStatement.setInt(1, libraryId);
                             librarySignatureStatement.setInt(2, signatureId);
-                            librarySignatureStatement.setString(3, signature.getFileName());
                             librarySignatureStatement.executeUpdate();
 
                             totalRowsInserted++;
@@ -149,6 +193,7 @@ public class SignatureDAOImpl implements SignatureDAO {
     public void closeConnection() {
         if (ds != null) {
             ds.close();
+            logger.info("Total time spent in database: " + (System.currentTimeMillis() - startTime) / 1000 + " seconds.");
             logger.info("Database connection closed.");
         }
     }
