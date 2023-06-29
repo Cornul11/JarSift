@@ -19,16 +19,9 @@ public class DatabaseManager {
         hikariConfig.setJdbcUrl(config.getUrl());
         hikariConfig.setUsername(config.getUsername());
         hikariConfig.setPassword(config.getPassword());
-        hikariConfig.addDataSourceProperty("cachePrepStmts", config.getCachePrepStmts());
-        hikariConfig.addDataSourceProperty("prepStmtCacheSize", config.getPrepStmtCacheSize());
-        hikariConfig.addDataSourceProperty("prepStmtCacheSqlLimit", config.getPrepStmtCacheSqlLimit());
-        hikariConfig.addDataSourceProperty("useServerPrepStmts", config.getUseServerPrepStmts());
-        hikariConfig.addDataSourceProperty("useLocalSessionState", config.getUseLocalSessionState());
-        hikariConfig.addDataSourceProperty("rewriteBatchedStatements", config.getRewriteBatchedStatements());
-        hikariConfig.addDataSourceProperty("cacheResultSetMetadata", config.getCacheResultSetMetadata());
-        hikariConfig.addDataSourceProperty("cacheServerConfiguration", config.getCacheServerConfiguration());
-        hikariConfig.addDataSourceProperty("elideSetAutoCommits", config.getElideSetAutoCommits());
-        hikariConfig.addDataSourceProperty("maintainTimeStats", config.getMaintainTimeStats());
+        hikariConfig.addDataSourceProperty("prepared-statement.cache.threshold", 2048);
+        hikariConfig.addDataSourceProperty("prepared-statement.cache.size", 250);
+        hikariConfig.addDataSourceProperty("parsed-sql.cache.size", 250);
 
         ds = new HikariDataSource(hikariConfig);
         logger.info("Connected to the database.");
@@ -76,7 +69,7 @@ public class DatabaseManager {
 
     private void createLibrariesTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS libraries (" +
-                "id INT PRIMARY KEY AUTO_INCREMENT, "
+                "id SERIAL PRIMARY KEY, "
                 + "groupId VARCHAR(255) NOT NULL, "
                 + "artifactId VARCHAR(255) NOT NULL, "
                 + "version VARCHAR(255) NOT NULL, "
@@ -94,8 +87,8 @@ public class DatabaseManager {
 
     private void createSignaturesTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS signatures (" +
-                "id INT PRIMARY KEY AUTO_INCREMENT, " +
-                "hash BIGINT NOT NULL UNIQUE)";
+                "id SERIAL PRIMARY KEY, " +
+                "hash BIGINT NOT NULL)";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {
@@ -109,7 +102,7 @@ public class DatabaseManager {
     private void createLibrarySignatureTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS library_signature (" +
                 "library_id INT NOT NULL, " +
-                "signature_id INT NOT NULL) " +
+                "signature_id INT NOT NULL) ";/* +
                 "PARTITION BY RANGE (library_id) (" +
                 "PARTITION p0 VALUES LESS THAN (300000)," +
                 "PARTITION p1 VALUES LESS THAN (600000)," +
@@ -122,7 +115,7 @@ public class DatabaseManager {
                 "PARTITION p8 VALUES LESS THAN (2700000)," +
                 "PARTITION p9 VALUES LESS THAN (3000000)," +
                 "PARTITION p10 VALUES LESS THAN MAXVALUE)";
-
+*/
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {
             statement.executeUpdate(createTableQuery);

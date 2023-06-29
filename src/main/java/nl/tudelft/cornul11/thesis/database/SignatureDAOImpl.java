@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
 
 public class SignatureDAOImpl implements SignatureDAO {
     private final HikariDataSource ds;
@@ -47,53 +46,44 @@ public class SignatureDAOImpl implements SignatureDAO {
 
     @Override
     public int insertSignatures(List<Signature> signatures, long jarHash) {
-        String insertLibraryQuery = "INSERT INTO libraries (groupId, artifactId, version, hash, isUberJar) VALUES (?, ?, ?, ?, ?)";
-        String findOrInsertSignatureQuery = "INSERT IGNORE INTO signatures (hash) VALUES (?)";
-        String getSignatureIdQuery = "SELECT id FROM signatures WHERE hash = ?";
+        String insertLibraryQuery = "INSERT INTO libraries (groupId, artifactId, version, hash, isUberJar) VALUES (?, ?, ?, ?, ?) RETURNING id";
+        String insertSignatureAndGetIdQuery = "INSERT INTO signatures (hash) VALUES (?) RETURNING id";
         String insertLibrarySignatureQuery = "INSERT INTO library_signature (library_id, signature_id) VALUES (?, ?)";
-
 
         AtomicInteger totalRowsInserted = new AtomicInteger();
         executeWithDeadlockRetry(connection -> {
-            try {
+            PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery);
+            Signature firstSignature = signatures.get(0);
+            libraryStatement.setString(1, firstSignature.getGroupID());
+            libraryStatement.setString(2, firstSignature.getArtifactId());
+            libraryStatement.setString(3, firstSignature.getVersion());
+            libraryStatement.setLong(4, jarHash);
+            libraryStatement.setBoolean(5, false);
 
-                PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery, Statement.RETURN_GENERATED_KEYS);
-                Signature firstSignature = signatures.get(0);
-                libraryStatement.setString(1, firstSignature.getGroupID());
-                libraryStatement.setString(2, firstSignature.getArtifactId());
-                libraryStatement.setString(3, firstSignature.getVersion());
-                libraryStatement.setLong(4, jarHash);
-                libraryStatement.setBoolean(5, false);
-                libraryStatement.executeUpdate();
-
-                ResultSet generatedKeys = libraryStatement.getGeneratedKeys();
+            try (ResultSet generatedKeys = libraryStatement.executeQuery()) {
                 if (generatedKeys.next()) {
                     int libraryId = generatedKeys.getInt(1);
 
-                    PreparedStatement findOrInsertStatement = connection.prepareStatement(findOrInsertSignatureQuery);
+                    PreparedStatement insertSignatureAndGetIdStatement = connection.prepareStatement(insertSignatureAndGetIdQuery);
                     PreparedStatement librarySignatureStatement = connection.prepareStatement(insertLibrarySignatureQuery);
 
                     for (Signature signature : signatures) {
-                        findOrInsertStatement.setString(1, signature.getHash());
-                        findOrInsertStatement.executeUpdate();
+                        insertSignatureAndGetIdStatement.setString(1, signature.getHash());
 
-                        PreparedStatement getSignatureIdStatement = connection.prepareStatement(getSignatureIdQuery);
-                        getSignatureIdStatement.setString(1, signature.getHash());
-                        ResultSet resultSet = getSignatureIdStatement.executeQuery();
-                        if (resultSet.next()) {
-                            int signatureId = resultSet.getInt(1);
-                            librarySignatureStatement.setInt(1, libraryId);
-                            librarySignatureStatement.setInt(2, signatureId);
-                            librarySignatureStatement.executeUpdate();
+                        try (ResultSet resultSet = insertSignatureAndGetIdStatement.executeQuery()) {
+                            if (resultSet.next()) {
+                                int signatureId = resultSet.getInt(1);
+                                librarySignatureStatement.setInt(1, libraryId);
+                                librarySignatureStatement.setInt(2, signatureId);
+                                librarySignatureStatement.executeUpdate();
 
-                            totalRowsInserted.getAndIncrement();
+                                totalRowsInserted.getAndIncrement();
+                            }
                         }
                     }
                 }
 
                 logger.info(totalRowsInserted + " signature row(s) inserted.");
-            } catch (SQLException e) {
-                e.printStackTrace();
             }
         });
 
@@ -151,7 +141,7 @@ public class SignatureDAOImpl implements SignatureDAO {
         return libraryHashesCount;
     }
 
-    private void executeWithDeadlockRetry(Consumer<Connection> action) {
+    private void executeWithDeadlockRetry(SQLConsumer<Connection> action) {
         boolean success = false;
         while (!success) {
             try (Connection connection = ds.getConnection()) {
@@ -161,7 +151,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                 connection.setAutoCommit(true);
                 success = true;
             } catch (SQLException e) {
-                if (e.getErrorCode() == 1213) { // 1213 = ER_LOCK_DEADLOCK
+                if (e.getSQLState().equals("40P01")) { // 40P01 - postgres' deadlock
                     handleDeadlock();
                 } else {
                     e.printStackTrace();
