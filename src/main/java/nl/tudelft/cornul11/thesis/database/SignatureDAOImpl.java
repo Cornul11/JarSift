@@ -24,8 +24,8 @@ public class SignatureDAOImpl implements SignatureDAO {
     }
 
     @Override
-    public int insertLibrary(JarInfoExtractor jarInfoExtractor, long jarHash) {
-        String insertLibraryQuery = "INSERT INTO libraries (groupId, artifactId, version, hash, isUberJar) VALUES (?, ?, ?, ?, ?)";
+    public int insertLibrary(JarInfoExtractor jarInfoExtractor, long jarHash, long jarCrc) {
+        String insertLibraryQuery = "INSERT INTO libraries (groupId, artifactId, version, hash, crc, isUberJar) VALUES (?, ?, ?, ?, ?, ?)";
 
         executeWithDeadlockRetry(connection -> {
             try (PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery, Statement.RETURN_GENERATED_KEYS)) {
@@ -33,7 +33,8 @@ public class SignatureDAOImpl implements SignatureDAO {
                 libraryStatement.setString(2, jarInfoExtractor.getArtifactId());
                 libraryStatement.setString(3, jarInfoExtractor.getVersion());
                 libraryStatement.setLong(4, jarHash);
-                libraryStatement.setBoolean(5, true);
+                libraryStatement.setLong(5, jarCrc);
+                libraryStatement.setBoolean(6, true);
                 libraryStatement.executeUpdate();
 
                 logger.info("Library row inserted.");
@@ -46,10 +47,9 @@ public class SignatureDAOImpl implements SignatureDAO {
     }
 
     @Override
-    public int insertSignatures(List<Signature> signatures, long jarHash) {
-        String insertLibraryQuery = "INSERT INTO libraries (groupId, artifactId, version, hash, isUberJar) VALUES (?, ?, ?, ?, ?)";
-        String findOrInsertSignatureQuery = "INSERT IGNORE INTO signatures (hash) VALUES (?)";
-        String getSignatureIdQuery = "SELECT id FROM signatures WHERE hash = ?";
+    public int insertSignatures(List<Signature> signatures, long jarHash, long jarCrc) {
+        String insertLibraryQuery = "INSERT INTO libraries (groupId, artifactId, version, hash, crc, isUberJar) VALUES (?, ?, ?, ?, ?, ?)";
+        String insertSignatureQuery = "INSERT INTO signatures (hash) VALUES (?)";
         String insertLibrarySignatureQuery = "INSERT INTO library_signature (library_id, signature_id) VALUES (?, ?)";
 
 
@@ -63,25 +63,24 @@ public class SignatureDAOImpl implements SignatureDAO {
                 libraryStatement.setString(2, firstSignature.getArtifactId());
                 libraryStatement.setString(3, firstSignature.getVersion());
                 libraryStatement.setLong(4, jarHash);
-                libraryStatement.setBoolean(5, false);
+                libraryStatement.setLong(5, jarCrc);
+                libraryStatement.setBoolean(6, false);
                 libraryStatement.executeUpdate();
 
                 ResultSet generatedKeys = libraryStatement.getGeneratedKeys();
                 if (generatedKeys.next()) {
                     int libraryId = generatedKeys.getInt(1);
 
-                    PreparedStatement findOrInsertStatement = connection.prepareStatement(findOrInsertSignatureQuery);
+                    PreparedStatement insertStatement = connection.prepareStatement(insertSignatureQuery, Statement.RETURN_GENERATED_KEYS);
                     PreparedStatement librarySignatureStatement = connection.prepareStatement(insertLibrarySignatureQuery);
 
                     for (Signature signature : signatures) {
-                        findOrInsertStatement.setString(1, signature.getHash());
-                        findOrInsertStatement.executeUpdate();
+                        insertStatement.setString(1, signature.getHash());
+                        insertStatement.executeUpdate();
 
-                        PreparedStatement getSignatureIdStatement = connection.prepareStatement(getSignatureIdQuery);
-                        getSignatureIdStatement.setString(1, signature.getHash());
-                        ResultSet resultSet = getSignatureIdStatement.executeQuery();
-                        if (resultSet.next()) {
-                            int signatureId = resultSet.getInt(1);
+                        ResultSet signatureGeneratedKeys = insertStatement.getGeneratedKeys();
+                        if (signatureGeneratedKeys.next()) {
+                            int signatureId = signatureGeneratedKeys.getInt(1);
                             librarySignatureStatement.setInt(1, libraryId);
                             librarySignatureStatement.setInt(2, signatureId);
                             librarySignatureStatement.executeUpdate();

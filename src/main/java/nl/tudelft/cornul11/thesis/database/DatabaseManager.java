@@ -13,7 +13,6 @@ public class DatabaseManager {
     private final HikariDataSource ds;
     private static final Logger logger = LoggerFactory.getLogger(DatabaseManager.class);
 
-
     private DatabaseManager(DatabaseConfig config) {
         HikariConfig hikariConfig = new HikariConfig();
         hikariConfig.setJdbcUrl(config.getUrl());
@@ -81,6 +80,7 @@ public class DatabaseManager {
                 + "artifactId VARCHAR(255) NOT NULL, "
                 + "version VARCHAR(255) NOT NULL, "
                 + "hash BIGINT NOT NULL, "
+                + "crc BIGINT NOT NULL,"
                 + "isUberJar BOOLEAN NOT NULL)";
 
         try (Connection connection = ds.getConnection();
@@ -95,7 +95,7 @@ public class DatabaseManager {
     private void createSignaturesTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS signatures (" +
                 "id INT PRIMARY KEY AUTO_INCREMENT, " +
-                "hash BIGINT NOT NULL UNIQUE)";
+                "hash BIGINT NOT NULL)";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {

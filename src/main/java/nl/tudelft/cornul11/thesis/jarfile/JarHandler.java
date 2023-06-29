@@ -10,10 +10,13 @@ import org.slf4j.LoggerFactory;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.zip.CRC32;
 
 public class JarHandler {
     private static final int MAX_SUBMODULES = 1;
@@ -26,12 +29,31 @@ public class JarHandler {
     private final Set<String> mavenSubmodules = new HashSet<>();
     private final Logger logger = LoggerFactory.getLogger(JarHandler.class);
     private final boolean ignoreUberJars;
-
+    private final CRC32 crc = new CRC32();
+    private long crcValue = -1;
     public JarHandler(Path jarFilePath, List<String> ignoredUberJars, List<String> insertedLibraries, ConfigurationLoader config) {
         this.jarFilePath = jarFilePath;
         this.ignoredUberJars = ignoredUberJars;
         this.insertedLibraries = insertedLibraries;
         this.ignoreUberJars = config.ignoreUberJars();
+        this.crcValue = this.generateCrc();
+    }
+
+    private long generateCrc() {
+        try (FileChannel channel = FileChannel.open(jarFilePath)) {
+            MappedByteBuffer buffer = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size());
+            byte[] bytes = new byte[8192];
+
+            while (buffer.hasRemaining()) {
+                int length = Math.min(buffer.remaining(), bytes.length);
+                buffer.get(bytes, 0, length);
+                crc.update(bytes, 0, length);
+            }
+        } catch (IOException e) {
+            logger.error("Failed to generate CRC for " + jarFilePath, e);
+        }
+
+        return crc.getValue();
     }
 
     public List<ClassFileInfo> extractJarFileInfo() {
@@ -158,5 +180,9 @@ public class JarHandler {
             logger.error("Error while processing class file: " + entry.getName(), e);
             return null;
         }
+    }
+
+    public long getCrc() {
+        return crcValue;
     }
 }

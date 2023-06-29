@@ -42,7 +42,7 @@ public class SignatureEqualTest {
 
         // capture the signatures passed to commitSignatures
         ArgumentCaptor<List<ClassFileInfo>> argumentCaptor = ArgumentCaptor.forClass(List.class);
-        verify(processor).commitSignatures(argumentCaptor.capture(), any(JarInfoExtractor.class), anyLong());
+        verify(processor).commitSignatures(argumentCaptor.capture(), any(JarInfoExtractor.class), anyLong(), anyLong());
 
         List<ClassFileInfo> capturedClassFileInfosFromProcessor = argumentCaptor.getValue();
 

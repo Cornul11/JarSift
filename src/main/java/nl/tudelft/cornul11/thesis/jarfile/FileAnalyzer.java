@@ -64,7 +64,7 @@ public class FileAnalyzer {
         }
 
 
-        logger.info("Ignored " + ignoredUberJars.size() + " uber jars");
+        logger.info("Ignored the signatures of " + ignoredUberJars.size() + " uber jars");
         logger.info("Actually inserted " + insertedLibraries.size() + " JARs");
     }
 
@@ -78,21 +78,22 @@ public class FileAnalyzer {
         }
         LongHashFunction xx = LongHashFunction.xx();
         long jarHash = xx.hashChars(sb.toString());
+        long jarCrc = jarHandler.getCrc();
 
         JarInfoExtractor jarInfoExtractor = new JarInfoExtractor(jarFilePath.toString());
         if (classFileInfos.isEmpty()) { // it's probably an uber-JAR, let's still add it to the db
-            return commitLibrary(jarInfoExtractor, jarHash);
+            return commitLibrary(jarInfoExtractor, jarHash, jarCrc);
         }
 
-        return commitSignatures(classFileInfos, jarInfoExtractor, jarHash);
+        return commitSignatures(classFileInfos, jarInfoExtractor, jarHash, jarCrc);
     }
 
-    public int commitLibrary(JarInfoExtractor jarInfoExtractor, long jarHash) {
+    public int commitLibrary(JarInfoExtractor jarInfoExtractor, long jarHash, long jarCrc) {
         logger.info("Committing library: " + jarInfoExtractor.getArtifactId() + " version: " + jarInfoExtractor.getVersion());
-        return signatureDao.insertLibrary(jarInfoExtractor, jarHash);
+        return signatureDao.insertLibrary(jarInfoExtractor, jarHash, jarCrc);
     }
 
-    public int commitSignatures(List<ClassFileInfo> signatures, JarInfoExtractor jarInfoExtractor, long jarHash) {
+    public int commitSignatures(List<ClassFileInfo> signatures, JarInfoExtractor jarInfoExtractor, long jarHash, long jarCrc) {
         logger.info("Committing signatures for JAR: " + jarInfoExtractor.getArtifactId() + " version: " + jarInfoExtractor.getVersion());
         for (ClassFileInfo signature : signatures) {
             if (!uniqueHashes.contains(signature.getHashCode())) {
@@ -100,7 +101,7 @@ public class FileAnalyzer {
             }
         }
         List<Signature> signaturesToInsert = signatures.stream().map(signature -> createSignature(signature, jarInfoExtractor)).collect(Collectors.toList());
-        return signatureDao.insertSignatures(signaturesToInsert, jarHash);
+        return signatureDao.insertSignatures(signaturesToInsert, jarHash, jarCrc);
     }
 
     public void printStats() {

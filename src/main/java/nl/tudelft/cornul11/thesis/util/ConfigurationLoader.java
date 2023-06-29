@@ -45,4 +45,8 @@ public class ConfigurationLoader {
                 config.getProperty("dataSource.maintainTimeStats")
         );
     }
+
+    public int getNumConsumerThreads() {
+        return config.getProperty("numConsumerThreads") == null ? 10 : Integer.parseInt(config.getProperty("numConsumerThreads"));
+    }
 }

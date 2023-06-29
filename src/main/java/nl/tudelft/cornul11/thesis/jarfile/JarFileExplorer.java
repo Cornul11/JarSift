@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.concurrent.*;
 
 public class JarFileExplorer {
-    public static final int NUM_CONSUMER_THREADS = 10;
+    private final int numConsumerThreads;
     private final BlockingQueue<Path> queue = new LinkedBlockingQueue<>();
     private final Logger logger = LoggerFactory.getLogger(JarFileExplorer.class);
     private final FileAnalyzer fileAnalyzer;
@@ -27,6 +27,7 @@ public class JarFileExplorer {
     public JarFileExplorer(SignatureDAO signatureDao, ConfigurationLoader config) {
         this.signatureDao = signatureDao;
         this.fileAnalyzer = new FileAnalyzer(signatureDao, config);
+        this.numConsumerThreads = config.getNumConsumerThreads();
     }
 
     public void processFiles(String path, String lastPath) {
@@ -38,8 +39,10 @@ public class JarFileExplorer {
             // TODO: add tqdm-like progress bar (maybe)
 
             // create and start JarProcessor threads
-            ExecutorService executor = Executors.newFixedThreadPool(NUM_CONSUMER_THREADS);
-            for (int i = 0; i < NUM_CONSUMER_THREADS; i++) {
+            logger.info("Starting " + numConsumerThreads + " consumer threads");
+
+            ExecutorService executor = Executors.newFixedThreadPool(numConsumerThreads);
+            for (int i = 0; i < numConsumerThreads; i++) {
                 executor.execute(new JarProcessor(queue, fileAnalyzer));
             }
 
@@ -49,7 +52,7 @@ public class JarFileExplorer {
             Files.walkFileTree(rootPath, directoryExplorer);
 
             // add end-of-stream marker to the queue
-            for (int i = 0; i < NUM_CONSUMER_THREADS; i++) { // 10 consumer threads
+            for (int i = 0; i < numConsumerThreads; i++) { // 10 consumer threads
                 queue.offer(POISON_PILL);
             }
 
