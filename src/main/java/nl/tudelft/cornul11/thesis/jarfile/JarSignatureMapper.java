@@ -35,7 +35,10 @@ public class JarSignatureMapper {
 
                 if (!entry.isDirectory() && entry.getName().endsWith(".class")) {
                     classFileCount++;
-                    classFileInfos.add(processClassFile(entry, jarFile));
+                    ClassFileInfo classFileInfo = processClassFile(entry, jarFile);
+                    if (classFileInfo != null) {
+                        classFileInfos.add(classFileInfo);
+                    }
                 }
             }
             totalClassCount = classFileCount;
@@ -86,6 +89,9 @@ public class JarSignatureMapper {
             BytecodeDetails bytecodeDetails = BytecodeParser.extractSignature(bytecode);
             // TODO: jsr305 is always the same
             return new ClassFileInfo(entry.getName(), bytecodeDetails.getSignature());
+        } catch (Exception e) {
+            logger.error("Error while processing class file: " + entry.getName(), e);
+            return null;
         }
     }
 

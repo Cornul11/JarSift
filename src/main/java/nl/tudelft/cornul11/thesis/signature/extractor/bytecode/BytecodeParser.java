@@ -19,11 +19,14 @@ public class BytecodeParser {
         return bytecode;
     }
 
-    public static BytecodeDetails extractSignature(byte[] bytecode) {
+    public static BytecodeDetails extractSignature(byte[] bytecode) throws RuntimeException {
         ClassReader classReader = new ClassReader(bytecode);
         BytecodeClassVisitor bytecodeClassVisitor = new BytecodeClassVisitor();
-        classReader.accept(bytecodeClassVisitor, ClassReader.EXPAND_FRAMES); // TODO: why EXPAND FRAMES
-
+        try {
+            classReader.accept(bytecodeClassVisitor, ClassReader.EXPAND_FRAMES); // TODO: why EXPAND FRAMES
+        } catch (Exception e) {
+            throw new RuntimeException("Error while parsing bytecode", e);
+        }
         return bytecodeClassVisitor.getBytecodeClass();
     }
 }

@@ -162,6 +162,9 @@ public class JarHandler {
             byte[] bytecode = classFileInputStream.readAllBytes();
             BytecodeDetails bytecodeDetails = BytecodeParser.extractSignature(bytecode);
             return new ClassFileInfo(entry.getName(), bytecodeDetails.getSignature());
+        } catch (Exception e) {
+            logger.error("Error while processing class file: " + entry.getName(), e);
+            return null;
         }
     }
 }
