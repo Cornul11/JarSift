@@ -5,6 +5,7 @@ import nl.tudelft.cornul11.thesis.file.ClassFileInfo;
 import nl.tudelft.cornul11.thesis.file.LibraryMatchInfo;
 import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.BytecodeDetails;
 import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.BytecodeParser;
+import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.BytecodeUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -88,7 +89,7 @@ public class JarSignatureMapper {
             byte[] bytecode = classFileInputStream.readAllBytes();
             BytecodeDetails bytecodeDetails = BytecodeParser.extractSignature(bytecode);
             // TODO: jsr305 is always the same
-            return new ClassFileInfo(entry.getName(), bytecodeDetails.getSignature());
+            return new ClassFileInfo(entry.getName(), BytecodeUtils.getSignatureHash(bytecodeDetails));
         } catch (Exception e) {
             logger.error("Error while processing class file: " + entry.getName(), e);
             return null;

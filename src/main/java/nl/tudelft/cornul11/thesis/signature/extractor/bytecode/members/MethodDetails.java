@@ -7,21 +7,34 @@ import java.util.Arrays;
 import java.util.List;
 
 public class MethodDetails {
-    public int access;
-    public String name;
-    public String desc;
-    public String signature;
-    public String[] exceptions;
-    public List<InstructionDetails> instructions = new ArrayList<>();
-    public List<AnnotationDetails> annotations = new ArrayList<>();
-    public List<String> argumentTypes = new ArrayList<>();
+    private int access;
+    private String name;
+    private String desc;
+    private String signature;
+    private String[] exceptions;
+    private List<InstructionDetails> instructions = new ArrayList<>();
+    private List<AnnotationDetails> annotations = new ArrayList<>();
+    private List<String> argumentTypes = new ArrayList<>();
 
-    public void setDesc(String desc) {
+    public MethodDetails(int access, String name, String desc, String signature, String[] exceptions) {
+        this.access = access;
+        this.name = name;
+        this.desc = desc;
+        this.signature = signature;
+        this.exceptions = exceptions;
+        this.inferArgumentTypes(desc);
+    }
+
+    public void inferArgumentTypes(String desc) {
         this.desc = desc;
         Type methodType = Type.getMethodType(desc);
         for (Type argumentType : methodType.getArgumentTypes()) {
             argumentTypes.add(argumentType.getClassName());
         }
+    }
+
+    public void addAnnotation(AnnotationDetails annotation) {
+        annotations.add(annotation);
     }
 
     @Override
@@ -36,5 +49,9 @@ public class MethodDetails {
                 ", annotations=" + annotations +
                 ", argumentTypes=" + argumentTypes +
                 '}';
+    }
+
+    public void addInstruction(InstructionDetails instruction) {
+        instructions.add(instruction);
     }
 }

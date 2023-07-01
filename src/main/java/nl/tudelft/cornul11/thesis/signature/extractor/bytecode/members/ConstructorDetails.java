@@ -1,10 +1,17 @@
 package nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members;
 
 public class ConstructorDetails {
-    public String name;
-    public String desc;
-    public String signature;
-    public String[] exceptions;
+    private String name;
+    private String desc;
+    private String signature;
+    private String[] exceptions;
+
+    public ConstructorDetails(String name, String desc, String signature, String[] exceptions) {
+        this.name = name;
+        this.desc = desc;
+        this.signature = signature;
+        this.exceptions = exceptions;
+    }
 
     @Override
     public String toString() {

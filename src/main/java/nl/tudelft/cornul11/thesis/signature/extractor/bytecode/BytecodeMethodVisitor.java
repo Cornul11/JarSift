@@ -5,6 +5,7 @@ import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.Instructi
 import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.MethodDetails;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.MethodVisitor;
+
 public class BytecodeMethodVisitor extends MethodVisitor {
     private final MethodDetails method;
 
@@ -17,28 +18,23 @@ public class BytecodeMethodVisitor extends MethodVisitor {
     public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
         descriptor = BytecodeUtils.getShortDesc(descriptor);
 
-        AnnotationDetails annotation = new AnnotationDetails();
-        annotation.desc = descriptor;
-        annotation.visible = visible;
-        method.annotations.add(annotation);
+        AnnotationDetails annotation = new AnnotationDetails(descriptor, visible);
+        method.addAnnotation(annotation);
 
         return new BytecodeAnnotationVisitor(api, super.visitAnnotation(descriptor, visible), annotation);
     }
 
     @Override
     public void visitInsn(int opcode) {
-        InstructionDetails instruction = new InstructionDetails();
-        instruction.opcode = Integer.toString(opcode);
-        method.instructions.add(instruction);
+        InstructionDetails instruction = new InstructionDetails(Integer.toString(opcode), null);
+        method.addInstruction(instruction);
         super.visitInsn(opcode);
     }
 
     @Override
     public void visitIntInsn(int opcode, int operand) {
-        InstructionDetails instruction = new InstructionDetails();
-        instruction.opcode = Integer.toString(opcode);
-        instruction.operand = Integer.toString(operand);
-        method.instructions.add(instruction);
+        InstructionDetails instruction = new InstructionDetails(Integer.toString(opcode), Integer.toString(operand));
+        method.addInstruction(instruction);
         super.visitIntInsn(opcode, operand);
     }
 
@@ -46,19 +42,15 @@ public class BytecodeMethodVisitor extends MethodVisitor {
 
     @Override
     public void visitVarInsn(int opcode, int var) {
-        InstructionDetails instruction = new InstructionDetails();
-        instruction.opcode = Integer.toString(opcode);
-        instruction.operand = Integer.toString(var);
-        method.instructions.add(instruction);
+        InstructionDetails instruction = new InstructionDetails(Integer.toString(opcode), Integer.toString(var));
+        method.addInstruction(instruction);
         super.visitVarInsn(opcode, var);
     }
 
     @Override
     public void visitTypeInsn(int opcode, String type) {
-        InstructionDetails instruction = new InstructionDetails();
-        instruction.opcode = Integer.toString(opcode);
-        instruction.operand = BytecodeUtils.getShortName(type);
-        method.instructions.add(instruction);
+        InstructionDetails instruction = new InstructionDetails(Integer.toString(opcode), BytecodeUtils.getShortName(type));
+        method.addInstruction(instruction);
         super.visitTypeInsn(opcode, type);
     }
 

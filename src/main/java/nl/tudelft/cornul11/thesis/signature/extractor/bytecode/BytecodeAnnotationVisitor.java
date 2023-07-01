@@ -19,7 +19,7 @@ public class BytecodeAnnotationVisitor extends AnnotationVisitor {
         if (value instanceof String) {
             value = BytecodeUtils.getShortName((String) value);
         }
-        annotation.arguments.put(name, value);
+        annotation.putArgument(name, value);
         super.visit(name, value);
     }
 
@@ -27,15 +27,15 @@ public class BytecodeAnnotationVisitor extends AnnotationVisitor {
     public AnnotationVisitor visitArray(String name) {
         name = BytecodeUtils.getShortName(name);
         List<Object> values = new ArrayList<>();
-        annotation.arrayArguments.put(name, values);
+        annotation.putArrayArgument(name, values);
         return new BytecodeArrayAnnotationVisitor(api, super.visitArray(name), values);
     }
 
     @Override
     public AnnotationVisitor visitAnnotation(String name, String desc) {
-        AnnotationDetails nestedAnnotation = new AnnotationDetails();
-        nestedAnnotation.desc = BytecodeUtils.getShortDesc(desc);
-        annotation.annotationArguments.put(name, nestedAnnotation);
+        desc = BytecodeUtils.getShortDesc(desc);
+        AnnotationDetails nestedAnnotation = new AnnotationDetails(desc, null);
+        annotation.putAnnotationArgument(name, nestedAnnotation);
         return new BytecodeAnnotationVisitor(api, super.visitAnnotation(name, desc), nestedAnnotation);
     }
 
@@ -43,7 +43,7 @@ public class BytecodeAnnotationVisitor extends AnnotationVisitor {
     public void visitEnum(String name, String desc, String value) {
         desc = BytecodeUtils.getShortDesc(desc);
         value = BytecodeUtils.getShortName(value);
-        annotation.arguments.put(name, desc + "." + value);
+        annotation.putArgument(name, desc + "." + value);
         super.visitEnum(name, desc, value);
     }
 }

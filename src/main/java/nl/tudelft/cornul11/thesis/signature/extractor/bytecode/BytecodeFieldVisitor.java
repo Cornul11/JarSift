@@ -16,9 +16,8 @@ public class BytecodeFieldVisitor extends FieldVisitor {
     @Override
     public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
         desc = BytecodeUtils.getShortDesc(desc);
-        AnnotationDetails annotation = new AnnotationDetails();
-        annotation.desc = desc;
-        field.annotations.add(annotation);
+        AnnotationDetails annotation = new AnnotationDetails(desc, visible);
+        field.addAnnotation(annotation);
         return new BytecodeAnnotationVisitor(api, super.visitAnnotation(desc, visible), annotation);
     }
 }

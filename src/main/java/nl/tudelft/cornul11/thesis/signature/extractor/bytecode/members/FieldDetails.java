@@ -4,9 +4,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class FieldDetails {
-    public String name;
-    public String desc;
-    public List<AnnotationDetails> annotations = new ArrayList<>();
+    private String name;
+    private String desc;
+    private List<AnnotationDetails> annotations = new ArrayList<>();
+
+    public FieldDetails(String name, String desc) {
+        this.name = name;
+        this.desc = desc;
+    }
 
     @Override
     public String toString() {
@@ -15,5 +20,9 @@ public class FieldDetails {
                 ", desc='" + desc + '\'' +
                 ", annotations=" + annotations +
                 '}';
+    }
+
+    public void addAnnotation(AnnotationDetails annotation) {
+        annotations.add(annotation);
     }
 }

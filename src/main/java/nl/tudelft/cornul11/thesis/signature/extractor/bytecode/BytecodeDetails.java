@@ -7,42 +7,118 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class BytecodeDetails {
-    public String name;
-    public String extendsType;
-    public List<String> interfaces = new ArrayList<>();
-    public List<FieldDetails> fields = new ArrayList<>();
-    public List<MethodDetails> methods = new ArrayList<>();
-    public List<ConstructorDetails> constructors = new ArrayList<>();
-    public List<NestedClassDetails> innerClasses = new ArrayList<>();
-    public List<AnnotationDetails> annotations = new ArrayList<>();
+    private int access;
+    private String name;
+    private String extendsType;
+    private List<String> interfaces = new ArrayList<>();
+    private List<FieldDetails> fields = new ArrayList<>();
+    private List<MethodDetails> methods = new ArrayList<>();
+    private List<ConstructorDetails> constructors = new ArrayList<>();
+    private List<NestedClassDetails> innerClasses = new ArrayList<>();
+    private List<AnnotationDetails> annotations = new ArrayList<>();
 
+    private BytecodeDetails(Builder builder) {
+        this.access = builder.access;
+        this.name = builder.name;
+        this.extendsType = builder.extendsType;
+        this.interfaces = builder.interfaces;
+        this.fields = builder.fields;
+        this.methods = builder.methods;
+        this.constructors = builder.constructors;
+        this.innerClasses = builder.innerClasses;
+        this.annotations = builder.annotations;
+    }
 
-    //
-//    private void preProcessNames() {
-//        for (AnnotationDetails annotation : annotations) {
-//            for (Map.Entry<String, AnnotationDetails> entry : annotation.annotationArguments.entrySet()) {
-//                entry.getValue().desc = getShortDesc(entry.getValue().desc);
-//            }
-//        }
-//
-//        // Similar processing should be done for the names inside innerInterfaces, innerEnums, and annotations
-//    }
-    public long getSignature() {
-        // TODO: move the hashing function outside of this class
-        // this function should only return the signature, not hash it
+    public String getName() {
+        return name;
+    }
 
-        LongHashFunction cityHashFunction = LongHashFunction.xx3();
-        StringBuilder classSignature = new StringBuilder();
+    public String getExtendsType() {
+        return extendsType;
+    }
 
-        // Considering the name is now shortened (loses package name), we can add it to the signature
-        classSignature.append(name);
-        classSignature.append(extendsType);
-        classSignature.append(interfaces.toString());
-        classSignature.append(fields.toString());
-        classSignature.append(methods.toString());
-        classSignature.append(constructors.toString());
-        classSignature.append(innerClasses.toString());
-        classSignature.append(annotations.toString());
-        return cityHashFunction.hashChars(classSignature);
+    public List<String> getInterfaces() {
+        return interfaces;
+    }
+
+    public List<FieldDetails> getFields() {
+        return fields;
+    }
+
+    public List<MethodDetails> getMethods() {
+        return methods;
+    }
+
+    public List<ConstructorDetails> getConstructors() {
+        return constructors;
+    }
+
+    public List<NestedClassDetails> getInnerClasses() {
+        return innerClasses;
+    }
+
+    public List<AnnotationDetails> getAnnotations() {
+        return annotations;
+    }
+
+    public static class Builder {
+        private int access;
+        private String name;
+        private String extendsType;
+        private List<String> interfaces = new ArrayList<>();
+        private List<FieldDetails> fields = new ArrayList<>();
+        private List<MethodDetails> methods = new ArrayList<>();
+        private List<ConstructorDetails> constructors = new ArrayList<>();
+        private List<NestedClassDetails> innerClasses = new ArrayList<>();
+        private List<AnnotationDetails> annotations = new ArrayList<>();
+
+        public Builder setName(String name) {
+            this.name = name;
+            return this;
+        }
+
+        public Builder setExtendsType(String extendsType) {
+            this.extendsType = extendsType;
+            return this;
+        }
+
+        public Builder addInterface(String interfaceName) {
+            this.interfaces.add(interfaceName);
+            return this;
+        }
+
+        public Builder addField(FieldDetails field) {
+            this.fields.add(field);
+            return this;
+        }
+
+        public Builder addMethod(MethodDetails method) {
+            this.methods.add(method);
+            return this;
+        }
+
+        public Builder addConstructor(ConstructorDetails constructor) {
+            this.constructors.add(constructor);
+            return this;
+        }
+
+        public Builder addInnerClass(NestedClassDetails innerClass) {
+            this.innerClasses.add(innerClass);
+            return this;
+        }
+
+        public Builder addAnnotation(AnnotationDetails annotation) {
+            this.annotations.add(annotation);
+            return this;
+        }
+
+        public Builder setAccess(int access) {
+            this.access = access;
+            return this;
+        }
+
+        public BytecodeDetails build() {
+            return new BytecodeDetails(this);
+        }
     }
 }

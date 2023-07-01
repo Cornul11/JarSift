@@ -1,5 +1,6 @@
 import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.BytecodeDetails;
 import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.BytecodeParser;
+import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.BytecodeUtils;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -22,8 +23,8 @@ public class BytecodeDetailsHashingTest {
         BytecodeDetails withAnnotations = loadBytecodeClass(CLASS_WITH_ANNOTATIONS);
         BytecodeDetails withoutAnnotations = loadBytecodeClass(CLASS_WITHOUT_ANNOTATIONS);
 
-        assertNotEquals(withAnnotations.annotations.size(), withoutAnnotations.annotations.size(), "The number of annotations should be different between the two classes.");
-        assertNotEquals(withAnnotations.getSignature(), withoutAnnotations.getSignature(), "The hashcodes of the two classes should be different.");
+        assertNotEquals(withAnnotations.getAnnotations().size(), withoutAnnotations.getAnnotations().size(), "The number of annotations should be different between the two classes.");
+        assertNotEquals(BytecodeUtils.getSignatureHash(withAnnotations), BytecodeUtils.getSignatureHash(withoutAnnotations), "The hashcodes of the two classes should be different.");
     }
 
     // TODO: disable for now until it works
@@ -35,7 +36,7 @@ public class BytecodeDetailsHashingTest {
         BytecodeDetails packagePrivateClass = loadBytecodeClass(CLASS_WITH_PACKAGE_PRIVATE_INNER_ENUM_CLASS);
         BytecodeDetails privateClass = loadBytecodeClass(CLASS_WITH_PRIVATE_INNER_ENUM_CLASS);
 
-        assertNotEquals(packagePrivateClass.getSignature(), privateClass.getSignature(), "The hashcodes of the two classes should be different.");
+        assertNotEquals(BytecodeUtils.getSignatureHash(packagePrivateClass), BytecodeUtils.getSignatureHash(privateClass), "The hashcodes of the two classes should be different.");
     }
 
 
@@ -46,8 +47,8 @@ public class BytecodeDetailsHashingTest {
         BytecodeDetails withMethods = loadBytecodeClass(CLASS_WITH_METHODS_CLASS);
         BytecodeDetails withOneLessMethods = loadBytecodeClass(CLASS_WITH_ONE_LESS_METHODS_CLASS);
 
-        assertNotEquals(withMethods.methods.size(), withOneLessMethods.methods.size(), "The number of methods should be different between the two classes");
-        assertNotEquals(withMethods.getSignature(), withOneLessMethods.getSignature(), "The hashcodes of the two classes should be different");
+        assertNotEquals(withMethods.getMethods().size(), withOneLessMethods.getMethods().size(), "The number of methods should be different between the two classes");
+        assertNotEquals(BytecodeUtils.getSignatureHash(withMethods), BytecodeUtils.getSignatureHash(withOneLessMethods), "The hashcodes of the two classes should be different");
     }
 
 //    @Test

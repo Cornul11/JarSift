@@ -1,10 +1,10 @@
 package nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members;
 
 public class EnumDetails {
-    public String name;
-    public String outerName;
-    public String innerName;
-    public int access;
+    private String name;
+    private String outerName;
+    private String innerName;
+    private int access;
 
     @Override
     public String toString() {

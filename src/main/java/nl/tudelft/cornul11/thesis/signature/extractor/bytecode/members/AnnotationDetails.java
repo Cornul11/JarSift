@@ -5,11 +5,28 @@ import java.util.List;
 import java.util.Map;
 
 public class AnnotationDetails {
-    public String desc;
-    public boolean visible;
-    public Map<String, Object> arguments = new HashMap<>();
-    public Map<String, List<Object>> arrayArguments = new HashMap<>();
-    public Map<String, AnnotationDetails> annotationArguments = new HashMap<>();
+    private String desc;
+    private Boolean visible;
+    private Map<String, Object> arguments = new HashMap<>();
+    private Map<String, List<Object>> arrayArguments = new HashMap<>();
+    private Map<String, AnnotationDetails> annotationArguments = new HashMap<>();
+
+    public AnnotationDetails(String desc, Boolean visible) {
+        this.desc = desc;
+        this.visible = visible;
+    }
+
+    public void putAnnotationArgument(String name, AnnotationDetails nestedAnnotation) {
+        annotationArguments.put(name, nestedAnnotation);
+    }
+
+    public void putArgument(String name, Object s) {
+        arguments.put(name, s);
+    }
+
+    public void putArrayArgument(String name, List<Object> values) {
+        arrayArguments.put(name, values);
+    }
 
     @Override
     public String toString() {

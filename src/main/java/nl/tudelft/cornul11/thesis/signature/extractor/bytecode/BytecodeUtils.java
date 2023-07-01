@@ -1,8 +1,26 @@
 package nl.tudelft.cornul11.thesis.signature.extractor.bytecode;
 
+import net.openhft.hashing.LongHashFunction;
 import org.jetbrains.annotations.NotNull;
 
 public class BytecodeUtils {
+    public static long getSignatureHash(BytecodeDetails bytecodeDetails) {
+        LongHashFunction cityHashFunction = LongHashFunction.xx3();
+        StringBuilder classSignature = new StringBuilder();
+
+        classSignature.append(bytecodeDetails.getName());
+        classSignature.append(bytecodeDetails.getExtendsType());
+        classSignature.append(bytecodeDetails.getInterfaces().toString());
+        classSignature.append(bytecodeDetails.getFields().toString());
+        classSignature.append(bytecodeDetails.getMethods().toString());
+        classSignature.append(bytecodeDetails.getConstructors().toString());
+        classSignature.append(bytecodeDetails.getInnerClasses().toString());
+        classSignature.append(bytecodeDetails.getAnnotations().toString());
+
+        return cityHashFunction.hashChars(classSignature);
+    }
+
+
     private static String processGenericPart(String genericPart) {
         // Generic parts are enclosed in <>, and can contain class names denoted by L...;
         StringBuilder processed = new StringBuilder();
