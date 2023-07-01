@@ -23,7 +23,7 @@ public class BytecodeParser {
         ClassReader classReader = new ClassReader(bytecode);
         BytecodeClassVisitor bytecodeClassVisitor = new BytecodeClassVisitor();
         try {
-            classReader.accept(bytecodeClassVisitor, ClassReader.EXPAND_FRAMES); // TODO: why EXPAND FRAMES
+            classReader.accept(bytecodeClassVisitor, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
         } catch (Exception e) {
             throw new RuntimeException("Error while parsing bytecode", e);
         }

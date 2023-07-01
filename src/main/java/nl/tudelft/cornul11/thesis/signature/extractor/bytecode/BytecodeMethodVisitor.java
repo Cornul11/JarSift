@@ -1,7 +1,9 @@
 package nl.tudelft.cornul11.thesis.signature.extractor.bytecode;
 
+import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.AnnotationDetails;
 import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.InstructionDetails;
 import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.MethodDetails;
+import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.MethodVisitor;
 public class BytecodeMethodVisitor extends MethodVisitor {
     private final MethodDetails method;
@@ -9,6 +11,18 @@ public class BytecodeMethodVisitor extends MethodVisitor {
     public BytecodeMethodVisitor(int api, MethodVisitor methodVisitor, MethodDetails method) {
         super(api, methodVisitor);
         this.method = method;
+    }
+
+    @Override
+    public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+        descriptor = BytecodeUtils.getShortDesc(descriptor);
+
+        AnnotationDetails annotation = new AnnotationDetails();
+        annotation.desc = descriptor;
+        annotation.visible = visible;
+        method.annotations.add(annotation);
+
+        return new BytecodeAnnotationVisitor(api, super.visitAnnotation(descriptor, visible), annotation);
     }
 
     @Override
@@ -43,7 +57,7 @@ public class BytecodeMethodVisitor extends MethodVisitor {
     public void visitTypeInsn(int opcode, String type) {
         InstructionDetails instruction = new InstructionDetails();
         instruction.opcode = Integer.toString(opcode);
-        instruction.operand = type;
+        instruction.operand = BytecodeUtils.getShortName(type);
         method.instructions.add(instruction);
         super.visitTypeInsn(opcode, type);
     }

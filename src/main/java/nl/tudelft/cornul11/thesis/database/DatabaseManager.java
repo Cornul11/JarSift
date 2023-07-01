@@ -54,7 +54,7 @@ public class DatabaseManager {
         createLibrariesTable();
         createSignaturesTable();
         createLibrarySignatureTable();
-        addIndexes();
+//        addIndexes();
     }
 
     private void addIndexes() {

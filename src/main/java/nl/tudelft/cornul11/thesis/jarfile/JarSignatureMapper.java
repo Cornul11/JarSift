@@ -20,7 +20,7 @@ public class JarSignatureMapper {
     private int totalClassCount = 0;
     private final SignatureDAO signatureDao;
     private final Logger logger = LoggerFactory.getLogger(JarSignatureMapper.class);
-
+    private static final Set<String> FILENAME_EXCEPTIONS = Set.of("module-info.class", "package-info.class");
     public JarSignatureMapper(SignatureDAO signatureDao) {
         this.signatureDao = signatureDao;
     }
@@ -33,7 +33,7 @@ public class JarSignatureMapper {
             while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
 
-                if (!entry.isDirectory() && entry.getName().endsWith(".class")) {
+                if (!entry.isDirectory() && entry.getName().endsWith(".class") && !FILENAME_EXCEPTIONS.contains(entry.getName())) {
                     classFileCount++;
                     ClassFileInfo classFileInfo = processClassFile(entry, jarFile);
                     if (classFileInfo != null) {

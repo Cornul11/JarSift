@@ -14,12 +14,16 @@ public class BytecodeArrayAnnotationVisitor extends AnnotationVisitor {
 
     @Override
     public void visit(String name, Object value) {
+        if (value instanceof String) {
+            value = BytecodeUtils.getShortName((String) value);
+        }
         values.add(value);
         super.visit(name, value);
     }
 
     @Override
     public void visitEnum(String name, String desc, String value) {
+        desc = BytecodeUtils.getShortDesc(desc);
         values.add(desc + "." + value);
         super.visitEnum(name, desc, value);
     }

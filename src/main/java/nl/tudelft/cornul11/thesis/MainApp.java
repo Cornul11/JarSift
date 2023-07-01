@@ -1,15 +1,12 @@
 package nl.tudelft.cornul11.thesis;
 
 import nl.tudelft.cornul11.thesis.api.PostRequestClient;
-import nl.tudelft.cornul11.thesis.commandline.OptionsBuilder;
 import nl.tudelft.cornul11.thesis.commandline.CommandExecutor;
-
+import nl.tudelft.cornul11.thesis.commandline.OptionsBuilder;
 import nl.tudelft.cornul11.thesis.util.ConfigurationLoader;
-import org.apache.commons.cli.*;
+import org.apache.commons.cli.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Properties;
 
 public class MainApp {
     private static final Logger logger = LoggerFactory.getLogger(MainApp.class);

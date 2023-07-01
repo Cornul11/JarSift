@@ -7,11 +7,13 @@ import java.util.Arrays;
 import java.util.List;
 
 public class MethodDetails {
+    public int access;
     public String name;
     public String desc;
     public String signature;
     public String[] exceptions;
     public List<InstructionDetails> instructions = new ArrayList<>();
+    public List<AnnotationDetails> annotations = new ArrayList<>();
     public List<String> argumentTypes = new ArrayList<>();
 
     public void setDesc(String desc) {
@@ -25,11 +27,13 @@ public class MethodDetails {
     @Override
     public String toString() {
         return "MethodDetails{" +
-                "name='" + name + '\'' +
+                "access=" + access +
+                ", name='" + name + '\'' +
                 ", desc='" + desc + '\'' +
                 ", signature='" + signature + '\'' +
                 ", exceptions=" + Arrays.toString(exceptions) +
                 ", instructions=" + instructions +
+                ", annotations=" + annotations +
                 ", argumentTypes=" + argumentTypes +
                 '}';
     }

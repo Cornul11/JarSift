@@ -173,8 +173,8 @@ public class SignatureDAOImpl implements SignatureDAO {
     private void handleDeadlock() {
         logger.error("Deadlock detected. Retrying...");
         try {
-            // sleep for a random amount of time between 1 and 2 seconds
-            Thread.sleep(1000 + (int) (Math.random() * 1000));
+            // sleep for a random amount of time between 0.5 and 1 seconds
+            Thread.sleep(500 + (int) (Math.random() * 500));
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
             throw new RuntimeException(ie);

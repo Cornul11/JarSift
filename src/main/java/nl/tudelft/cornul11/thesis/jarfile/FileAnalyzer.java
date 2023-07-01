@@ -70,22 +70,22 @@ public class FileAnalyzer {
 
     public int processJarFile(Path jarFilePath) {
         JarHandler jarHandler = new JarHandler(jarFilePath, ignoredUberJars, insertedLibraries, config);
-        List<ClassFileInfo> classFileInfos = jarHandler.extractJarFileInfo();
+        List<ClassFileInfo> signatures = jarHandler.extractSignatures();
 
         StringBuilder sb = new StringBuilder();
-        for (ClassFileInfo classFileInfo : classFileInfos) {
-            sb.append(classFileInfo.getHashCode());
+        for (ClassFileInfo signature : signatures) {
+            sb.append(signature.getHashCode());
         }
         LongHashFunction xx = LongHashFunction.xx();
         long jarHash = xx.hashChars(sb.toString());
         long jarCrc = jarHandler.getCrc();
 
         JarInfoExtractor jarInfoExtractor = new JarInfoExtractor(jarFilePath.toString());
-        if (classFileInfos.isEmpty()) { // it's probably an uber-JAR, let's still add it to the db
+        if (signatures.isEmpty()) { // it's probably an uber-JAR, let's still add it to the db
             return commitLibrary(jarInfoExtractor, jarHash, jarCrc);
         }
 
-        return commitSignatures(classFileInfos, jarInfoExtractor, jarHash, jarCrc);
+        return commitSignatures(signatures, jarInfoExtractor, jarHash, jarCrc);
     }
 
     public int commitLibrary(JarInfoExtractor jarInfoExtractor, long jarHash, long jarCrc) {

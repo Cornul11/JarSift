@@ -1,0 +1,24 @@
+package nl.tudelft.cornul11.thesis.signature.extractor.bytecode;
+
+import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.AnnotationDetails;
+import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.FieldDetails;
+import org.objectweb.asm.AnnotationVisitor;
+import org.objectweb.asm.FieldVisitor;
+
+public class BytecodeFieldVisitor extends FieldVisitor {
+    private final FieldDetails field;
+
+    public BytecodeFieldVisitor(int api, FieldVisitor fieldVisitor, FieldDetails field) {
+        super(api, fieldVisitor);
+        this.field = field;
+    }
+
+    @Override
+    public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
+        desc = BytecodeUtils.getShortDesc(desc);
+        AnnotationDetails annotation = new AnnotationDetails();
+        annotation.desc = desc;
+        field.annotations.add(annotation);
+        return new BytecodeAnnotationVisitor(api, super.visitAnnotation(desc, visible), annotation);
+    }
+}

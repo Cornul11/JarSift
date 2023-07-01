@@ -56,13 +56,12 @@ public class JarHandler {
         return crc.getValue();
     }
 
-    public List<ClassFileInfo> extractJarFileInfo() {
+    public List<ClassFileInfo> extractSignatures() {
         mavenSubmodules.clear();
 
         logger.info("Attempting to process " + jarFilePath);
         try (JarFile jarFile = new JarFile(jarFilePath.toFile())) {
             Enumeration<JarEntry> entries = jarFile.entries();
-            String initialClassPrefix = null;
             List<ClassFileInfo> classFileInfos = new ArrayList<>();
             logger.info("Processing " + jarFilePath + " with " + jarFile.size() + " entries");
             while (entries.hasMoreElements()) {
@@ -171,7 +170,6 @@ public class JarHandler {
     }
 
     private ClassFileInfo processClassFile(JarEntry entry, JarFile jarFile) throws IOException {
-//        logger.debug("Processing class file: " + entry.getName()); // TODO: this makes the logs too verbose
         try (InputStream classFileInputStream = jarFile.getInputStream(entry)) {
             byte[] bytecode = classFileInputStream.readAllBytes();
             BytecodeDetails bytecodeDetails = BytecodeParser.extractSignature(bytecode);
