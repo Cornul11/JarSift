@@ -49,7 +49,7 @@ public class SignatureDAOImpl implements SignatureDAO {
     @Override
     public int insertSignatures(List<Signature> signatures, long jarHash, long jarCrc) {
         String insertLibraryQuery = "INSERT INTO libraries (groupId, artifactId, version, hash, crc, isUberJar) VALUES (?, ?, ?, ?, ?, ?)";
-        String insertSignatureQuery = "INSERT INTO signatures (hash) VALUES (?)";
+        String insertSignatureQuery = "INSERT INTO signatures (hash, crc) VALUES (?, ?)";
         String insertLibrarySignatureQuery = "INSERT INTO library_signature (library_id, signature_id) VALUES (?, ?)";
 
 
@@ -75,7 +75,8 @@ public class SignatureDAOImpl implements SignatureDAO {
                     PreparedStatement librarySignatureStatement = connection.prepareStatement(insertLibrarySignatureQuery);
 
                     for (Signature signature : signatures) {
-                        insertStatement.setString(1, signature.getHash());
+                        insertStatement.setLong(1, signature.getHash());
+                        insertStatement.setLong(2, signature.getCrc());
                         insertStatement.executeUpdate();
 
                         ResultSet signatureGeneratedKeys = insertStatement.getGeneratedKeys();

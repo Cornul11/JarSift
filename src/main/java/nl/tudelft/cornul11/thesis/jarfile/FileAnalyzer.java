@@ -78,7 +78,7 @@ public class FileAnalyzer {
         }
         LongHashFunction xx = LongHashFunction.xx();
         long jarHash = xx.hashChars(sb.toString());
-        long jarCrc = jarHandler.getCrc();
+        long jarCrc = jarHandler.getJarCrc();
 
         JarInfoExtractor jarInfoExtractor = new JarInfoExtractor(jarFilePath.toString());
         if (signatures.isEmpty()) { // it's probably an uber-JAR, let's still add it to the db
@@ -110,6 +110,6 @@ public class FileAnalyzer {
     }
 
     private Signature createSignature(ClassFileInfo signature, JarInfoExtractor jarInfoExtractor) {
-        return new Signature(0, signature.getFileName(), Long.toString(signature.getHashCode()), jarInfoExtractor.getGroupId(), jarInfoExtractor.getArtifactId(), jarInfoExtractor.getVersion());
+        return new Signature(0, signature.getFileName(), signature.getHashCode(), signature.getCrc(), jarInfoExtractor.getGroupId(), jarInfoExtractor.getArtifactId(), jarInfoExtractor.getVersion());
     }
 }

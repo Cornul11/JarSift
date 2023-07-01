@@ -30,8 +30,9 @@ public class JarHandler {
     private final Set<String> mavenSubmodules = new HashSet<>();
     private final Logger logger = LoggerFactory.getLogger(JarHandler.class);
     private final boolean ignoreUberJars;
-    private final CRC32 crc = new CRC32();
-    private long crcValue = -1;
+    private final CRC32 jarCrc = new CRC32();
+    private final long crcValue;
+
     public JarHandler(Path jarFilePath, List<String> ignoredUberJars, List<String> insertedLibraries, ConfigurationLoader config) {
         this.jarFilePath = jarFilePath;
         this.ignoredUberJars = ignoredUberJars;
@@ -41,6 +42,8 @@ public class JarHandler {
     }
 
     private long generateCrc() {
+        jarCrc.reset();
+
         try (FileChannel channel = FileChannel.open(jarFilePath)) {
             MappedByteBuffer buffer = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size());
             byte[] bytes = new byte[8192];
@@ -48,13 +51,13 @@ public class JarHandler {
             while (buffer.hasRemaining()) {
                 int length = Math.min(buffer.remaining(), bytes.length);
                 buffer.get(bytes, 0, length);
-                crc.update(bytes, 0, length);
+                jarCrc.update(bytes, 0, length);
             }
         } catch (IOException e) {
             logger.error("Failed to generate CRC for " + jarFilePath, e);
         }
 
-        return crc.getValue();
+        return jarCrc.getValue();
     }
 
     public List<ClassFileInfo> extractSignatures() {
@@ -172,16 +175,17 @@ public class JarHandler {
 
     private ClassFileInfo processClassFile(JarEntry entry, JarFile jarFile) throws IOException {
         try (InputStream classFileInputStream = jarFile.getInputStream(entry)) {
-            byte[] bytecode = classFileInputStream.readAllBytes();
+            byte[] bytecode = BytecodeUtils.readBytecodeAndCalculateCRCWhenNotAvailable(entry, classFileInputStream);
+
             BytecodeDetails bytecodeDetails = BytecodeParser.extractSignature(bytecode);
-            return new ClassFileInfo(entry.getName(), BytecodeUtils.getSignatureHash(bytecodeDetails));
-        } catch (Exception e) {
+            return new ClassFileInfo(entry.getName(), BytecodeUtils.getSignatureHash(bytecodeDetails), entry.getCrc());
+        } catch ( Exception e ) {
             logger.error("Error while processing class file: " + entry.getName(), e);
-            return null;
+            throw e;
         }
     }
 
-    public long getCrc() {
+    public long getJarCrc() {
         return crcValue;
     }
 }

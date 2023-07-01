@@ -22,6 +22,7 @@ public class JarSignatureMapper {
     private final SignatureDAO signatureDao;
     private final Logger logger = LoggerFactory.getLogger(JarSignatureMapper.class);
     private static final Set<String> FILENAME_EXCEPTIONS = Set.of("module-info.class", "package-info.class");
+
     public JarSignatureMapper(SignatureDAO signatureDao) {
         this.signatureDao = signatureDao;
     }
@@ -54,7 +55,7 @@ public class JarSignatureMapper {
     public Map<String, Map<String, Object>> getTopMatches(List<ClassFileInfo> signatures, SignatureDAO signatureDao) {
         logger.info("Getting top matches for " + signatures.size() + " signatures");
         List<Long> hashes = signatures.stream()
-                .map(signature -> signature.getHashCode())
+                .map(ClassFileInfo::getHashCode)
                 .collect(Collectors.toList());
 
         // get the top library matches based on hashes
@@ -78,7 +79,7 @@ public class JarSignatureMapper {
                         entry -> entry.getKey() + ":" + entry.getValue().getVersion(),
                         entry -> Map.of("count", (long) entry.getValue().getClassFileCount(),
                                 "total", (long) entry.getValue().getTotalCount(),
-                                "ratio", ((double)entry.getValue().getClassFileCount())/entry.getValue().getTotalCount())));
+                                "ratio", ((double) entry.getValue().getClassFileCount()) / entry.getValue().getTotalCount())));
 
         return libraryVersionCountMap;
     }
@@ -86,9 +87,10 @@ public class JarSignatureMapper {
     private ClassFileInfo processClassFile(JarEntry entry, JarFile jarFile) throws IOException {
         logger.info("Processing class file: " + entry.getName());
         try (InputStream classFileInputStream = jarFile.getInputStream(entry)) {
-            byte[] bytecode = classFileInputStream.readAllBytes();
+            byte[] bytecode = BytecodeUtils.readBytecodeAndCalculateCRCWhenNotAvailable(entry, classFileInputStream);
+
             BytecodeDetails bytecodeDetails = BytecodeParser.extractSignature(bytecode);
-            return new ClassFileInfo(entry.getName(), BytecodeUtils.getSignatureHash(bytecodeDetails));
+            return new ClassFileInfo(entry.getName(), BytecodeUtils.getSignatureHash(bytecodeDetails), entry.getCrc());
         } catch (Exception e) {
             logger.error("Error while processing class file: " + entry.getName(), e);
             return null;

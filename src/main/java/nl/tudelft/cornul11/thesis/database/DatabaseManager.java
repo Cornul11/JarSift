@@ -95,7 +95,8 @@ public class DatabaseManager {
     private void createSignaturesTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS signatures (" +
                 "id INT PRIMARY KEY AUTO_INCREMENT, " +
-                "hash BIGINT NOT NULL)";
+                "hash BIGINT NOT NULL," +
+                "crc BIGINT NOT NULL)";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {

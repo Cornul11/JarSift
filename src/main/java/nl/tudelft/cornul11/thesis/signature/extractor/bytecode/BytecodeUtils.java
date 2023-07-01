@@ -3,7 +3,22 @@ package nl.tudelft.cornul11.thesis.signature.extractor.bytecode;
 import net.openhft.hashing.LongHashFunction;
 import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.*;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.jar.JarEntry;
+import java.util.zip.CRC32;
+
 public class BytecodeUtils {
+    public static byte[] readBytecodeAndCalculateCRCWhenNotAvailable(JarEntry entry, InputStream classFileInputStream) throws IOException {
+        byte[] bytecode = classFileInputStream.readAllBytes();
+        if (entry.getCrc() == -1) {
+            CRC32 crc = new CRC32();
+            crc.update(bytecode);
+            entry.setCrc(crc.getValue());
+        }
+        return bytecode;
+    }
+
     public static long getSignatureHash(BytecodeDetails bytecodeDetails) {
         LongHashFunction cityHashFunction = LongHashFunction.xx3();
         StringBuilder classSignature = new StringBuilder();
