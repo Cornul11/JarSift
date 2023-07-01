@@ -113,7 +113,7 @@ public class FileAnalyzer {
         List<Signature> signaturesToInsert = getSignaturesToInsert(signatures, jarInfoExtractor);
         int insertedRows = signatureDao.insertSignatures(signaturesToInsert, jarHash, jarCrc);
 
-        if (totalJars != -1) {
+        if (totalJars > 0) {
             calculateAndLogElapsedTime();
         }
         return insertedRows;
