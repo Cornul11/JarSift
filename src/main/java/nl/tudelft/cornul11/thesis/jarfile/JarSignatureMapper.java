@@ -88,7 +88,6 @@ public class JarSignatureMapper {
         try (InputStream classFileInputStream = jarFile.getInputStream(entry)) {
             byte[] bytecode = classFileInputStream.readAllBytes();
             BytecodeDetails bytecodeDetails = BytecodeParser.extractSignature(bytecode);
-            // TODO: jsr305 is always the same
             return new ClassFileInfo(entry.getName(), BytecodeUtils.getSignatureHash(bytecodeDetails));
         } catch (Exception e) {
             logger.error("Error while processing class file: " + entry.getName(), e);

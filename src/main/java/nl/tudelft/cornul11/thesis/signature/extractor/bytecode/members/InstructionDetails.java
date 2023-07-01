@@ -9,8 +9,10 @@ public class InstructionDetails {
         this.operand = operand;
     }
 
-    @Override
-    public String toString() {
-        return opcode + " " + operand;
+    public String toSignaturePart() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(opcode);
+        sb.append(operand);
+        return sb.toString();
     }
 }

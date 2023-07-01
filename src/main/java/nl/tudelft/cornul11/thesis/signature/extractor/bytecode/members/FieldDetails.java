@@ -13,16 +13,15 @@ public class FieldDetails {
         this.desc = desc;
     }
 
-    @Override
-    public String toString() {
-        return "FieldDetails{" +
-                "name='" + name + '\'' +
-                ", desc='" + desc + '\'' +
-                ", annotations=" + annotations +
-                '}';
-    }
-
     public void addAnnotation(AnnotationDetails annotation) {
         annotations.add(annotation);
+    }
+
+    public String toSignaturePart() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(name);
+        sb.append(desc);
+        annotations.forEach(annotation -> sb.append(annotation.toSignaturePart()));
+        return sb.toString();
     }
 }

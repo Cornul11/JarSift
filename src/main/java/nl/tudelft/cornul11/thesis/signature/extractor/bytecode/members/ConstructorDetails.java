@@ -13,13 +13,17 @@ public class ConstructorDetails {
         this.exceptions = exceptions;
     }
 
-    @Override
-    public String toString() {
-        return "JavaConstructor{" +
-                "name='" + name + '\'' +
-                ", desc='" + desc + '\'' +
-                ", signature='" + signature + '\'' +
-                ", exceptions=" + java.util.Arrays.toString(exceptions) +
-                '}';
+    public String toSignaturePart() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(name);
+        sb.append(desc);
+        sb.append(signature);
+        if (exceptions != null) {
+            for (String exception : exceptions) {
+                sb.append(exception);
+            }
+        }
+        return sb.toString();
     }
+
 }

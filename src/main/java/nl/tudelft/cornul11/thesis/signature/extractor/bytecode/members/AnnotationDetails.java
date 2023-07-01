@@ -28,14 +28,13 @@ public class AnnotationDetails {
         arrayArguments.put(name, values);
     }
 
-    @Override
-    public String toString() {
-        return "AnnotationDetails{" +
-                "desc='" + desc + '\'' +
-                ", visible=" + visible +
-                ", arguments=" + arguments +
-                ", arrayArguments=" + arrayArguments +
-                ", annotationArguments=" + annotationArguments +
-                '}';
+    public String toSignaturePart() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(desc);
+        sb.append(visible);
+        arguments.values().forEach(sb::append);
+        arrayArguments.values().stream().flatMap(List::stream).forEach(sb::append);
+        annotationArguments.values().forEach(annotation -> sb.append(annotation.toSignaturePart()));
+        return sb.toString();
     }
 }

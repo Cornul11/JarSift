@@ -1,7 +1,7 @@
 package nl.tudelft.cornul11.thesis.signature.extractor.bytecode;
 
 import net.openhft.hashing.LongHashFunction;
-import org.jetbrains.annotations.NotNull;
+import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.*;
 
 public class BytecodeUtils {
     public static long getSignatureHash(BytecodeDetails bytecodeDetails) {
@@ -10,12 +10,30 @@ public class BytecodeUtils {
 
         classSignature.append(bytecodeDetails.getName());
         classSignature.append(bytecodeDetails.getExtendsType());
-        classSignature.append(bytecodeDetails.getInterfaces().toString());
-        classSignature.append(bytecodeDetails.getFields().toString());
-        classSignature.append(bytecodeDetails.getMethods().toString());
-        classSignature.append(bytecodeDetails.getConstructors().toString());
-        classSignature.append(bytecodeDetails.getInnerClasses().toString());
-        classSignature.append(bytecodeDetails.getAnnotations().toString());
+
+        for (String iface : bytecodeDetails.getInterfaces()) {
+            classSignature.append(iface);
+        }
+
+        for (FieldDetails field : bytecodeDetails.getFields()) {
+            classSignature.append(field.toSignaturePart());
+        }
+
+        for (MethodDetails method : bytecodeDetails.getMethods()) {
+            classSignature.append(method.toSignaturePart());
+        }
+
+        for (ConstructorDetails constructor : bytecodeDetails.getConstructors()) {
+            classSignature.append(constructor.toSignaturePart());
+        }
+
+        for (NestedClassDetails nestedClass : bytecodeDetails.getInnerClasses()) {
+            classSignature.append(nestedClass.toSignaturePart());
+        }
+
+        for (AnnotationDetails annotation : bytecodeDetails.getAnnotations()) {
+            classSignature.append(annotation.toSignaturePart());
+        }
 
         return cityHashFunction.hashChars(classSignature);
     }
@@ -44,7 +62,7 @@ public class BytecodeUtils {
         return processed.toString();
     }
 
-    public static String getShortDesc(@NotNull String desc) {
+    public static String getShortDesc(String desc) {
         int start = desc.indexOf('L');
         while (start != -1) {
             int end = desc.indexOf(';', start);
@@ -71,7 +89,7 @@ public class BytecodeUtils {
         return desc;
     }
 
-    public static String getShortName(@NotNull String className) {
+    public static String getShortName(String className) {
         // If the className represents an array type, return it as is
         if (className.endsWith("[]")) {
             return className;

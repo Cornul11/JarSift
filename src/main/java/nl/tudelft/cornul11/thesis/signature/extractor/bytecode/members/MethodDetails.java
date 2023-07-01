@@ -37,21 +37,24 @@ public class MethodDetails {
         annotations.add(annotation);
     }
 
-    @Override
-    public String toString() {
-        return "MethodDetails{" +
-                "access=" + access +
-                ", name='" + name + '\'' +
-                ", desc='" + desc + '\'' +
-                ", signature='" + signature + '\'' +
-                ", exceptions=" + Arrays.toString(exceptions) +
-                ", instructions=" + instructions +
-                ", annotations=" + annotations +
-                ", argumentTypes=" + argumentTypes +
-                '}';
-    }
-
     public void addInstruction(InstructionDetails instruction) {
         instructions.add(instruction);
+    }
+
+    public String toSignaturePart() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(access);
+        sb.append(name);
+        sb.append(desc);
+        sb.append(signature);
+        if (exceptions != null) {
+            for (String exception : exceptions) {
+                sb.append(exception);
+            }
+        }
+        instructions.forEach(instruction -> sb.append(instruction.toSignaturePart()));
+        annotations.forEach(annotation -> sb.append(annotation.toSignaturePart()));
+        argumentTypes.forEach(sb::append);
+        return sb.toString();
     }
 }

@@ -29,14 +29,13 @@ public class NestedClassDetails {
         return type;
     }
 
-    @Override
-    public String toString() {
-        return "BytecodeNestedClass{" +
-                "name='" + name + '\'' +
-                ", outerName='" + outerName + '\'' +
-                ", innerName='" + innerName + '\'' +
-                ", access=" + access +
-                ", type='" + type + '\'' +
-                '}';
+    public String toSignaturePart() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(name);
+        sb.append(outerName);
+        sb.append(innerName);
+        sb.append(access);
+        sb.append(type);
+        return sb.toString();
     }
 }
