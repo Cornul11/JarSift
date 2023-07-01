@@ -78,15 +78,26 @@ public class BytecodeUtils {
     }
 
     public static String getShortDesc(String desc) {
-        int start = desc.indexOf('L');
-        while (start != -1) {
-            int end = desc.indexOf(';', start);
-            if (end == -1) {
+        StringBuilder sb = new StringBuilder();
+        int start = 0;
+        int descLen = desc.length();
+
+        while (start < descLen) {
+            int lIndex = desc.indexOf('L', start);
+            if (lIndex == -1) {
+                sb.append(desc, start, descLen);
+                break;
+            }
+            sb.append(desc, start, lIndex + 1);
+            start = lIndex + 1;
+
+            int semicolonIndex = desc.indexOf(';', start);
+            if (semicolonIndex == -1) {
+                sb.append(desc, start, descLen);
                 break;
             }
 
-            // Process class name, considering generic types
-            String fullName = desc.substring(start + 1, end);
+            String fullName = desc.substring(start, semicolonIndex);
             String shortName;
             int genericStart = fullName.indexOf('<');
             if (genericStart != -1) {
@@ -97,11 +108,11 @@ public class BytecodeUtils {
                 shortName = getShortName(fullName);
             }
 
-            desc = desc.substring(0, start + 1) + shortName + desc.substring(end);
-            start = desc.indexOf('L', start + 1 + shortName.length() - fullName.length());
+            sb.append(shortName);
+            start = semicolonIndex;
         }
 
-        return desc;
+        return sb.toString();
     }
 
     public static String getShortName(String className) {

@@ -23,7 +23,8 @@ public class JarProcessor implements Runnable {
     public void run() {
         try {
             while (true) {
-                logger.debug("Waiting for file in the queue, current queue size = " + queue.size());
+                String queueSize = "\033[1;31m" + queue.size() + "\033[0m";
+                logger.debug("Waiting for file in the queue, current queue size = " + queueSize);
                 Path file = queue.take(); // this will block if the queue is empty
                 if (POISON_PILL.equals(file)) {
                     // end-of-stream marker encountered

@@ -91,7 +91,8 @@ public class SignatureDAOImpl implements SignatureDAO {
                     }
                 }
 
-                logger.info(totalRowsInserted + " signature row(s) inserted.");
+                String rowsInserted = "\033[0;32m" + totalRowsInserted + "\033[0m";
+                logger.info(rowsInserted + " signature row(s) inserted.");
             } catch (SQLException e) {
                 e.printStackTrace();
             }

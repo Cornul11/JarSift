@@ -49,4 +49,8 @@ public class ConfigurationLoader {
     public int getNumConsumerThreads() {
         return config.getProperty("numConsumerThreads") == null ? 10 : Integer.parseInt(config.getProperty("numConsumerThreads"));
     }
+
+    public int getTotalJars() {
+        return config.getProperty("totalJars") == null ? -1 : Integer.parseInt(config.getProperty("totalJars"));
+    }
 }
