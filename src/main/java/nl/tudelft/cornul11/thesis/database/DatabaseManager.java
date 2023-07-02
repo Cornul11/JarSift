@@ -56,7 +56,7 @@ public class DatabaseManager {
     private void createSchema() {
         createLibrariesTable();
         createSignaturesTable();
-        createLibrarySignatureTable();
+//        createLibrarySignatureTable();
 //        addIndexes();
     }
 
@@ -98,6 +98,7 @@ public class DatabaseManager {
     private void createSignaturesTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS signatures (" +
                 "id INT PRIMARY KEY AUTO_INCREMENT, " +
+                "library_id INT NOT NULL," +
                 "hash BIGINT NOT NULL," +
                 "crc BIGINT NOT NULL)";
 

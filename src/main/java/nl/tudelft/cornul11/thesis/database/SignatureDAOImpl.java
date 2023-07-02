@@ -49,14 +49,11 @@ public class SignatureDAOImpl implements SignatureDAO {
     @Override
     public int insertSignatures(List<Signature> signatures, long jarHash, long jarCrc) {
         String insertLibraryQuery = "INSERT INTO libraries (groupId, artifactId, version, hash, crc, isUberJar) VALUES (?, ?, ?, ?, ?, ?)";
-        String insertSignatureQuery = "INSERT INTO signatures (hash, crc) VALUES (?, ?)";
-        String insertLibrarySignatureQuery = "INSERT INTO library_signature (library_id, signature_id) VALUES (?, ?)";
-
+        String insertSignatureQuery = "INSERT INTO signatures (library_id, hash, crc) VALUES (?, ?, ?)";  // library_id is added here.
 
         AtomicInteger totalRowsInserted = new AtomicInteger();
         executeWithDeadlockRetry(connection -> {
             try {
-
                 PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery, Statement.RETURN_GENERATED_KEYS);
                 Signature firstSignature = signatures.get(0);
                 libraryStatement.setString(1, firstSignature.getGroupID());
@@ -71,23 +68,15 @@ public class SignatureDAOImpl implements SignatureDAO {
                 if (generatedKeys.next()) {
                     int libraryId = generatedKeys.getInt(1);
 
-                    PreparedStatement insertStatement = connection.prepareStatement(insertSignatureQuery, Statement.RETURN_GENERATED_KEYS);
-                    PreparedStatement librarySignatureStatement = connection.prepareStatement(insertLibrarySignatureQuery);
+                    PreparedStatement insertStatement = connection.prepareStatement(insertSignatureQuery);
 
                     for (Signature signature : signatures) {
-                        insertStatement.setLong(1, signature.getHash());
-                        insertStatement.setLong(2, signature.getCrc());
+                        insertStatement.setInt(1, libraryId);  // setting the library_id for each signature
+                        insertStatement.setLong(2, signature.getHash());
+                        insertStatement.setLong(3, signature.getCrc());
                         insertStatement.executeUpdate();
 
-                        ResultSet signatureGeneratedKeys = insertStatement.getGeneratedKeys();
-                        if (signatureGeneratedKeys.next()) {
-                            int signatureId = signatureGeneratedKeys.getInt(1);
-                            librarySignatureStatement.setInt(1, libraryId);
-                            librarySignatureStatement.setInt(2, signatureId);
-                            librarySignatureStatement.executeUpdate();
-
-                            totalRowsInserted.getAndIncrement();
-                        }
+                        totalRowsInserted.getAndIncrement();
                     }
                 }
 
@@ -100,7 +89,6 @@ public class SignatureDAOImpl implements SignatureDAO {
 
         return totalRowsInserted.get();
     }
-
     @Override
     public List<LibraryMatchInfo> returnTopLibraryMatches(List<Long> hashes) {
         long startTime = System.currentTimeMillis();
@@ -110,18 +98,16 @@ public class SignatureDAOImpl implements SignatureDAO {
 
         // Create the countQuery
         String countQuery = "SELECT library_id, COUNT(*) as totalCount " +
-                "FROM library_signature " +
+                "FROM signatures " +
                 "GROUP BY library_id";
 
         // Create the mainQuery
         String mainQuery = "SELECT libraries.groupId, libraries.artifactId, libraries.version, COUNT(*) as matchedCount, totalCountTable.totalCount " +
-                "FROM library_signature " +
-                "JOIN libraries ON library_signature.library_id = libraries.id " +
-                "JOIN signatures ON library_signature.signature_id = signatures.id " +
-                "LEFT JOIN (" + countQuery + ") as totalCountTable ON library_signature.library_id = totalCountTable.library_id " +
+                "FROM signatures " +
+                "JOIN libraries ON signatures.library_id = libraries.id " +
+                "LEFT JOIN (" + countQuery + ") as totalCountTable ON signatures.library_id = totalCountTable.library_id " +
                 "WHERE signatures.hash IN (" + placeholders + ") " +
                 "GROUP BY libraries.groupId, libraries.artifactId, libraries.version, totalCountTable.totalCount";
-
 
         List<LibraryMatchInfo> libraryHashesCount = new ArrayList<>();
 
