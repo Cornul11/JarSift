@@ -42,7 +42,8 @@ public class ConfigurationLoader {
                 config.getProperty("dataSource.cacheResultSetMetadata"),
                 config.getProperty("dataSource.cacheServerConfiguration"),
                 config.getProperty("dataSource.elideSetAutoCommits"),
-                config.getProperty("dataSource.maintainTimeStats")
+                config.getProperty("dataSource.maintainTimeStats"),
+                config.getProperty("dataSource.maximumPoolSize")
         );
     }
 

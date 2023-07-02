@@ -28,6 +28,7 @@ public class DatabaseManager {
         hikariConfig.addDataSourceProperty("cacheServerConfiguration", config.getCacheServerConfiguration());
         hikariConfig.addDataSourceProperty("elideSetAutoCommits", config.getElideSetAutoCommits());
         hikariConfig.addDataSourceProperty("maintainTimeStats", config.getMaintainTimeStats());
+        hikariConfig.setMaximumPoolSize(Integer.parseInt(config.getMaximumPoolSize()));
 
         ds = new HikariDataSource(hikariConfig);
         logger.info("Connected to the database.");

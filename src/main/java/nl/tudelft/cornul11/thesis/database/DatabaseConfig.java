@@ -14,8 +14,9 @@ public class DatabaseConfig {
     private final String cacheServerConfiguration;
     private final String elideSetAutoCommits;
     private final String maintainTimeStats;
+    private final String maximumPoolSize;
 
-    public DatabaseConfig(String url, String username, String password, String cachePrepStmts, String prepStmtCacheSize, String prepStmtCacheSqlLimit, String useServerPrepStmts, String useLocalSessionState, String rewriteBatchedStatements, String cacheResultSetMetadata, String cacheServerConfiguration, String elideSetAutoCommits, String maintainTimeStats) {
+    public DatabaseConfig(String url, String username, String password, String cachePrepStmts, String prepStmtCacheSize, String prepStmtCacheSqlLimit, String useServerPrepStmts, String useLocalSessionState, String rewriteBatchedStatements, String cacheResultSetMetadata, String cacheServerConfiguration, String elideSetAutoCommits, String maintainTimeStats, String maximumPoolSize) {
         this.url = url;
         this.username = username;
         this.password = password;
@@ -29,6 +30,7 @@ public class DatabaseConfig {
         this.cacheServerConfiguration = cacheServerConfiguration;
         this.elideSetAutoCommits = elideSetAutoCommits;
         this.maintainTimeStats = maintainTimeStats;
+        this.maximumPoolSize = maximumPoolSize;
     }
 
     public String getCachePrepStmts() {
@@ -69,6 +71,10 @@ public class DatabaseConfig {
 
     public String getMaintainTimeStats() {
         return maintainTimeStats;
+    }
+
+    public String getMaximumPoolSize() {
+        return maximumPoolSize;
     }
 
     public String getUrl() {
