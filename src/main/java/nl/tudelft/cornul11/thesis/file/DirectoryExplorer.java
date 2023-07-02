@@ -50,11 +50,10 @@ public class DirectoryExplorer extends SimpleFileVisitor<Path> {
         return FileVisitResult.CONTINUE;
     }
 
+
     @Override
     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-        // supposedly this change would make a huge resume boost
-
-        // If directory is hidden and it's not the root, skip
+        // If directory is hidden, and it's not the root, skip
         if (isHidden(dir) && !dir.equals(rootPath)) {
             logger.info("Skipping hidden directory: " + dir);
             return FileVisitResult.SKIP_SUBTREE;

@@ -21,8 +21,14 @@ public class JarInfoExtractor {
         String version = splitPath[splitPath.length - 2];
         String artifactID = splitPath[splitPath.length - 3];
 
+        // parts of the Maven dataset are contained in a sub-folder repository, so we have to escape it
+        int startIdx = 1;
+        if (splitPath[1].equals("repository")) {
+            startIdx = 2;
+        }
+
         StringBuilder groupID = new StringBuilder();
-        for (int i = 1; i < splitPath.length - 3; i++) {
+        for (int i = startIdx; i < splitPath.length - 3; i++) {
             groupID.append(splitPath[i]);
             if (i < splitPath.length - 4) { // don't want a trailing slash
                 groupID.append('/');
