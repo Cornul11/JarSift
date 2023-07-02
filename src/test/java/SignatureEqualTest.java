@@ -27,7 +27,7 @@ public class SignatureEqualTest {
     public void testSignatureEqual() {
         SignatureDAO mockDao = mock(SignatureDAO.class);
         ConfigurationLoader mockConfig = mock(ConfigurationLoader.class);
-        Mockito.when(mockConfig.ignoreUberJars()).thenReturn(true);
+        Mockito.when(mockConfig.ignoreUberJarSignatures()).thenReturn(true);
 
         FileAnalyzer realProcessor = new FileAnalyzer(mockDao, mockConfig);
         FileAnalyzer processor = spy(realProcessor);

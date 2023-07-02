@@ -29,7 +29,7 @@ public class JarHandler {
     private final List<String> insertedLibraries;
     private final Set<String> mavenSubmodules = new HashSet<>();
     private final Logger logger = LoggerFactory.getLogger(JarHandler.class);
-    private final boolean ignoreUberJars;
+    private final boolean ignoreUberJarSignatures;
     private final CRC32 jarCrc = new CRC32();
     private final long crcValue;
 
@@ -37,7 +37,7 @@ public class JarHandler {
         this.jarFilePath = jarFilePath;
         this.ignoredUberJars = ignoredUberJars;
         this.insertedLibraries = insertedLibraries;
-        this.ignoreUberJars = config.ignoreUberJars();
+        this.ignoreUberJarSignatures = config.ignoreUberJarSignatures();
         this.crcValue = this.generateCrc();
     }
 
@@ -72,7 +72,7 @@ public class JarHandler {
                 JarEntry entry = entries.nextElement();
 
                 if (isMavenSubmodule(entry) && shouldSkipDueToSubmoduleCount()) {
-                    if (ignoreUberJars) {
+                    if (ignoreUberJarSignatures) {
                         ignoredUberJars.add(jarFilePath.toString());
                         return new ArrayList<>();
                     }
@@ -83,7 +83,7 @@ public class JarHandler {
                 }
 
                 if (isJarFile(entry)) {
-                    if (ignoreUberJars) {
+                    if (ignoreUberJarSignatures) {
                         logger.warn("Found nested JAR file in " + jarFilePath + ", skipping");
                         ignoredUberJars.add(jarFilePath.toString());
                         return new ArrayList<>();

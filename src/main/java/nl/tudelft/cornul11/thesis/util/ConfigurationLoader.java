@@ -24,8 +24,8 @@ public class ConfigurationLoader {
         }
     }
 
-    public boolean ignoreUberJars() {
-        return Boolean.parseBoolean(config.getProperty("ignoreUberJars"));
+    public boolean ignoreUberJarSignatures() {
+        return Boolean.parseBoolean(config.getProperty("ignoreUberJarSignatures"));
     }
 
     public DatabaseConfig getDatabaseConfig() {
