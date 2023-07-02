@@ -48,7 +48,7 @@ public class JarSignatureMapper {
             return getTopMatches(classFileInfos, signatureDao);
         } catch (IOException e) {
             logger.error("Error while processing JAR file: " + jarFilePath, e);
-            throw new RuntimeException(e);
+            return null;
         }
     }
 

@@ -24,7 +24,7 @@ public class SignatureDAOImpl implements SignatureDAO {
     }
 
     @Override
-    public int insertLibrary(JarInfoExtractor jarInfoExtractor, long jarHash, long jarCrc) {
+    public int insertLibrary(JarInfoExtractor jarInfoExtractor, long jarHash, long jarCrc, boolean isBrokenJar) {
         String insertLibraryQuery = "INSERT INTO libraries (groupId, artifactId, version, hash, crc, isUberJar) VALUES (?, ?, ?, ?, ?, ?)";
 
         executeWithDeadlockRetry(connection -> {
@@ -34,7 +34,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                 libraryStatement.setString(3, jarInfoExtractor.getVersion());
                 libraryStatement.setLong(4, jarHash);
                 libraryStatement.setLong(5, jarCrc);
-                libraryStatement.setBoolean(6, true);
+                libraryStatement.setBoolean(6, !isBrokenJar);
                 libraryStatement.executeUpdate();
 
                 logger.info("Library row inserted.");

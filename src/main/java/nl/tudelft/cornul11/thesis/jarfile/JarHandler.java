@@ -32,6 +32,7 @@ public class JarHandler {
     private final boolean ignoreUberJarSignatures;
     private final CRC32 jarCrc = new CRC32();
     private final long crcValue;
+    private boolean brokenJar = false;
 
     public JarHandler(Path jarFilePath, List<String> ignoredUberJars, List<String> insertedLibraries, ConfigurationLoader config) {
         this.jarFilePath = jarFilePath;
@@ -39,6 +40,10 @@ public class JarHandler {
         this.insertedLibraries = insertedLibraries;
         this.ignoreUberJarSignatures = config.ignoreUberJarSignatures();
         this.crcValue = this.generateCrc();
+    }
+
+    public boolean isBrokenJar() {
+        return brokenJar;
     }
 
     private long generateCrc() {
@@ -103,9 +108,11 @@ public class JarHandler {
             return classFileInfos;
         } catch (FileNotFoundException e) {
             // silenced, this is because of the POISON PILL
+            brokenJar = true;
             return new ArrayList<>();
-        } catch (IOException | IllegalArgumentException | SecurityException e) {
+        } catch (Exception e) { // goddamn broken JARs
             ignoredUberJars.add(jarFilePath.toString());
+            brokenJar = true;
             logger.error("Error while processing JAR file " + jarFilePath, e);
             return new ArrayList<>();
         }
@@ -173,15 +180,15 @@ public class JarHandler {
         return false;
     }
 
-    private ClassFileInfo processClassFile(JarEntry entry, JarFile jarFile) throws IOException {
+    private ClassFileInfo processClassFile(JarEntry entry, JarFile jarFile) {
         try (InputStream classFileInputStream = jarFile.getInputStream(entry)) {
             byte[] bytecode = BytecodeUtils.readBytecodeAndCalculateCRCWhenNotAvailable(entry, classFileInputStream);
 
             BytecodeDetails bytecodeDetails = BytecodeParser.extractSignature(bytecode);
             return new ClassFileInfo(entry.getName(), BytecodeUtils.getSignatureHash(bytecodeDetails), entry.getCrc());
-        } catch ( Exception e ) {
+        } catch (Exception e) {
             logger.error("Error while processing class file: " + entry.getName(), e);
-            throw e;
+            return null;
         }
     }
 

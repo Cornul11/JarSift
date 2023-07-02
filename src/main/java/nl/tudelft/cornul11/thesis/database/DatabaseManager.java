@@ -29,6 +29,8 @@ public class DatabaseManager {
         hikariConfig.addDataSourceProperty("elideSetAutoCommits", config.getElideSetAutoCommits());
         hikariConfig.addDataSourceProperty("maintainTimeStats", config.getMaintainTimeStats());
         hikariConfig.setMaximumPoolSize(Integer.parseInt(config.getMaximumPoolSize()));
+        hikariConfig.setIdleTimeout(60000);
+        hikariConfig.setMaxLifetime(6000000);
 
         ds = new HikariDataSource(hikariConfig);
         logger.info("Connected to the database.");

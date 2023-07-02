@@ -92,15 +92,15 @@ public class FileAnalyzer {
         JarInfoExtractor jarInfoExtractor = new JarInfoExtractor(jarFilePath.toString());
         if (signatures.isEmpty()) { // it's probably an uber-JAR, let's still add it to the db
             insertedUberJars++;
-            return commitLibrary(jarInfoExtractor, jarHash, jarCrc);
+            return commitLibrary(jarInfoExtractor, jarHash, jarCrc, jarHandler.isBrokenJar());
         }
 
         return commitSignatures(signatures, jarInfoExtractor, jarHash, jarCrc);
     }
 
-    public int commitLibrary(JarInfoExtractor jarInfoExtractor, long jarHash, long jarCrc) {
+    public int commitLibrary(JarInfoExtractor jarInfoExtractor, long jarHash, long jarCrc, boolean isBrokenJar) {
         logger.info("Committing library: " + jarInfoExtractor.getArtifactId() + " version: " + jarInfoExtractor.getVersion());
-        return signatureDao.insertLibrary(jarInfoExtractor, jarHash, jarCrc);
+        return signatureDao.insertLibrary(jarInfoExtractor, jarHash, jarCrc, isBrokenJar);
     }
 
     public int commitSignatures(List<ClassFileInfo> signatures, JarInfoExtractor jarInfoExtractor, long jarHash, long jarCrc) {
