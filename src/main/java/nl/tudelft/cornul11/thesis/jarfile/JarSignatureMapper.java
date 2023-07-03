@@ -34,8 +34,9 @@ public class JarSignatureMapper {
             int classFileCount = 0;
             while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
+                String entryName = entry.getName();
 
-                if (!entry.isDirectory() && entry.getName().endsWith(".class") && !FILENAME_EXCEPTIONS.contains(entry.getName())) {
+                if (!entry.isDirectory() && entryName.endsWith(".class") && FILENAME_EXCEPTIONS.stream().noneMatch(entryName::contains)) {
                     classFileCount++;
                     ClassFileInfo classFileInfo = processClassFile(entry, jarFile);
                     if (classFileInfo != null) {

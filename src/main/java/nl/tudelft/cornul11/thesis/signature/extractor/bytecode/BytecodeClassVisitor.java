@@ -1,10 +1,7 @@
 package nl.tudelft.cornul11.thesis.signature.extractor.bytecode;
 
 import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.*;
-import org.objectweb.asm.AnnotationVisitor;
-import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.FieldVisitor;
-import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.*;
 
 import java.util.Arrays;
 
@@ -58,16 +55,20 @@ public class BytecodeClassVisitor extends ClassVisitor {
 
     public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
         desc = BytecodeUtils.getShortDesc(desc);
-        signature = signature != null ? BytecodeUtils.getShortDesc(signature) : null;
         exceptions = exceptions != null ? Arrays.stream(exceptions).map(BytecodeUtils::getShortName).toArray(String[]::new) : null;
 
         MethodDetails method = null;
         if ("<init>".equals(name)) {
             // This is a constructor
-            ConstructorDetails constructor = new ConstructorDetails(name, desc, signature, exceptions);
+            ConstructorDetails constructor = new ConstructorDetails(name, desc, exceptions);
             bytecodeDetailsBuilder.addConstructor(constructor);
         } else {
-            method = new MethodDetails(access, name, desc, signature, exceptions);
+            method = new MethodDetails(access, name, desc, exceptions);
+            Type methodType = Type.getMethodType(desc);
+            for (Type argType : methodType.getArgumentTypes()) {
+                method.addArgumentType(argType.getClassName());
+            }
+            method.setReturnType(methodType.getReturnType().getClassName());
             bytecodeDetailsBuilder.addMethod(method);
         }
 

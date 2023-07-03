@@ -38,8 +38,6 @@ public class BytecodeMethodVisitor extends MethodVisitor {
         super.visitIntInsn(opcode, operand);
     }
 
-    // TODO: maybe add more visit*Insn methods if needed
-
     @Override
     public void visitVarInsn(int opcode, int var) {
         InstructionDetails instruction = new InstructionDetails(Integer.toString(opcode), Integer.toString(var));

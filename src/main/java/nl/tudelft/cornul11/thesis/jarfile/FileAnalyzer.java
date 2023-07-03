@@ -158,6 +158,6 @@ public class FileAnalyzer {
     }
 
     private Signature createSignature(ClassFileInfo signature, JarInfoExtractor jarInfoExtractor) {
-        return new Signature(0, signature.getFileName(), signature.getHashCode(), signature.getCrc(), jarInfoExtractor.getGroupId(), jarInfoExtractor.getArtifactId(), jarInfoExtractor.getVersion());
+        return new Signature(0, signature.getClassName(), signature.getHashCode(), signature.getCrc(), jarInfoExtractor.getGroupId(), jarInfoExtractor.getArtifactId(), jarInfoExtractor.getVersion());
     }
 }

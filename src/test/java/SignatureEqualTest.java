@@ -57,7 +57,7 @@ public class SignatureEqualTest {
 
         // Assert that the signatures are equal
         for (int i = 0; i < capturedClassFileInfosFromProcessor.size(); i++) {
-            assertEquals(capturedClassFileInfosFromProcessor.get(i).getFileName(), checkedClassFileInfoFromInference.get(i).getFileName());
+            assertEquals(capturedClassFileInfosFromProcessor.get(i).getClassName(), checkedClassFileInfoFromInference.get(i).getClassName());
             assertEquals(capturedClassFileInfosFromProcessor.get(i).getHashCode(), checkedClassFileInfoFromInference.get(i).getHashCode());
         }
     }

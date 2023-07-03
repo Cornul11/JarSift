@@ -79,12 +79,12 @@ public class DatabaseManager {
     private void createLibrariesTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS libraries (" +
                 "id INT PRIMARY KEY AUTO_INCREMENT, "
-                + "groupId VARCHAR(255) NOT NULL, "
-                + "artifactId VARCHAR(255) NOT NULL, "
+                + "group_id VARCHAR(255) NOT NULL, "
+                + "artifact_id VARCHAR(255) NOT NULL, "
                 + "version VARCHAR(255) NOT NULL, "
-                + "hash BIGINT NOT NULL, "
-                + "crc BIGINT NOT NULL,"
-                + "isUberJar BOOLEAN NOT NULL)";
+                + "jar_hash BIGINT NOT NULL, "
+                + "jar_crc BIGINT NOT NULL,"
+                + "is_uber_jar BOOLEAN NOT NULL)";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {
@@ -99,8 +99,8 @@ public class DatabaseManager {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS signatures (" +
                 "id INT PRIMARY KEY AUTO_INCREMENT, " +
                 "library_id INT NOT NULL," +
-                "hash BIGINT NOT NULL," +
-                "crc BIGINT NOT NULL)";
+                "class_hash BIGINT NOT NULL," +
+                "class_crc BIGINT NOT NULL)";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {

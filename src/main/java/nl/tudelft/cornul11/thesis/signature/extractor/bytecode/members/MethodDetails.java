@@ -1,36 +1,27 @@
 package nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members;
 
-import org.objectweb.asm.Type;
-
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class MethodDetails {
     private int access;
     private String name;
     private String desc;
-    private String signature;
     private String[] exceptions;
     private List<InstructionDetails> instructions = new ArrayList<>();
     private List<AnnotationDetails> annotations = new ArrayList<>();
     private List<String> argumentTypes = new ArrayList<>();
+    private String returnType;
 
-    public MethodDetails(int access, String name, String desc, String signature, String[] exceptions) {
+    public MethodDetails(int access, String name, String desc, String[] exceptions) {
         this.access = access;
         this.name = name;
         this.desc = desc;
-        this.signature = signature;
         this.exceptions = exceptions;
-        this.inferArgumentTypes(desc);
     }
 
-    public void inferArgumentTypes(String desc) {
-        this.desc = desc;
-        Type methodType = Type.getMethodType(desc);
-        for (Type argumentType : methodType.getArgumentTypes()) {
-            argumentTypes.add(argumentType.getClassName());
-        }
+    public void addArgumentType(String argumentType) {
+        argumentTypes.add(argumentType);
     }
 
     public void addAnnotation(AnnotationDetails annotation) {
@@ -41,12 +32,15 @@ public class MethodDetails {
         instructions.add(instruction);
     }
 
+    public void setReturnType(String className) {
+        returnType = className;
+    }
+
     public String toSignaturePart() {
         StringBuilder sb = new StringBuilder();
         sb.append(access);
         sb.append(name);
         sb.append(desc);
-        sb.append(signature);
         if (exceptions != null) {
             for (String exception : exceptions) {
                 sb.append(exception);
@@ -55,6 +49,7 @@ public class MethodDetails {
         instructions.forEach(instruction -> sb.append(instruction.toSignaturePart()));
         annotations.forEach(annotation -> sb.append(annotation.toSignaturePart()));
         argumentTypes.forEach(sb::append);
+        sb.append(returnType);
         return sb.toString();
     }
 }

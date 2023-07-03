@@ -25,7 +25,7 @@ public class SignatureDAOImpl implements SignatureDAO {
 
     @Override
     public int insertLibrary(JarInfoExtractor jarInfoExtractor, long jarHash, long jarCrc, boolean isBrokenJar) {
-        String insertLibraryQuery = "INSERT INTO libraries (groupId, artifactId, version, hash, crc, isUberJar) VALUES (?, ?, ?, ?, ?, ?)";
+        String insertLibraryQuery = "INSERT INTO libraries (group_id, artifact_id, version, jar_hash, jar_crc, is_uber_jar) VALUES (?, ?, ?, ?, ?, ?)";
 
         executeWithDeadlockRetry(connection -> {
             try (PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery, Statement.RETURN_GENERATED_KEYS)) {
@@ -48,8 +48,8 @@ public class SignatureDAOImpl implements SignatureDAO {
 
     @Override
     public int insertSignatures(List<Signature> signatures, long jarHash, long jarCrc) {
-        String insertLibraryQuery = "INSERT INTO libraries (groupId, artifactId, version, hash, crc, isUberJar) VALUES (?, ?, ?, ?, ?, ?)";
-        String insertSignatureQuery = "INSERT INTO signatures (library_id, hash, crc) VALUES (?, ?, ?)";  // library_id is added here.
+        String insertLibraryQuery = "INSERT INTO libraries (group_id, artifact_id, version, jar_hash, jar_crc, is_uber_jar) VALUES (?, ?, ?, ?, ?, ?)";
+        String insertSignatureQuery = "INSERT INTO signatures (library_id, class_hash, class_crc) VALUES (?, ?, ?)";  // library_id is added here.
 
         AtomicInteger totalRowsInserted = new AtomicInteger();
         executeWithDeadlockRetry(connection -> {
@@ -97,17 +97,17 @@ public class SignatureDAOImpl implements SignatureDAO {
         String placeholders = String.join(", ", Collections.nCopies(hashes.size(), "?"));
 
         // Create the countQuery
-        String countQuery = "SELECT library_id, COUNT(*) as totalCount " +
+        String countQuery = "SELECT library_id, COUNT(*) as total_count " +
                 "FROM signatures " +
                 "GROUP BY library_id";
 
         // Create the mainQuery
-        String mainQuery = "SELECT libraries.groupId, libraries.artifactId, libraries.version, COUNT(*) as matchedCount, totalCountTable.totalCount " +
+        String mainQuery = "SELECT libraries.group_id, libraries.artifact_id, libraries.version, COUNT(*) as matched_count, total_count_table.total_count " +
                 "FROM signatures " +
                 "JOIN libraries ON signatures.library_id = libraries.id " +
-                "LEFT JOIN (" + countQuery + ") as totalCountTable ON signatures.library_id = totalCountTable.library_id " +
-                "WHERE signatures.hash IN (" + placeholders + ") " +
-                "GROUP BY libraries.groupId, libraries.artifactId, libraries.version, totalCountTable.totalCount";
+                "LEFT JOIN (" + countQuery + ") as total_count_table ON signatures.library_id = total_count_table.library_id " +
+                "WHERE signatures.class_hash IN (" + placeholders + ") " +
+                "GROUP BY libraries.group_id, libraries.artifact_id, libraries.version, total_count_table.total_count";
 
         List<LibraryMatchInfo> libraryHashesCount = new ArrayList<>();
 
@@ -119,11 +119,11 @@ public class SignatureDAOImpl implements SignatureDAO {
 
             ResultSet resultSet = statement.executeQuery();
             while (resultSet.next()) {
-                String resultGroupId = resultSet.getString("groupId");
-                String resultArtifactId = resultSet.getString("artifactId");
+                String resultGroupId = resultSet.getString("group_id");
+                String resultArtifactId = resultSet.getString("artifact_id");
                 String resultVersion = resultSet.getString("version");
-                int resultMatchedCount = resultSet.getInt("matchedCount");
-                int resultTotalCount = resultSet.getInt("totalCount");
+                int resultMatchedCount = resultSet.getInt("matched_count");
+                int resultTotalCount = resultSet.getInt("total_count");
 
                 LibraryMatchInfo libraryMatchInfo = new LibraryMatchInfo(resultGroupId, resultArtifactId, resultVersion, resultMatchedCount, resultTotalCount);
                 libraryHashesCount.add(libraryMatchInfo);
