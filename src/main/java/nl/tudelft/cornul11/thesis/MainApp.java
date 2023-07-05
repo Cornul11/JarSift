@@ -1,9 +1,9 @@
 package nl.tudelft.cornul11.thesis;
 
-import nl.tudelft.cornul11.thesis.api.PostRequestClient;
-import nl.tudelft.cornul11.thesis.commandline.CommandExecutor;
-import nl.tudelft.cornul11.thesis.commandline.OptionsBuilder;
-import nl.tudelft.cornul11.thesis.util.ConfigurationLoader;
+import nl.tudelft.cornul11.thesis.corpus.api.PostRequestClient;
+import nl.tudelft.cornul11.thesis.corpus.commandline.CommandExecutor;
+import nl.tudelft.cornul11.thesis.corpus.commandline.OptionsBuilder;
+import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
 import org.apache.commons.cli.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

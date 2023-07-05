@@ -1,6 +1,6 @@
-import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.BytecodeDetails;
-import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.BytecodeParser;
-import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.BytecodeUtils;
+import nl.tudelft.cornul11.thesis.corpus.extractor.bytecode.BytecodeDetails;
+import nl.tudelft.cornul11.thesis.corpus.extractor.bytecode.BytecodeParser;
+import nl.tudelft.cornul11.thesis.corpus.extractor.bytecode.BytecodeUtils;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;

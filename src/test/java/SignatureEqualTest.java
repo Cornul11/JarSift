@@ -1,9 +1,9 @@
-import nl.tudelft.cornul11.thesis.database.SignatureDAO;
-import nl.tudelft.cornul11.thesis.file.ClassFileInfo;
-import nl.tudelft.cornul11.thesis.file.JarInfoExtractor;
-import nl.tudelft.cornul11.thesis.jarfile.JarSignatureMapper;
-import nl.tudelft.cornul11.thesis.jarfile.FileAnalyzer;
-import nl.tudelft.cornul11.thesis.util.ConfigurationLoader;
+import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
+import nl.tudelft.cornul11.thesis.corpus.file.ClassFileInfo;
+import nl.tudelft.cornul11.thesis.corpus.file.JarInfoExtractor;
+import nl.tudelft.cornul11.thesis.corpus.jarfile.JarSignatureMapper;
+import nl.tudelft.cornul11.thesis.corpus.jarfile.FileAnalyzer;
+import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;

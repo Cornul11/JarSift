@@ -1,7 +1,7 @@
-import nl.tudelft.cornul11.thesis.database.SignatureDAO;
-import nl.tudelft.cornul11.thesis.jarfile.FileAnalyzer;
-import nl.tudelft.cornul11.thesis.model.Signature;
-import nl.tudelft.cornul11.thesis.util.ConfigurationLoader;
+import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
+import nl.tudelft.cornul11.thesis.corpus.jarfile.FileAnalyzer;
+import nl.tudelft.cornul11.thesis.corpus.model.Signature;
+import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
