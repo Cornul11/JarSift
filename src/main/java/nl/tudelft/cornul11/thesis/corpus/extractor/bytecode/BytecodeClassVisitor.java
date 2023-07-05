@@ -1,7 +1,6 @@
 package nl.tudelft.cornul11.thesis.corpus.extractor.bytecode;
 
 import nl.tudelft.cornul11.thesis.corpus.extractor.bytecode.members.*;
-import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.*;
 import org.objectweb.asm.*;
 
 import java.util.Arrays;

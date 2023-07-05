@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: Dockerfile-app
     volumes:
-      - /home/dan/tudelft/master_thesis/jar-vulnerability-detection/big_jars:/usr/src/app/jars
+      - ${JARS_DIRECTORY}:/usr/src/app/jars
       - ./config.properties:/usr/src/app/config.properties
       - ./logs:/usr/src/app/logs
     environment:
@@ -19,8 +19,8 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      - ./my-custom.cnf:/etc/mysql/mariadb.conf.d/my-custom.cnf
-      - mariadb_data:/var/lib/mysql
+#      - ./my-custom.cnf:/etc/mysql/mariadb.conf.d/my-custom.cnf
+      - ${MARIADB_DATA_LOCATION}:/var/lib/mysql
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
       - MYSQL_DATABASE=${MYSQL_DATABASE}

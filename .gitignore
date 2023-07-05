@@ -1,3 +1,4 @@
+.env
 *.properties
 
 # IntelliJ specific files

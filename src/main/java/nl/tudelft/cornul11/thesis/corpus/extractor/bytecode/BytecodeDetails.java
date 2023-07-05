@@ -1,7 +1,6 @@
 package nl.tudelft.cornul11.thesis.corpus.extractor.bytecode;
 
 import nl.tudelft.cornul11.thesis.corpus.extractor.bytecode.members.*;
-import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,12 +9,12 @@ public class BytecodeDetails {
     private int access;
     private String name;
     private String extendsType;
-    private List<String> interfaces = new ArrayList<>();
-    private List<FieldDetails> fields = new ArrayList<>();
-    private List<MethodDetails> methods = new ArrayList<>();
-    private List<ConstructorDetails> constructors = new ArrayList<>();
-    private List<NestedClassDetails> innerClasses = new ArrayList<>();
-    private List<AnnotationDetails> annotations = new ArrayList<>();
+    private List<String> interfaces;
+    private List<FieldDetails> fields;
+    private List<MethodDetails> methods;
+    private List<ConstructorDetails> constructors;
+    private List<NestedClassDetails> innerClasses;
+    private List<AnnotationDetails> annotations;
 
     private BytecodeDetails(Builder builder) {
         this.access = builder.access;

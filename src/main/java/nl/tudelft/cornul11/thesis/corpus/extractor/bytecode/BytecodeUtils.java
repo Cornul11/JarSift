@@ -2,7 +2,6 @@ package nl.tudelft.cornul11.thesis.corpus.extractor.bytecode;
 
 import net.openhft.hashing.LongHashFunction;
 import nl.tudelft.cornul11.thesis.corpus.extractor.bytecode.members.*;
-import nl.tudelft.cornul11.thesis.signature.extractor.bytecode.members.*;
 
 import java.io.IOException;
 import java.io.InputStream;
