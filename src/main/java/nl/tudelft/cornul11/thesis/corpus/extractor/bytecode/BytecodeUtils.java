@@ -23,6 +23,7 @@ public class BytecodeUtils {
         LongHashFunction cityHashFunction = LongHashFunction.xx3();
         StringBuilder classSignature = new StringBuilder();
 
+        classSignature.append(bytecodeDetails.getAccess());
         classSignature.append(bytecodeDetails.getName());
         classSignature.append(bytecodeDetails.getExtendsType());
 

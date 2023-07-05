@@ -8,7 +8,6 @@ import nl.tudelft.cornul11.thesis.corpus.jarfile.JarFileExplorer;
 import nl.tudelft.cornul11.thesis.corpus.jarfile.JarFrequencyAnalyzer;
 import nl.tudelft.cornul11.thesis.corpus.service.VulnerabilityAnalyzer;
 import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
-import nl.tudelft.cornul11.thesis.database.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

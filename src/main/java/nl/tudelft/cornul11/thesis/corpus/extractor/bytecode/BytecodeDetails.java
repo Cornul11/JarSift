@@ -60,6 +60,10 @@ public class BytecodeDetails {
         return annotations;
     }
 
+    public int getAccess() {
+        return access;
+    }
+
     public static class Builder {
         private int access;
         private String name;
