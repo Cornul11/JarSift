@@ -1,4 +1,4 @@
-package nl.tudelft.cornul11.thesis;
+package nl.tudelft.cornul11.thesis.corpus;
 
 import nl.tudelft.cornul11.thesis.corpus.api.PostRequestClient;
 import nl.tudelft.cornul11.thesis.corpus.commandline.CommandExecutor;

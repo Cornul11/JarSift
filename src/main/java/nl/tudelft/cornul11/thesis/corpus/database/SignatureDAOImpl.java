@@ -4,13 +4,16 @@ import com.zaxxer.hikari.HikariDataSource;
 import nl.tudelft.cornul11.thesis.corpus.file.JarInfoExtractor;
 import nl.tudelft.cornul11.thesis.corpus.file.LibraryMatchInfo;
 import nl.tudelft.cornul11.thesis.corpus.model.Signature;
+import org.apache.maven.model.Build;
+import org.apache.maven.model.Dependency;
+import org.apache.maven.model.Model;
+import org.apache.maven.model.Plugin;
+import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
@@ -136,6 +139,83 @@ public class SignatureDAOImpl implements SignatureDAO {
         logger.info("Top matches query took " + (endTime - startTime) / 1000.0 + " seconds.");
 
         return libraryHashesCount;
+    }
+
+    public void insertPluginInfo(Model model) {
+        long startTime = System.currentTimeMillis();
+
+        String insertLibraryQuery = "INSERT INTO oracle_libraries (group_id, artifact_id, version) VALUES (?, ?, ?)";
+        String insertDependencyQuery = "INSERT INTO dependencies (group_id, artifact_id, version, scope) VALUES (?, ?, ?, ?)";
+        String insertPluginQuery = "INSERT INTO plugins (group_id, artifact_id, version) VALUES (?, ?, ?)";
+        String insertPluginConfigQuery = "INSERT INTO plugin_config (plugin_id, config_key, config_value) VALUES (?, ?, ?)";
+
+        executeWithDeadlockRetry(connection -> {
+            try {
+                PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery, Statement.RETURN_GENERATED_KEYS);
+                libraryStatement.setString(1, model.getGroupId());
+                libraryStatement.setString(2, model.getArtifactId());
+                libraryStatement.setString(3, model.getVersion());
+                libraryStatement.executeUpdate();
+
+                List<Dependency> dependencies = model.getDependencies();
+                PreparedStatement dependencyStatement = connection.prepareStatement(insertDependencyQuery);
+                for (Dependency dependency : dependencies) {
+                    dependencyStatement.setString(1, dependency.getGroupId());
+                    dependencyStatement.setString(2, dependency.getArtifactId());
+                    dependencyStatement.setString(3, dependency.getVersion());
+                    dependencyStatement.setString(4, dependency.getScope());
+                    dependencyStatement.executeUpdate();
+                }
+
+                Build build = model.getBuild();
+                if (build != null) {
+                    List<Plugin> plugins = build.getPlugins();
+                    for (Plugin plugin : plugins) {
+                        PreparedStatement pluginStatement = connection.prepareStatement(insertPluginQuery, Statement.RETURN_GENERATED_KEYS);
+                        pluginStatement.setString(1, plugin.getGroupId());
+                        pluginStatement.setString(2, plugin.getArtifactId());
+                        pluginStatement.setString(3, plugin.getVersion());
+                        pluginStatement.executeUpdate();
+
+                        ResultSet generatedKeys = pluginStatement.getGeneratedKeys();
+                        if (generatedKeys.next()) {
+                            int pluginId = generatedKeys.getInt(1);
+
+                            Map<String, String> configValues = parsePluginConfig(plugin);
+                            PreparedStatement configStatement = connection.prepareStatement(insertPluginConfigQuery);
+                            for (Map.Entry<String, String> entry : configValues.entrySet()) {
+                                configStatement.setInt(1, pluginId);
+                                configStatement.setString(2, entry.getKey());
+                                configStatement.setString(3, entry.getValue());
+                                configStatement.executeUpdate();
+                            }
+                        }
+                    }
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+                throw new RuntimeException(e);
+            }
+        });
+
+        long endTime = System.currentTimeMillis();
+        logger.info("Inserting plugin info took " + (endTime - startTime) / 1000.0 + " seconds.");
+
+    }
+
+    public Map<String, String> parsePluginConfig(Plugin plugin) {
+        Map<String, String> configValues = new HashMap<>();
+
+        Xpp3Dom config = (Xpp3Dom) plugin.getConfiguration();
+        if (config != null) {
+            for (Xpp3Dom child : config.getChildren()) {
+                String key = child.getName();
+                String value = child.getValue();
+                configValues.put(key, value);
+            }
+        }
+
+        return configValues;
     }
 
     private void executeWithDeadlockRetry(Consumer<Connection> action) {

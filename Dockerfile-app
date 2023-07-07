@@ -13,4 +13,4 @@ WORKDIR /usr/src/app
 COPY --from=build /usr/src/app/target/thesis-1.0-SNAPSHOT.jar /usr/src/app
 COPY --from=build /usr/src/app/target/dependency /usr/src/app/libs
 ENV TZ=Europe/Amsterdam
-ENTRYPOINT java -Xmx8g -cp /usr/src/app/libs/*:/usr/src/app/thesis-1.0-SNAPSHOT.jar nl.tudelft.cornul11.thesis.MainApp -m CORPUS_GEN_MODE -d ${DIRECTORY}
+ENTRYPOINT java -Xmx8g -cp /usr/src/app/libs/*:/usr/src/app/thesis-1.0-SNAPSHOT.jar nl.tudelft.cornul11.thesis.corpus.MainApp -m CORPUS_GEN_MODE -d ${DIRECTORY}

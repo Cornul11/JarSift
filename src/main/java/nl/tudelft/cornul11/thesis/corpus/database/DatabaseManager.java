@@ -56,8 +56,61 @@ public class DatabaseManager {
     private void createSchema() {
         createLibrariesTable();
         createSignaturesTable();
+        createOracleLibrariesTable();
+        createDependenciesTable();
+        createPluginsTable();
+        createPluginConfigTable();
 //        createLibrarySignatureTable();
 //        addIndexes();
+    }
+
+    private void createDependenciesTable() {
+        String createTableQuery = "CREATE TABLE IF NOT EXISTS dependencies (" +
+                "id INT PRIMARY KEY AUTO_INCREMENT, " +
+                "group_id VARCHAR(255) NOT NULL, " +
+                "artifact_id VARCHAR(255) NOT NULL," +
+                "version VARCHAR(255) NOT NULL, " +
+                "scope VARCHAR(255))";
+
+        try (Connection connection = ds.getConnection();
+             Statement statement = connection.createStatement()) {
+            statement.executeUpdate(createTableQuery);
+            logger.info("Dependencies table created or already exists.");
+        } catch (SQLException e) {
+            logger.error("Error while creating dependencies table.", e);
+        }
+    }
+
+    private void createPluginsTable() {
+        String createTableQuery = "CREATE TABLE IF NOT EXISTS plugins (" +
+                "id INT PRIMARY KEY AUTO_INCREMENT, " +
+                "group_id VARCHAR(255), " +
+                "artifact_id VARCHAR(255) NOT NULL, " +
+                "version VARCHAR(255))";
+
+        try (Connection connection = ds.getConnection();
+Statement statement = connection.createStatement()) {
+            statement.executeUpdate(createTableQuery);
+            logger.info("Plugins table created or already exists.");
+        } catch (SQLException e) {
+            logger.error("Error while creating plugins table.", e);
+        }
+    }
+
+    private void createPluginConfigTable() {
+        String createTableQuery = "CREATE TABLE IF NOT EXISTS plugin_config (" +
+                "id INT PRIMARY KEY AUTO_INCREMENT, " +
+                "plugin_id INT NOT NULL, " +
+                "config_key VARCHAR(255) NOT NULL, " +
+                "config_value VARCHAR(1020))";
+
+        try (Connection connection = ds.getConnection();
+             Statement statement = connection.createStatement()) {
+            statement.executeUpdate(createTableQuery);
+            logger.info("Plugin config table created or already exists.");
+        } catch (SQLException e) {
+            logger.error("Error while creating plugin config table.", e);
+        }
     }
 
     private void addIndexes() {
@@ -73,6 +126,22 @@ public class DatabaseManager {
             logger.info("Indexes created on signatures table.");
         } catch (SQLException e) {
             logger.error("Error while creating indexes on signatures table.", e);
+        }
+    }
+
+    private void createOracleLibrariesTable() {
+        String createTableQuery = "CREATE TABLE IF NOT EXISTS oracle_libraries (" +
+                "id INT PRIMARY KEY AUTO_INCREMENT, "
+                + "group_id VARCHAR(255) NOT NULL, "
+                + "artifact_id VARCHAR(255) NOT NULL, "
+                + "version VARCHAR(255) NOT NULL)";
+
+        try (Connection connection = ds.getConnection();
+             Statement statement = connection.createStatement()) {
+            statement.executeUpdate(createTableQuery);
+            logger.info("Oracle libraries table created or already exists.");
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
     }
 
