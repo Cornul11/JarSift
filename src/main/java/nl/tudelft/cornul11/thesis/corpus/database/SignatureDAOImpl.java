@@ -4,7 +4,6 @@ import com.zaxxer.hikari.HikariDataSource;
 import nl.tudelft.cornul11.thesis.corpus.file.JarInfoExtractor;
 import nl.tudelft.cornul11.thesis.corpus.file.LibraryMatchInfo;
 import nl.tudelft.cornul11.thesis.corpus.model.Signature;
-import org.apache.maven.model.Build;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Plugin;
@@ -101,6 +100,7 @@ public class SignatureDAOImpl implements SignatureDAO {
 
         // Create the countQuery
         String countQuery = "SELECT library_id, COUNT(*) as total_count " +
+                // "WHERE signatures.class_hash IN (" + placeholders + ") " +
                 "FROM library_signature " +
                 "GROUP BY library_id";
 
@@ -197,6 +197,91 @@ public class SignatureDAOImpl implements SignatureDAO {
         long endTime = System.currentTimeMillis();
         logger.info("Inserting plugin info took " + (endTime - startTime) / 1000.0 + " seconds.");
     }
+
+    public Model retrievePluginInfo(String groupId, String artifactId, String version) {
+        String selectLibraryQuery = "SELECT * FROM oracle_libraries WHERE group_id = ? AND artifact_id = ? AND version = ?";
+        String selectDependencyQuery = "SELECT * FROM dependencies WHERE group_id = ? AND artifact_id = ? AND version = ?";
+        String selectPluginQuery = "SELECT * FROM plugins WHERE group_id = ? AND artifact_id = ? AND version = ?";
+        String selectPluginConfigQuery = "SELECT * FROM plugin_config WHERE plugin_id = ?";
+
+        Model model = new Model();
+        Plugin shadePlugin = new Plugin();
+
+        executeWithDeadlockRetry(connection -> {
+                    try {
+                        PreparedStatement libraryStatement = connection.prepareStatement(selectLibraryQuery);
+                        libraryStatement.setString(1, groupId);
+                        libraryStatement.setString(2, artifactId);
+                        libraryStatement.setString(3, version);
+
+                        ResultSet libraryResultSet = libraryStatement.executeQuery();
+                        if (libraryResultSet.next()) {
+                            model.setGroupId(libraryResultSet.getString("group_id"));
+                            model.setArtifactId(libraryResultSet.getString("artifact_id"));
+                            model.setVersion(libraryResultSet.getString("version"));
+                        }
+
+                        PreparedStatement dependencyStatement = connection.prepareStatement(selectDependencyQuery);
+                        dependencyStatement.setString(1, groupId);
+                        dependencyStatement.setString(2, artifactId);
+                        dependencyStatement.setString(3, version);
+
+                        ResultSet dependencyResultSet = dependencyStatement.executeQuery();
+                        List<Dependency> dependencies = new ArrayList<>();
+                        while (dependencyResultSet.next()) {
+                            Dependency dependency = new Dependency();
+                            dependency.setGroupId(dependencyResultSet.getString("group_id"));
+                            dependency.setArtifactId(dependencyResultSet.getString("artifact_id"));
+                            dependency.setVersion(dependencyResultSet.getString("version"));
+                            dependency.setScope(dependencyResultSet.getString("scope"));
+                            dependencies.add(dependency);
+                        }
+                        model.setDependencies(dependencies);
+
+                        PreparedStatement pluginStatement = connection.prepareStatement(selectPluginQuery);
+                        pluginStatement.setString(1, groupId);
+                        pluginStatement.setString(2, artifactId);
+                        pluginStatement.setString(3, version);
+
+                        ResultSet pluginResultSet = pluginStatement.executeQuery();
+                        if (pluginResultSet.next()) {
+                            shadePlugin.setGroupId(pluginResultSet.getString("group_id"));
+                            shadePlugin.setArtifactId(pluginResultSet.getString("artifact_id"));
+                            shadePlugin.setVersion(pluginResultSet.getString("version"));
+
+                            PreparedStatement configStatement = connection.prepareStatement(selectPluginConfigQuery);
+                            configStatement.setInt(1, pluginResultSet.getInt("id"));
+                            ResultSet configResultSet = configStatement.executeQuery();
+
+                            Map<String, String> configValues = new HashMap<>();
+                            while (configResultSet.next()) {
+                                configValues.put(configResultSet.getString("config_key"), configResultSet.getString("config_value"));
+                            }
+                            shadePlugin.setConfiguration(mapToXpp3Dom(configValues));
+
+                        }
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        model.setPlugin(shadePlugin);
+
+        return model;
+    }
+
+
+    public Xpp3Dom mapToXpp3Dom(Map<String, String> map) {
+        Xpp3Dom config = new Xpp3Dom("configuration");
+        for (Map.Entry<String, String> entry : map.entrySet()) {
+            Xpp3Dom child = new Xpp3Dom(entry.getKey());
+            child.setValue(entry.getValue());
+            config.addChild(child);
+        }
+        return config;
+    }
+
 
     public Map<String, String> parsePluginConfig(Plugin plugin) {
         Map<String, String> configValues = new HashMap<>();

@@ -58,14 +58,14 @@ public class OracleCommandExecutor {
             } else if ("COMPARISON_MODE".equals(mode)) {
                 String fileName = options.getFilename();
                 if (fileName != null) {
-                    JarFrequencyAnalyzer jarFrequencyAnalyzer = new JarFrequencyAnalyzer(signatureDao);
-                    Map<String, Map<String, Object>> frequencyMap = jarFrequencyAnalyzer.processJar(fileName);
-                    if (frequencyMap == null) {
-                        System.out.println("Error in processing jar file, ignoring it");
+                    OracleInformationComparator comparator = new OracleInformationComparator(signatureDao);
+                    comparator.validateUberJar(fileName);
+                    if (comparator.getResults() == null) {
+                        System.out.println("Error in processing jar file");
                     }
 
                 } else {
-                    System.out.println("File name is required for DETECTION_MODE");
+                    System.out.println("File name is required for COMPARISON_MODE");
                     printHelpMessage();
                 }
             } else {
