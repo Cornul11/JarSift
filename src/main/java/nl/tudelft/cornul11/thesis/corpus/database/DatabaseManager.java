@@ -182,20 +182,35 @@ Statement statement = connection.createStatement()) {
 
     private void createLibrarySignatureTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS library_signature (" +
-                "library_id INT NOT NULL, " +
-                "signature_id INT NOT NULL) " +
-                "PARTITION BY RANGE (library_id) (" +
-                "PARTITION p0 VALUES LESS THAN (300000)," +
-                "PARTITION p1 VALUES LESS THAN (600000)," +
-                "PARTITION p2 VALUES LESS THAN (900000)," +
-                "PARTITION p3 VALUES LESS THAN (1200000)," +
-                "PARTITION p4 VALUES LESS THAN (1500000)," +
-                "PARTITION p5 VALUES LESS THAN (1800000)," +
-                "PARTITION p6 VALUES LESS THAN (2100000)," +
-                "PARTITION p7 VALUES LESS THAN (2400000)," +
-                "PARTITION p8 VALUES LESS THAN (2700000)," +
-                "PARTITION p9 VALUES LESS THAN (3000000)," +
-                "PARTITION p10 VALUES LESS THAN MAXVALUE)";
+            "library_id INT NOT NULL, " +
+            "signature_id INT NOT NULL) " +
+            "PARTITION BY RANGE (library_id) (" +
+            "PARTITION p0 VALUES LESS THAN (100001)," +
+            "PARTITION p1 VALUES LESS THAN (200001)," +
+            "PARTITION p2 VALUES LESS THAN (300001)," +
+            "PARTITION p3 VALUES LESS THAN (400001)," +
+            "PARTITION p4 VALUES LESS THAN (500001)," +
+            "PARTITION p5 VALUES LESS THAN (600001)," +
+            "PARTITION p6 VALUES LESS THAN (700001)," +
+            "PARTITION p7 VALUES LESS THAN (800001)," +
+            "PARTITION p8 VALUES LESS THAN (900001)," +
+            "PARTITION p9 VALUES LESS THAN (1000001)," +
+            "PARTITION p10 VALUES LESS THAN (1100001)," +
+            "PARTITION p11 VALUES LESS THAN (1200001)," +
+            "PARTITION p12 VALUES LESS THAN (1300001)," +
+            "PARTITION p13 VALUES LESS THAN (1400001)," +
+            "PARTITION p14 VALUES LESS THAN (1500001)," +
+            "PARTITION p15 VALUES LESS THAN (1600001)," +
+            "PARTITION p16 VALUES LESS THAN (1700001)," +
+            "PARTITION p17 VALUES LESS THAN (1800001)," +
+            "PARTITION p18 VALUES LESS THAN (1900001)," +
+            "PARTITION p19 VALUES LESS THAN (2000001)," +
+            "PARTITION p20 VALUES LESS THAN (2100001)," +
+            "PARTITION p21 VALUES LESS THAN (2200001)," +
+            "PARTITION p22 VALUES LESS THAN (2300001)," +
+            "PARTITION p23 VALUES LESS THAN (2400001)," +
+            "PARTITION p24 VALUES LESS THAN (2500001)," +
+            "PARTITION p25 VALUES LESS THAN MAXVALUE)";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {

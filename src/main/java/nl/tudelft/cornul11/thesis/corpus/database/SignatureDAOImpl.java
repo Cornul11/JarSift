@@ -101,16 +101,18 @@ public class SignatureDAOImpl implements SignatureDAO {
 
         // Create the countQuery
         String countQuery = "SELECT library_id, COUNT(*) as total_count " +
-                "FROM signatures " +
+                "FROM library_signature " +
                 "GROUP BY library_id";
 
         // Create the mainQuery
         String mainQuery = "SELECT libraries.group_id, libraries.artifact_id, libraries.version, COUNT(*) as matched_count, total_count_table.total_count " +
-                "FROM signatures " +
-                "JOIN libraries ON signatures.library_id = libraries.id " +
-                "LEFT JOIN (" + countQuery + ") as total_count_table ON signatures.library_id = total_count_table.library_id " +
+                "FROM library_signature " +
+                "JOIN libraries ON library_signature.library_id = libraries.id " +
+                "JOIN signatures ON library_signature.signature_id = signatures.id " +
+                "LEFT JOIN (" + countQuery + ") as total_count_table ON library_signature.library_id = total_count_table.library_id " +
                 "WHERE signatures.class_hash IN (" + placeholders + ") " +
                 "GROUP BY libraries.group_id, libraries.artifact_id, libraries.version, total_count_table.total_count";
+
 
         List<LibraryMatchInfo> libraryHashesCount = new ArrayList<>();
 
@@ -141,7 +143,7 @@ public class SignatureDAOImpl implements SignatureDAO {
         return libraryHashesCount;
     }
 
-    public void insertPluginInfo(Model model) {
+    public void insertPluginInfo(Model model, Plugin shadePlugin) {
         long startTime = System.currentTimeMillis();
 
         String insertLibraryQuery = "INSERT INTO oracle_libraries (group_id, artifact_id, version) VALUES (?, ?, ?)";
@@ -167,29 +169,23 @@ public class SignatureDAOImpl implements SignatureDAO {
                     dependencyStatement.executeUpdate();
                 }
 
-                Build build = model.getBuild();
-                if (build != null) {
-                    List<Plugin> plugins = build.getPlugins();
-                    for (Plugin plugin : plugins) {
-                        PreparedStatement pluginStatement = connection.prepareStatement(insertPluginQuery, Statement.RETURN_GENERATED_KEYS);
-                        pluginStatement.setString(1, plugin.getGroupId());
-                        pluginStatement.setString(2, plugin.getArtifactId());
-                        pluginStatement.setString(3, plugin.getVersion());
-                        pluginStatement.executeUpdate();
+                PreparedStatement pluginStatement = connection.prepareStatement(insertPluginQuery, Statement.RETURN_GENERATED_KEYS);
+                pluginStatement.setString(1, shadePlugin.getGroupId());
+                pluginStatement.setString(2, shadePlugin.getArtifactId());
+                pluginStatement.setString(3, shadePlugin.getVersion());
+                pluginStatement.executeUpdate();
 
-                        ResultSet generatedKeys = pluginStatement.getGeneratedKeys();
-                        if (generatedKeys.next()) {
-                            int pluginId = generatedKeys.getInt(1);
+                ResultSet generatedKeys = pluginStatement.getGeneratedKeys();
+                if (generatedKeys.next()) {
+                    int pluginId = generatedKeys.getInt(1);
+                    Map<String, String> configValues = parsePluginConfig(shadePlugin);
 
-                            Map<String, String> configValues = parsePluginConfig(plugin);
-                            PreparedStatement configStatement = connection.prepareStatement(insertPluginConfigQuery);
-                            for (Map.Entry<String, String> entry : configValues.entrySet()) {
-                                configStatement.setInt(1, pluginId);
-                                configStatement.setString(2, entry.getKey());
-                                configStatement.setString(3, entry.getValue());
-                                configStatement.executeUpdate();
-                            }
-                        }
+                    PreparedStatement configStatement = connection.prepareStatement(insertPluginConfigQuery);
+                    for (Map.Entry<String, String> entry : configValues.entrySet()) {
+                        configStatement.setInt(1, pluginId);
+                        configStatement.setString(2, entry.getKey());
+                        configStatement.setString(3, entry.getValue());
+                        configStatement.executeUpdate();
                     }
                 }
             } catch (SQLException e) {
@@ -200,7 +196,6 @@ public class SignatureDAOImpl implements SignatureDAO {
 
         long endTime = System.currentTimeMillis();
         logger.info("Inserting plugin info took " + (endTime - startTime) / 1000.0 + " seconds.");
-
     }
 
     public Map<String, String> parsePluginConfig(Plugin plugin) {

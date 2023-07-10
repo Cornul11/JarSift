@@ -107,7 +107,12 @@ public class PomProcessor implements Runnable {
             if (containsDependencies && containsShadeConfig) {
                 System.out.println("Will be used for the oracle");
 
-                signatureDao.insertPluginInfo(model);
+                Plugin shadePlugin = build.getPlugins().
+                        stream()
+                        .filter(plugin -> plugin.getArtifactId().equals("maven-shade-plugin"))
+                        .findFirst()
+                        .orElse(null);
+                signatureDao.insertPluginInfo(model, shadePlugin);
             } else {
                 //System.out.println("Will not be used for the oracle");
             }
