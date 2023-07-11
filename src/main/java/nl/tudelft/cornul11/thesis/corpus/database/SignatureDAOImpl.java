@@ -4,13 +4,19 @@ import com.zaxxer.hikari.HikariDataSource;
 import nl.tudelft.cornul11.thesis.corpus.file.JarInfoExtractor;
 import nl.tudelft.cornul11.thesis.corpus.file.LibraryMatchInfo;
 import nl.tudelft.cornul11.thesis.corpus.model.Signature;
+import org.apache.maven.model.Build;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Plugin;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
+import org.codehaus.plexus.util.xml.Xpp3DomBuilder;
+import org.codehaus.plexus.util.xml.Xpp3DomWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.PrintWriter;
+import java.io.StringReader;
+import java.io.StringWriter;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -178,15 +184,11 @@ public class SignatureDAOImpl implements SignatureDAO {
                 ResultSet generatedKeys = pluginStatement.getGeneratedKeys();
                 if (generatedKeys.next()) {
                     int pluginId = generatedKeys.getInt(1);
-                    Map<String, String> configValues = parsePluginConfig(shadePlugin);
 
                     PreparedStatement configStatement = connection.prepareStatement(insertPluginConfigQuery);
-                    for (Map.Entry<String, String> entry : configValues.entrySet()) {
-                        configStatement.setInt(1, pluginId);
-                        configStatement.setString(2, entry.getKey());
-                        configStatement.setString(3, entry.getValue());
-                        configStatement.executeUpdate();
-                    }
+                    configStatement.setInt(1, pluginId);
+                    configStatement.setString(2, serializeXpp3Dom((Xpp3Dom) shadePlugin.getConfiguration()));
+                    configStatement.executeUpdate();
                 }
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -253,22 +255,41 @@ public class SignatureDAOImpl implements SignatureDAO {
                             configStatement.setInt(1, pluginResultSet.getInt("id"));
                             ResultSet configResultSet = configStatement.executeQuery();
 
-                            Map<String, String> configValues = new HashMap<>();
-                            while (configResultSet.next()) {
-                                configValues.put(configResultSet.getString("config_key"), configResultSet.getString("config_value"));
+                            if (configResultSet.next()) {
+                                shadePlugin.setConfiguration(deserializeXpp3Dom(configResultSet.getString("config")));
                             }
-                            shadePlugin.setConfiguration(mapToXpp3Dom(configValues));
-
                         }
                     } catch (SQLException e) {
                         e.printStackTrace();
                         throw new RuntimeException(e);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        throw new RuntimeException(e);
                     }
-                });
+        });
 
-        model.setPlugin(shadePlugin);
+        Build build;
+        if (model.getBuild() == null) {
+            build = new Build();
+        } else {
+            build = model.getBuild();
+        }
+
+        build.addPlugin(shadePlugin);
+        model.setBuild(build);
 
         return model;
+    }
+
+
+    public String serializeXpp3Dom(Xpp3Dom dom) {
+        StringWriter writer = new StringWriter();
+        Xpp3DomWriter.write(new PrintWriter(writer), dom);
+        return writer.toString();
+    }
+
+    public Xpp3Dom deserializeXpp3Dom(String xml) throws Exception {
+        return Xpp3DomBuilder.build(new StringReader(xml));
     }
 
 

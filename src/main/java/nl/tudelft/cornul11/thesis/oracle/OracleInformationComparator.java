@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 public class OracleInformationComparator {
     private final Logger logger = LoggerFactory.getLogger(OracleInformationComparator.class);
     private final SignatureDAO signatureDAO;
+
     public OracleInformationComparator(SignatureDAO signatureDAO) {
         this.signatureDAO = signatureDAO;
     }
@@ -70,9 +71,10 @@ public class OracleInformationComparator {
     }
 
     private Model getModelByJarPath(Path jarPath) {
-
+        return null;
     }
 
     public String getResults() {
+        return null;
     }
 }
