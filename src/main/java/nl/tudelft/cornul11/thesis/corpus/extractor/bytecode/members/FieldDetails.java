@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class FieldDetails {
+    // TODO: maybe consider literals
     private String name;
     private String desc;
     private List<AnnotationDetails> annotations = new ArrayList<>();
