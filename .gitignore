@@ -1,6 +1,9 @@
 *.env
 *.properties
+*.cnf
 !.env.example
+!.properties.example
+!.cnf.example
 
 # IntelliJ specific files
 out/
