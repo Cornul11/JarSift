@@ -153,7 +153,8 @@ Statement statement = connection.createStatement()) {
                 + "version VARCHAR(255) NOT NULL, "
                 + "jar_hash BIGINT NOT NULL, "
                 + "jar_crc BIGINT NOT NULL,"
-                + "is_uber_jar BOOLEAN NOT NULL)";
+                + "is_uber_jar BOOLEAN NOT NULL,"
+                + "total_class_files INT NOT NULL)";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {

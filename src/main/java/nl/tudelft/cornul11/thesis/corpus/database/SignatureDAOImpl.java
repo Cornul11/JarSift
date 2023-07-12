@@ -43,6 +43,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                 libraryStatement.setLong(4, jarHash);
                 libraryStatement.setLong(5, jarCrc);
                 libraryStatement.setBoolean(6, !isBrokenJar);
+                libraryStatement.setInt(7, -1);
                 libraryStatement.executeUpdate();
 
                 logger.info("Library row inserted.");
@@ -56,7 +57,7 @@ public class SignatureDAOImpl implements SignatureDAO {
 
     @Override
     public int insertSignatures(List<Signature> signatures, long jarHash, long jarCrc) {
-        String insertLibraryQuery = "INSERT INTO libraries (group_id, artifact_id, version, jar_hash, jar_crc, is_uber_jar) VALUES (?, ?, ?, ?, ?, ?)";
+        String insertLibraryQuery = "INSERT INTO libraries (group_id, artifact_id, version, jar_hash, jar_crc, is_uber_jar, total_class_files) VALUES (?, ?, ?, ?, ?, ?, ?)";
         String insertSignatureQuery = "INSERT INTO signatures (library_id, class_hash, class_crc) VALUES (?, ?, ?)";  // library_id is added here.
 
         AtomicInteger totalRowsInserted = new AtomicInteger();
@@ -70,6 +71,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                 libraryStatement.setLong(4, jarHash);
                 libraryStatement.setLong(5, jarCrc);
                 libraryStatement.setBoolean(6, false);
+                libraryStatement.setInt(7, signatures.size());
                 libraryStatement.executeUpdate();
 
                 ResultSet generatedKeys = libraryStatement.getGeneratedKeys();
@@ -104,20 +106,12 @@ public class SignatureDAOImpl implements SignatureDAO {
         // Create placeholders for the IN clause
         String placeholders = String.join(", ", Collections.nCopies(hashes.size(), "?"));
 
-        // Create the countQuery
-        String countQuery = "SELECT library_id, COUNT(*) as total_count " +
-                // "WHERE signatures.class_hash IN (" + placeholders + ") " +
-                "FROM library_signature " +
-                "GROUP BY library_id";
-
         // Create the mainQuery
-        String mainQuery = "SELECT libraries.group_id, libraries.artifact_id, libraries.version, COUNT(*) as matched_count, total_count_table.total_count " +
-                "FROM library_signature " +
-                "JOIN libraries ON library_signature.library_id = libraries.id " +
-                "JOIN signatures ON library_signature.signature_id = signatures.id " +
-                "LEFT JOIN (" + countQuery + ") as total_count_table ON library_signature.library_id = total_count_table.library_id " +
+        String mainQuery = "SELECT libraries.group_id, libraries.artifact_id, libraries.version, libraries.total_class_files, COUNT(*) as matched_count " +
+                "FROM signatures " +
+                "JOIN libraries ON signatures.library_id = libraries.id " +
                 "WHERE signatures.class_hash IN (" + placeholders + ") " +
-                "GROUP BY libraries.group_id, libraries.artifact_id, libraries.version, total_count_table.total_count";
+                "GROUP BY libraries.group_id, libraries.artifact_id, libraries.version, libraries.total_class_files";
 
 
         List<LibraryMatchInfo> libraryHashesCount = new ArrayList<>();
@@ -134,7 +128,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                 String resultArtifactId = resultSet.getString("artifact_id");
                 String resultVersion = resultSet.getString("version");
                 int resultMatchedCount = resultSet.getInt("matched_count");
-                int resultTotalCount = resultSet.getInt("total_count");
+                int resultTotalCount = resultSet.getInt("total_class_files");
 
                 LibraryMatchInfo libraryMatchInfo = new LibraryMatchInfo(resultGroupId, resultArtifactId, resultVersion, resultMatchedCount, resultTotalCount);
                 libraryHashesCount.add(libraryMatchInfo);

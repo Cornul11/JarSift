@@ -59,7 +59,7 @@ public class CommandExecutor {
                     JarFrequencyAnalyzer jarFrequencyAnalyzer = new JarFrequencyAnalyzer(signatureDao);
                     Map<String, Map<String, Object>> frequencyMap = jarFrequencyAnalyzer.processJar(fileName);
                     if (frequencyMap == null) {
-                        System.out.println("Error in processing jar file, ignoring it");
+                        logger.error("Error in processing jar file, ignoring it");
                         return;
                     }
                     int totalClassCount = jarFrequencyAnalyzer.getTotalClassCount();
