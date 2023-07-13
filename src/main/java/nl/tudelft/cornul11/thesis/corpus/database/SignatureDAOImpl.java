@@ -33,7 +33,7 @@ public class SignatureDAOImpl implements SignatureDAO {
 
     @Override
     public int insertLibrary(JarInfoExtractor jarInfoExtractor, long jarHash, long jarCrc, boolean isBrokenJar) {
-        String insertLibraryQuery = "INSERT INTO libraries (group_id, artifact_id, version, jar_hash, jar_crc, is_uber_jar) VALUES (?, ?, ?, ?, ?, ?)";
+        String insertLibraryQuery = "INSERT INTO libraries (group_id, artifact_id, version, jar_hash, jar_crc, is_uber_jar, total_class_files) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         executeWithDeadlockRetry(connection -> {
             try (PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery, Statement.RETURN_GENERATED_KEYS)) {
@@ -43,6 +43,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                 libraryStatement.setLong(4, jarHash);
                 libraryStatement.setLong(5, jarCrc);
                 libraryStatement.setBoolean(6, !isBrokenJar);
+                // there won't be any matches with this lib because there is no signature in the db, thus we don't need the total number of class files in it
                 libraryStatement.setInt(7, -1);
                 libraryStatement.executeUpdate();
 
@@ -99,39 +100,49 @@ public class SignatureDAOImpl implements SignatureDAO {
 
         return totalRowsInserted.get();
     }
+
     @Override
     public List<LibraryMatchInfo> returnTopLibraryMatches(List<Long> hashes) {
         long startTime = System.currentTimeMillis();
 
-        // Create placeholders for the IN clause
-        String placeholders = String.join(", ", Collections.nCopies(hashes.size(), "?"));
+        String createTempTable = "CREATE TEMPORARY TABLe temp_hashes (class_hash BIGINT)";
+        String insertIntoTempTable = "INSERT INTO temp_hashes (class_hash) VALUES (?)";
 
         // Create the mainQuery
         String mainQuery = "SELECT libraries.group_id, libraries.artifact_id, libraries.version, libraries.total_class_files, COUNT(*) as matched_count " +
                 "FROM signatures " +
                 "JOIN libraries ON signatures.library_id = libraries.id " +
-                "WHERE signatures.class_hash IN (" + placeholders + ") " +
+                "JOIN temp_hashes ON signatures.class_hash = temp_hashes.class_hash " +
                 "GROUP BY libraries.group_id, libraries.artifact_id, libraries.version, libraries.total_class_files";
 
 
         List<LibraryMatchInfo> libraryHashesCount = new ArrayList<>();
 
-        try (Connection connection = ds.getConnection();
-             PreparedStatement statement = connection.prepareStatement(mainQuery)) {
-            for (int i = 0; i < hashes.size(); i++) {
-                statement.setLong(i + 1, hashes.get(i));
+        try (Connection connection = ds.getConnection()) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(createTempTable);
             }
 
-            ResultSet resultSet = statement.executeQuery();
-            while (resultSet.next()) {
-                String resultGroupId = resultSet.getString("group_id");
-                String resultArtifactId = resultSet.getString("artifact_id");
-                String resultVersion = resultSet.getString("version");
-                int resultMatchedCount = resultSet.getInt("matched_count");
-                int resultTotalCount = resultSet.getInt("total_class_files");
+            try (PreparedStatement statement = connection.prepareStatement(insertIntoTempTable)) {
+                for (Long hash : hashes) {
+                    statement.setLong(1, hash);
+                    statement.addBatch();
+                }
+                statement.executeBatch();
+            }
 
-                LibraryMatchInfo libraryMatchInfo = new LibraryMatchInfo(resultGroupId, resultArtifactId, resultVersion, resultMatchedCount, resultTotalCount);
-                libraryHashesCount.add(libraryMatchInfo);
+            try (PreparedStatement statement = connection.prepareStatement(mainQuery)) {
+                ResultSet resultSet = statement.executeQuery();
+                while (resultSet.next()) {
+                    String resultGroupId = resultSet.getString("group_id");
+                    String resultArtifactId = resultSet.getString("artifact_id");
+                    String resultVersion = resultSet.getString("version");
+                    int resultMatchedCount = resultSet.getInt("matched_count");
+                    int resultTotalCount = resultSet.getInt("total_class_files");
+
+                    LibraryMatchInfo libraryMatchInfo = new LibraryMatchInfo(resultGroupId, resultArtifactId, resultVersion, resultMatchedCount, resultTotalCount);
+                    libraryHashesCount.add(libraryMatchInfo);
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -204,62 +215,62 @@ public class SignatureDAOImpl implements SignatureDAO {
         Plugin shadePlugin = new Plugin();
 
         executeWithDeadlockRetry(connection -> {
-                    try {
-                        PreparedStatement libraryStatement = connection.prepareStatement(selectLibraryQuery);
-                        libraryStatement.setString(1, groupId);
-                        libraryStatement.setString(2, artifactId);
-                        libraryStatement.setString(3, version);
+            try {
+                PreparedStatement libraryStatement = connection.prepareStatement(selectLibraryQuery);
+                libraryStatement.setString(1, groupId);
+                libraryStatement.setString(2, artifactId);
+                libraryStatement.setString(3, version);
 
-                        ResultSet libraryResultSet = libraryStatement.executeQuery();
-                        if (libraryResultSet.next()) {
-                            model.setGroupId(libraryResultSet.getString("group_id"));
-                            model.setArtifactId(libraryResultSet.getString("artifact_id"));
-                            model.setVersion(libraryResultSet.getString("version"));
-                        }
+                ResultSet libraryResultSet = libraryStatement.executeQuery();
+                if (libraryResultSet.next()) {
+                    model.setGroupId(libraryResultSet.getString("group_id"));
+                    model.setArtifactId(libraryResultSet.getString("artifact_id"));
+                    model.setVersion(libraryResultSet.getString("version"));
+                }
 
-                        PreparedStatement dependencyStatement = connection.prepareStatement(selectDependencyQuery);
-                        dependencyStatement.setString(1, groupId);
-                        dependencyStatement.setString(2, artifactId);
-                        dependencyStatement.setString(3, version);
+                PreparedStatement dependencyStatement = connection.prepareStatement(selectDependencyQuery);
+                dependencyStatement.setString(1, groupId);
+                dependencyStatement.setString(2, artifactId);
+                dependencyStatement.setString(3, version);
 
-                        ResultSet dependencyResultSet = dependencyStatement.executeQuery();
-                        List<Dependency> dependencies = new ArrayList<>();
-                        while (dependencyResultSet.next()) {
-                            Dependency dependency = new Dependency();
-                            dependency.setGroupId(dependencyResultSet.getString("group_id"));
-                            dependency.setArtifactId(dependencyResultSet.getString("artifact_id"));
-                            dependency.setVersion(dependencyResultSet.getString("version"));
-                            dependency.setScope(dependencyResultSet.getString("scope"));
-                            dependencies.add(dependency);
-                        }
-                        model.setDependencies(dependencies);
+                ResultSet dependencyResultSet = dependencyStatement.executeQuery();
+                List<Dependency> dependencies = new ArrayList<>();
+                while (dependencyResultSet.next()) {
+                    Dependency dependency = new Dependency();
+                    dependency.setGroupId(dependencyResultSet.getString("group_id"));
+                    dependency.setArtifactId(dependencyResultSet.getString("artifact_id"));
+                    dependency.setVersion(dependencyResultSet.getString("version"));
+                    dependency.setScope(dependencyResultSet.getString("scope"));
+                    dependencies.add(dependency);
+                }
+                model.setDependencies(dependencies);
 
-                        PreparedStatement pluginStatement = connection.prepareStatement(selectPluginQuery);
-                        pluginStatement.setString(1, groupId);
-                        pluginStatement.setString(2, artifactId);
-                        pluginStatement.setString(3, version);
+                PreparedStatement pluginStatement = connection.prepareStatement(selectPluginQuery);
+                pluginStatement.setString(1, groupId);
+                pluginStatement.setString(2, artifactId);
+                pluginStatement.setString(3, version);
 
-                        ResultSet pluginResultSet = pluginStatement.executeQuery();
-                        if (pluginResultSet.next()) {
-                            shadePlugin.setGroupId(pluginResultSet.getString("group_id"));
-                            shadePlugin.setArtifactId(pluginResultSet.getString("artifact_id"));
-                            shadePlugin.setVersion(pluginResultSet.getString("version"));
+                ResultSet pluginResultSet = pluginStatement.executeQuery();
+                if (pluginResultSet.next()) {
+                    shadePlugin.setGroupId(pluginResultSet.getString("group_id"));
+                    shadePlugin.setArtifactId(pluginResultSet.getString("artifact_id"));
+                    shadePlugin.setVersion(pluginResultSet.getString("version"));
 
-                            PreparedStatement configStatement = connection.prepareStatement(selectPluginConfigQuery);
-                            configStatement.setInt(1, pluginResultSet.getInt("id"));
-                            ResultSet configResultSet = configStatement.executeQuery();
+                    PreparedStatement configStatement = connection.prepareStatement(selectPluginConfigQuery);
+                    configStatement.setInt(1, pluginResultSet.getInt("id"));
+                    ResultSet configResultSet = configStatement.executeQuery();
 
-                            if (configResultSet.next()) {
-                                shadePlugin.setConfiguration(deserializeXpp3Dom(configResultSet.getString("config")));
-                            }
-                        }
-                    } catch (SQLException e) {
-                        e.printStackTrace();
-                        throw new RuntimeException(e);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        throw new RuntimeException(e);
+                    if (configResultSet.next()) {
+                        shadePlugin.setConfiguration(deserializeXpp3Dom(configResultSet.getString("config")));
                     }
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+                throw new RuntimeException(e);
+            } catch (Exception e) {
+                e.printStackTrace();
+                throw new RuntimeException(e);
+            }
         });
 
         Build build;

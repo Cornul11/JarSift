@@ -4,17 +4,18 @@ import nl.tudelft.cornul11.thesis.corpus.database.DatabaseConfig;
 import nl.tudelft.cornul11.thesis.corpus.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAOImpl;
-import nl.tudelft.cornul11.thesis.corpus.file.ClassFileInfo;
-import nl.tudelft.cornul11.thesis.corpus.jarfile.JarHandler;
 import nl.tudelft.cornul11.thesis.corpus.extractor.bytecode.BytecodeDetails;
 import nl.tudelft.cornul11.thesis.corpus.extractor.bytecode.BytecodeParser;
 import nl.tudelft.cornul11.thesis.corpus.extractor.bytecode.BytecodeUtils;
+import nl.tudelft.cornul11.thesis.corpus.file.ClassFileInfo;
+import nl.tudelft.cornul11.thesis.corpus.jarfile.JarHandler;
 import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.stream.Collectors;
@@ -43,10 +44,10 @@ public class ComparisonSandbox {
         if (false) {
             List<Long> dbHashesForArtifact = ((SignatureDAOImpl) signatureDao).getHashesForArtifactIdVersion("logback-core", "1.4.0");
 
-            JarHandler jarHandler = new JarHandler(Paths.get(args[0]), new ArrayList<>(), new ArrayList<>(), new ConfigurationLoader());
+            JarHandler jarHandler = new JarHandler(Paths.get(args[0]), new ConcurrentLinkedDeque<>(), new ConcurrentLinkedDeque<>(), new ConfigurationLoader());
             List<ClassFileInfo> originalClassFileInfos = jarHandler.extractSignatures();
 
-            JarHandler shadedJarHandler = new JarHandler(Paths.get(args[1]), new ArrayList<>(), new ArrayList<>(), new ConfigurationLoader());
+            JarHandler shadedJarHandler = new JarHandler(Paths.get(args[1]), new ConcurrentLinkedDeque<>(), new ConcurrentLinkedDeque<>(), new ConfigurationLoader());
             List<ClassFileInfo> shadedClassFileInfos = shadedJarHandler.extractSignatures();
 
             // Map of className -> ClassFileInfo for original and shaded jars

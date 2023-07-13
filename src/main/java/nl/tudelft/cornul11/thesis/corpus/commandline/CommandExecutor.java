@@ -45,12 +45,15 @@ public class CommandExecutor {
             SignatureDAO signatureDao = databaseManager.getSignatureDao();
 
             if ("CORPUS_GEN_MODE".equals(mode)) {
+                JarFileExplorer jarFileExplorer = new JarFileExplorer(signatureDao, config);
                 String directoryPath = options.getDirectory();
+                String filePaths = options.getFilePaths();
                 if (directoryPath != null) {
-                    JarFileExplorer jarFileExplorer = new JarFileExplorer(signatureDao, config);
                     jarFileExplorer.processFiles(directoryPath, options.getLastPath());
+                } else if (filePaths != null) {
+                    jarFileExplorer.processFilesFromPathListFile(filePaths);
                 } else {
-                    System.out.println("Directory path is required for CORPUS_GEN_MODE");
+                    System.out.println("Directory path or file path(s) is required for CORPUS_GEN_MODE");
                     printHelpMessage();
                 }
             } else if ("DETECTION_MODE".equals(mode)) {

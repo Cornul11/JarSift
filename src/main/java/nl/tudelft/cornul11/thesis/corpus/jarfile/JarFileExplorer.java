@@ -1,8 +1,8 @@
 package nl.tudelft.cornul11.thesis.corpus.jarfile;
 
-import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
 import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.corpus.file.DirectoryExplorer;
+import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,6 +70,45 @@ public class JarFileExplorer {
             }
             long endTime = System.currentTimeMillis();
             logger.info("Processed " + directoryExplorer.getVisitedFilesCount() + " jar file(s) in " + (endTime - startTime) / 1000 + " seconds (" + (endTime - startTime) + " ms)");
+            fileAnalyzer.printIgnoredUberJars();
+            fileAnalyzer.printStats();
+            logger.info("Closing database connection");
+            signatureDao.closeConnection();
+        } catch (IOException e) {
+            logger.error("Error while processing files", e);
+        }
+    }
+
+    public void processFilesFromPathListFile(String pathToFileWithPaths) {
+        long startTime = System.currentTimeMillis();
+
+        // TODO: add continue from last path like in the other method
+        //Path lastVisitedPath = lastPath != null ? Paths.get(lastPath) : null;
+
+        ExecutorService executor = Executors.newFixedThreadPool(numConsumerThreads);
+        try {
+            List<String> allPaths = Files.readAllLines(Paths.get(pathToFileWithPaths));
+
+            logger.info("Processing " + allPaths.size() + " files from file: " + pathToFileWithPaths);
+
+            allPaths.stream()
+                    .map(Paths::get)
+                            .forEach(path -> executor.submit(new JarFromPathProcessor(path, fileAnalyzer)));
+
+            // Wait for all tasks to complete
+            executor.shutdown();
+
+            while (!executor.isTerminated()) {
+                try {
+                    executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+                } catch (InterruptedException e) {
+                    List<Runnable> remainingTasks = executor.shutdownNow(); // Force remaining tasks to terminate
+                    logger.error("Interrupted while waiting for tasks to complete", e);
+                    Thread.currentThread().interrupt();
+                }
+            }
+            long endTime = System.currentTimeMillis();
+            logger.info("Processed " + fileAnalyzer.getProcessedFiles() + " jar file(s) in " + (endTime - startTime) / 1000 + " seconds (" + (endTime - startTime) + " ms)");
             fileAnalyzer.printIgnoredUberJars();
             fileAnalyzer.printStats();
             logger.info("Closing database connection");

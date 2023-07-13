@@ -1,35 +1,32 @@
 package nl.tudelft.cornul11.thesis.corpus.jarfile;
 
 import net.openhft.hashing.LongHashFunction;
-import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
 import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.corpus.file.ClassFileInfo;
 import nl.tudelft.cornul11.thesis.corpus.file.JarInfoExtractor;
 import nl.tudelft.cornul11.thesis.corpus.model.Signature;
+import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public class FileAnalyzer {
-    private final List<String> ignoredUberJars = new ArrayList<>();
-    private final List<String> insertedLibraries = new ArrayList<>();
-    private int insertedUberJars = 0;
+    private final ConcurrentLinkedDeque<String> ignoredUberJars = new ConcurrentLinkedDeque<>();
+    private final ConcurrentLinkedDeque<String> insertedLibraries = new ConcurrentLinkedDeque<>();
+    private final AtomicInteger insertedUberJars = new AtomicInteger(0);
     private final SignatureDAO signatureDao;
     private final Logger logger = LoggerFactory.getLogger(FileAnalyzer.class);
-    private final Set<Long> uniqueHashes = new HashSet<>();
+    private final ConcurrentHashMap<Long, Boolean> uniqueHashes = new ConcurrentHashMap<>();
     private final ConfigurationLoader config;
-    private AtomicInteger processedJars = new AtomicInteger(0);
-    private int totalJars;
-    private long startTime = System.currentTimeMillis();
+    private final AtomicInteger processedJars = new AtomicInteger(0);
+    private final int totalJars;
+    private final long startTime = System.currentTimeMillis();
 
     public FileAnalyzer(SignatureDAO signatureDao, ConfigurationLoader config) {
         this.config = config;
@@ -38,40 +35,6 @@ public class FileAnalyzer {
     }
 
     public void printIgnoredUberJars() {
-        // output the ignored uber jars to a file
-        FileOutputStream fos = null;
-        try {
-            fos = new FileOutputStream("ignored_uber_jars.txt");
-            for (String ignoredUberJar : ignoredUberJars) {
-                fos.write(ignoredUberJar.getBytes());
-                fos.write("\n".getBytes());
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                if (fos != null) fos.close();
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
-        }
-
-        try {
-            fos = new FileOutputStream("processed_jars.txt");
-            for (String jar : insertedLibraries) {
-                fos.write(jar.getBytes());
-                fos.write("\n".getBytes());
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                if (fos != null) fos.close();
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
-        }
-
         logger.info("Ignored the signatures of " + ignoredUberJars.size() + " uber jars");
         logger.info("Inserted the signatures of " + insertedLibraries.size() + " JARs");
         logger.info("Inserted library information of " + insertedUberJars + " uber JARs");
@@ -91,7 +54,7 @@ public class FileAnalyzer {
 
         JarInfoExtractor jarInfoExtractor = new JarInfoExtractor(jarFilePath.toString());
         if (signatures.isEmpty()) { // it's probably an uber-JAR, let's still add it to the db
-            insertedUberJars++;
+            insertedUberJars.incrementAndGet();
             return commitLibrary(jarInfoExtractor, jarHash, jarCrc, jarHandler.isBrokenJar());
         }
 
@@ -107,7 +70,7 @@ public class FileAnalyzer {
         logJarCommitment(jarInfoExtractor);
 
         for (ClassFileInfo signature : signatures) {
-            uniqueHashes.add(signature.getHashCode());
+            uniqueHashes.put(signature.getHashCode(), true);
         }
 
         List<Signature> signaturesToInsert = getSignaturesToInsert(signatures, jarInfoExtractor);
@@ -159,5 +122,9 @@ public class FileAnalyzer {
 
     private Signature createSignature(ClassFileInfo signature, JarInfoExtractor jarInfoExtractor) {
         return new Signature(0, signature.getClassName(), signature.getHashCode(), signature.getCrc(), jarInfoExtractor.getGroupId(), jarInfoExtractor.getArtifactId(), jarInfoExtractor.getVersion());
+    }
+
+    public int getProcessedFiles() {
+        return insertedLibraries.size();
     }
 }

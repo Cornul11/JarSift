@@ -1,10 +1,10 @@
 package nl.tudelft.cornul11.thesis.corpus.jarfile;
 
-import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
-import nl.tudelft.cornul11.thesis.corpus.file.ClassFileInfo;
 import nl.tudelft.cornul11.thesis.corpus.extractor.bytecode.BytecodeDetails;
 import nl.tudelft.cornul11.thesis.corpus.extractor.bytecode.BytecodeParser;
 import nl.tudelft.cornul11.thesis.corpus.extractor.bytecode.BytecodeUtils;
+import nl.tudelft.cornul11.thesis.corpus.file.ClassFileInfo;
+import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,6 +15,7 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.zip.CRC32;
@@ -25,8 +26,8 @@ public class JarHandler {
     private static final Set<String> FILENAME_EXCEPTIONS = Set.of("module-info.class", "package-info.class");
 
     private final Path jarFilePath;
-    private final List<String> ignoredUberJars;
-    private final List<String> insertedLibraries;
+    private final ConcurrentLinkedDeque<String> ignoredUberJars;
+    private final ConcurrentLinkedDeque<String> insertedLibraries;
     private final Set<String> mavenSubmodules = new HashSet<>();
     private final Logger logger = LoggerFactory.getLogger(JarHandler.class);
     private final boolean ignoreUberJarSignatures;
@@ -34,7 +35,7 @@ public class JarHandler {
     private final long crcValue;
     private boolean brokenJar = false;
 
-    public JarHandler(Path jarFilePath, List<String> ignoredUberJars, List<String> insertedLibraries, ConfigurationLoader config) {
+    public JarHandler(Path jarFilePath, ConcurrentLinkedDeque<String> ignoredUberJars, ConcurrentLinkedDeque<String> insertedLibraries, ConfigurationLoader config) {
         this.jarFilePath = jarFilePath;
         this.ignoredUberJars = ignoredUberJars;
         this.insertedLibraries = insertedLibraries;
