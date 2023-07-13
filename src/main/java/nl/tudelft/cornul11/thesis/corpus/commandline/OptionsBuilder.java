@@ -39,6 +39,10 @@ public class OptionsBuilder {
         return cmd.getOptionValue("p");
     }
 
+    public String getFilePaths() {
+        return cmd.getOptionValue("fp");
+    }
+
     private Options buildOptions() {
         Options options = new Options();
 
@@ -78,6 +82,13 @@ public class OptionsBuilder {
                 .hasArg()
                 .argName("path")
                 .desc("Specify the last path to continue from")
+                .build());
+
+        options.addOption(Option.builder("fp")
+                .longOpt("filePaths")
+                .hasArg()
+                .argName("file")
+                .desc("Specify the path to a file containing paths for processing")
                 .build());
 
         return options;
