@@ -105,9 +105,6 @@ public class SignatureDAOImpl implements SignatureDAO {
     public List<LibraryMatchInfo> returnTopLibraryMatches(List<Long> hashes) {
         long startTime = System.currentTimeMillis();
 
-        // Create placeholders for the IN clause
-        String placeholders = String.join(", ", Collections.nCopies(hashes.size(), "?"));
-
         String createTempTable = "CREATE TEMPORARY TABLe temp_hashes (class_hash BIGINT)";
         String insertIntoTempTable = "INSERT INTO temp_hashes (class_hash) VALUES (?)";
 
@@ -115,18 +112,13 @@ public class SignatureDAOImpl implements SignatureDAO {
         String mainQuery = "SELECT libraries.group_id, libraries.artifact_id, libraries.version, libraries.total_class_files, COUNT(*) as matched_count " +
                 "FROM signatures " +
                 "JOIN libraries ON signatures.library_id = libraries.id " +
-//                "WHERE signatures.class_hash IN (" + placeholders + ") " +
                 "JOIN temp_hashes ON signatures.class_hash = temp_hashes.class_hash " +
                 "GROUP BY libraries.group_id, libraries.artifact_id, libraries.version, libraries.total_class_files";
 
 
         List<LibraryMatchInfo> libraryHashesCount = new ArrayList<>();
 
-        try (Connection connection = ds.getConnection();
-                /*PreparedStatement statement = connection.prepareStatement(mainQuery)*/) {
-//            for (int i = 0; i < hashes.size(); i++) {
-//                statement.setLong(i + 1, hashes.get(i));
-//            }
+        try (Connection connection = ds.getConnection()) {
             try (Statement statement = connection.createStatement()) {
                 statement.execute(createTempTable);
             }
