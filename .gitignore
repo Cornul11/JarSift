@@ -70,3 +70,5 @@ target/
 *.zip
 *.tar.gz
 *.rar
+
+node_modules

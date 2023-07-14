@@ -1,0 +1,13 @@
+# latest should not be used as more recent versions are incompatible with older docker versions
+FROM node:18-slim
+
+WORKDIR /script
+
+COPY script/collect_file_size/ collect_file_size
+COPY script/package.json package.json
+COPY script/package-lock.json package-lock.json
+COPY script/tsconfig.json tsconfig.json
+
+RUN npm install && npm run build
+
+CMD ["node", "build/collect_file_size.js"]

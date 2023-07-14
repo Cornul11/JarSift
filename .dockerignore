@@ -10,3 +10,5 @@
 
 # don't ignore src folder
 !src/
+!www/
+!script/

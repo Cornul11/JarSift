@@ -154,6 +154,7 @@ Statement statement = connection.createStatement()) {
                 + "jar_hash BIGINT NOT NULL, "
                 + "jar_crc BIGINT NOT NULL,"
                 + "is_uber_jar BOOLEAN NOT NULL,"
+                + "disk_size INT NOT NULL,"
                 + "total_class_files INT NOT NULL)";
 
         try (Connection connection = ds.getConnection();

@@ -1,4 +1,4 @@
-version: '2' # to use the older docker compose version installed on the storage server
+version: "2" # to use the older docker compose version installed on the storage server
 services:
   app:
     build:
@@ -8,10 +8,29 @@ services:
       - ${JARS_DIRECTORY}:/usr/src/app/jars
       - ./config.properties:/usr/src/app/config.properties
       - ./logs:/usr/src/app/logs
+    ports:
+      - "8080:8080"
     environment:
       - DIRECTORY=jars
+      - PORT=8080
     depends_on:
       - db
+  script:
+    build:
+      context: .
+      dockerfile: Dockerfile-script
+    volumes:
+      - ${JARS_DIRECTORY}:/usr/.m2/repository
+    profiles: ["script"]
+    command: ["node", "build/collect_file_size.js", "/usr/.m2/repository"]
+    env_file:
+      - ./.env
+    environment:
+      - DIRECTORY=/usr/.m2/repository
+      - MYSQL_HOST=db
+    depends_on:
+      - db
+
   db:
     build:
       context: .
