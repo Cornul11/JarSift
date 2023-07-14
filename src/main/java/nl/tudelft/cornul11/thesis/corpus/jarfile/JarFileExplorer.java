@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 public class JarFileExplorer {
     private final int numConsumerThreads;
@@ -79,11 +80,10 @@ public class JarFileExplorer {
         }
     }
 
-    public void processFilesFromPathListFile(String pathToFileWithPaths) {
+    public void processFilesFromPathListFile(String pathToFileWithPaths, String lastPath) {
         long startTime = System.currentTimeMillis();
 
-        // TODO: add continue from last path like in the other method
-        //Path lastVisitedPath = lastPath != null ? Paths.get(lastPath) : null;
+        Path lastVisitedPath = lastPath != null ? Paths.get(lastPath) : null;
 
         ExecutorService executor = Executors.newFixedThreadPool(numConsumerThreads);
         try {
@@ -91,9 +91,15 @@ public class JarFileExplorer {
 
             logger.info("Processing " + allPaths.size() + " files from file: " + pathToFileWithPaths);
 
-            allPaths.stream()
+            // due to the concurrent nature of the app, it is difficult to pinpoint to last processed file,
+            // thus, this needs a more robust and resilient methodology
+            List<Path> pathsToProcess = allPaths.stream()
                     .map(Paths::get)
-                            .forEach(path -> executor.submit(new JarFromPathProcessor(path, fileAnalyzer)));
+                    .dropWhile(path -> (lastVisitedPath != null) && !path.equals(lastVisitedPath))
+                    .collect(Collectors.toList());
+
+            pathsToProcess.stream().forEach(path -> executor.submit(new JarFromPathProcessor(path, fileAnalyzer)));
+
 
             // Wait for all tasks to complete
             executor.shutdown();

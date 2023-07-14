@@ -51,7 +51,7 @@ public class CommandExecutor {
                 if (directoryPath != null) {
                     jarFileExplorer.processFiles(directoryPath, options.getLastPath());
                 } else if (filePaths != null) {
-                    jarFileExplorer.processFilesFromPathListFile(filePaths);
+                    jarFileExplorer.processFilesFromPathListFile(filePaths, options.getLastPath());
                 } else {
                     System.out.println("Directory path or file path(s) is required for CORPUS_GEN_MODE");
                     printHelpMessage();

@@ -1,41 +1,42 @@
 package nl.tudelft.cornul11.thesis.corpus.file;
 
-public class JarInfoExtractor {
+public class JarAndPomInfoExtractor {
     String groupId;
     String artifactId;
     String version;
 
-    public JarInfoExtractor(String jarFilePath) {
-        parseJarFilePath(jarFilePath);
+    public JarAndPomInfoExtractor(String jarFilePath) {
+        parseJarOrPomFilePath(jarFilePath);
     }
 
     // TODO: this has to be thoroughly tested, maybe also crosscheck with the pom file for certainty
-    private void parseJarFilePath(String jarFilePath) {
+    private void parseJarOrPomFilePath(String jarFilePath) {
         String[] splitPath = jarFilePath.split("/");
-
-        // the last part of the path is the file, we ignore that
-        // the second last element is the version
-        // the one before that is the artifactId
-        // everything else except for the first element is the groupId
 
         String version = splitPath[splitPath.length - 2];
         String artifactID = splitPath[splitPath.length - 3];
 
-        // parts of the Maven dataset are contained in a sub-folder repository, so we have to escape it
-        int startIdx = 1;
-        if (splitPath[1].equals("repository")) {
-            startIdx = 2;
+        // Find the position of '.m2/repository' by comparing adjacent elements in the 'splitPath' array
+        int repoIndex = -1;
+        for (int i = 0; i < splitPath.length - 1; i++) {
+            if (splitPath[i].equals(".m2") && splitPath[i + 1].equals("repository")) {
+                repoIndex = i;
+                break;
+            }
         }
+
+        // Start building the 'groupId' from the position just after '.m2/repository'
+        int startIdx = repoIndex + 2;
 
         StringBuilder groupID = new StringBuilder();
         for (int i = startIdx; i < splitPath.length - 3; i++) {
             groupID.append(splitPath[i]);
-            if (i < splitPath.length - 4) { // don't want a trailing slash
-                groupID.append('/');
+            if (i < splitPath.length - 4) {
+                groupID.append('.');
             }
         }
 
-        this.groupId = groupID.toString().replace("/", ".");
+        this.groupId = groupID.toString();
         this.artifactId = artifactID;
         this.version = version;
     }

@@ -1,7 +1,7 @@
 package nl.tudelft.cornul11.thesis.corpus.database;
 
 import com.zaxxer.hikari.HikariDataSource;
-import nl.tudelft.cornul11.thesis.corpus.file.JarInfoExtractor;
+import nl.tudelft.cornul11.thesis.corpus.file.JarAndPomInfoExtractor;
 import nl.tudelft.cornul11.thesis.corpus.file.LibraryMatchInfo;
 import nl.tudelft.cornul11.thesis.corpus.model.Signature;
 import org.apache.maven.model.Build;
@@ -18,7 +18,8 @@ import java.io.PrintWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.sql.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
@@ -32,14 +33,14 @@ public class SignatureDAOImpl implements SignatureDAO {
     }
 
     @Override
-    public int insertLibrary(JarInfoExtractor jarInfoExtractor, long jarHash, long jarCrc, boolean isBrokenJar) {
+    public int insertLibrary(JarAndPomInfoExtractor jarAndPomInfoExtractor, long jarHash, long jarCrc, boolean isBrokenJar) {
         String insertLibraryQuery = "INSERT INTO libraries (group_id, artifact_id, version, jar_hash, jar_crc, is_uber_jar, total_class_files) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         executeWithDeadlockRetry(connection -> {
             try (PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery, Statement.RETURN_GENERATED_KEYS)) {
-                libraryStatement.setString(1, jarInfoExtractor.getGroupId());
-                libraryStatement.setString(2, jarInfoExtractor.getArtifactId());
-                libraryStatement.setString(3, jarInfoExtractor.getVersion());
+                libraryStatement.setString(1, jarAndPomInfoExtractor.getGroupId());
+                libraryStatement.setString(2, jarAndPomInfoExtractor.getArtifactId());
+                libraryStatement.setString(3, jarAndPomInfoExtractor.getVersion());
                 libraryStatement.setLong(4, jarHash);
                 libraryStatement.setLong(5, jarCrc);
                 libraryStatement.setBoolean(6, !isBrokenJar);
@@ -81,11 +82,21 @@ public class SignatureDAOImpl implements SignatureDAO {
 
                     PreparedStatement insertStatement = connection.prepareStatement(insertSignatureQuery);
 
+                    // TODO: maybe switch to batch inserts here
+
+                    int i = 0;
                     for (Signature signature : signatures) {
                         insertStatement.setInt(1, libraryId);  // setting the library_id for each signature
                         insertStatement.setLong(2, signature.getHash());
                         insertStatement.setLong(3, signature.getCrc());
-                        insertStatement.executeUpdate();
+                        insertStatement.addBatch();
+
+                        if (++i % 1000 == 0 || i == signatures.size()) {
+                            int[] updatedRows = insertStatement.executeBatch();
+                            for (int updatedRow : updatedRows) {
+                                totalRowsInserted.addAndGet(updatedRow);
+                            }
+                        }
 
                         totalRowsInserted.getAndIncrement();
                     }
@@ -154,13 +165,14 @@ public class SignatureDAOImpl implements SignatureDAO {
         return libraryHashesCount;
     }
 
+    @Override
     public void insertPluginInfo(Model model, Plugin shadePlugin) {
         long startTime = System.currentTimeMillis();
 
         String insertLibraryQuery = "INSERT INTO oracle_libraries (group_id, artifact_id, version) VALUES (?, ?, ?)";
         String insertDependencyQuery = "INSERT INTO dependencies (group_id, artifact_id, version, scope) VALUES (?, ?, ?, ?)";
         String insertPluginQuery = "INSERT INTO plugins (group_id, artifact_id, version) VALUES (?, ?, ?)";
-        String insertPluginConfigQuery = "INSERT INTO plugin_config (plugin_id, config_key, config_value) VALUES (?, ?, ?)";
+        String insertPluginConfigQuery = "INSERT INTO plugin_config (plugin_id, config) VALUES (?, ?)";
 
         executeWithDeadlockRetry(connection -> {
             try {
@@ -205,6 +217,7 @@ public class SignatureDAOImpl implements SignatureDAO {
         logger.info("Inserting plugin info took " + (endTime - startTime) / 1000.0 + " seconds.");
     }
 
+    @Override
     public Model retrievePluginInfo(String groupId, String artifactId, String version) {
         String selectLibraryQuery = "SELECT * FROM oracle_libraries WHERE group_id = ? AND artifact_id = ? AND version = ?";
         String selectDependencyQuery = "SELECT * FROM dependencies WHERE group_id = ? AND artifact_id = ? AND version = ?";
@@ -286,7 +299,6 @@ public class SignatureDAOImpl implements SignatureDAO {
         return model;
     }
 
-
     public String serializeXpp3Dom(Xpp3Dom dom) {
         StringWriter writer = new StringWriter();
         Xpp3DomWriter.write(new PrintWriter(writer), dom);
@@ -295,33 +307,6 @@ public class SignatureDAOImpl implements SignatureDAO {
 
     public Xpp3Dom deserializeXpp3Dom(String xml) throws Exception {
         return Xpp3DomBuilder.build(new StringReader(xml));
-    }
-
-
-    public Xpp3Dom mapToXpp3Dom(Map<String, String> map) {
-        Xpp3Dom config = new Xpp3Dom("configuration");
-        for (Map.Entry<String, String> entry : map.entrySet()) {
-            Xpp3Dom child = new Xpp3Dom(entry.getKey());
-            child.setValue(entry.getValue());
-            config.addChild(child);
-        }
-        return config;
-    }
-
-
-    public Map<String, String> parsePluginConfig(Plugin plugin) {
-        Map<String, String> configValues = new HashMap<>();
-
-        Xpp3Dom config = (Xpp3Dom) plugin.getConfiguration();
-        if (config != null) {
-            for (Xpp3Dom child : config.getChildren()) {
-                String key = child.getName();
-                String value = child.getValue();
-                configValues.put(key, value);
-            }
-        }
-
-        return configValues;
     }
 
     private void executeWithDeadlockRetry(Consumer<Connection> action) {

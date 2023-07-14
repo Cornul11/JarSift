@@ -1,6 +1,6 @@
 import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.corpus.file.ClassFileInfo;
-import nl.tudelft.cornul11.thesis.corpus.file.JarInfoExtractor;
+import nl.tudelft.cornul11.thesis.corpus.file.JarAndPomInfoExtractor;
 import nl.tudelft.cornul11.thesis.corpus.jarfile.JarSignatureMapper;
 import nl.tudelft.cornul11.thesis.corpus.jarfile.FileAnalyzer;
 import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;

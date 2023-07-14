@@ -3,7 +3,7 @@ package nl.tudelft.cornul11.thesis.corpus.jarfile;
 import net.openhft.hashing.LongHashFunction;
 import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.corpus.file.ClassFileInfo;
-import nl.tudelft.cornul11.thesis.corpus.file.JarInfoExtractor;
+import nl.tudelft.cornul11.thesis.corpus.file.JarAndPomInfoExtractor;
 import nl.tudelft.cornul11.thesis.corpus.model.Signature;
 import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
 import org.slf4j.Logger;
@@ -52,28 +52,29 @@ public class FileAnalyzer {
         long jarHash = xx.hashChars(sb.toString());
         long jarCrc = jarHandler.getJarCrc();
 
-        JarInfoExtractor jarInfoExtractor = new JarInfoExtractor(jarFilePath.toString());
+        JarAndPomInfoExtractor jarAndPomInfoExtractor = new JarAndPomInfoExtractor(jarFilePath.toString());
         if (signatures.isEmpty()) { // it's probably an uber-JAR, let's still add it to the db
             insertedUberJars.incrementAndGet();
-            return commitLibrary(jarInfoExtractor, jarHash, jarCrc, jarHandler.isBrokenJar());
+            return commitLibrary(jarAndPomInfoExtractor, jarHash, jarCrc, jarHandler.isBrokenJar());
         }
 
-        return commitSignatures(signatures, jarInfoExtractor, jarHash, jarCrc);
+        // TODO: maybe switch to a thread that does the insertions, and many other threads do the extraction and processing
+        return commitSignatures(signatures, jarAndPomInfoExtractor, jarHash, jarCrc);
     }
 
-    public int commitLibrary(JarInfoExtractor jarInfoExtractor, long jarHash, long jarCrc, boolean isBrokenJar) {
-        logger.info("Committing library: " + jarInfoExtractor.getArtifactId() + " version: " + jarInfoExtractor.getVersion());
-        return signatureDao.insertLibrary(jarInfoExtractor, jarHash, jarCrc, isBrokenJar);
+    public int commitLibrary(JarAndPomInfoExtractor jarAndPomInfoExtractor, long jarHash, long jarCrc, boolean isBrokenJar) {
+        logger.info("Committing library: " + jarAndPomInfoExtractor.getArtifactId() + " version: " + jarAndPomInfoExtractor.getVersion());
+        return signatureDao.insertLibrary(jarAndPomInfoExtractor, jarHash, jarCrc, isBrokenJar);
     }
 
-    public int commitSignatures(List<ClassFileInfo> signatures, JarInfoExtractor jarInfoExtractor, long jarHash, long jarCrc) {
-        logJarCommitment(jarInfoExtractor);
+    public int commitSignatures(List<ClassFileInfo> signatures, JarAndPomInfoExtractor jarAndPomInfoExtractor, long jarHash, long jarCrc) {
+        logJarCommitment(jarAndPomInfoExtractor);
 
         for (ClassFileInfo signature : signatures) {
             uniqueHashes.put(signature.getHashCode(), true);
         }
 
-        List<Signature> signaturesToInsert = getSignaturesToInsert(signatures, jarInfoExtractor);
+        List<Signature> signaturesToInsert = getSignaturesToInsert(signatures, jarAndPomInfoExtractor);
         int insertedRows = signatureDao.insertSignatures(signaturesToInsert, jarHash, jarCrc);
 
         if (totalJars > 0) {
@@ -82,15 +83,15 @@ public class FileAnalyzer {
         return insertedRows;
     }
 
-    private void logJarCommitment(JarInfoExtractor jarInfoExtractor) {
+    private void logJarCommitment(JarAndPomInfoExtractor jarAndPomInfoExtractor) {
         logger.info(String.format("Committing signatures for JAR: %s version: %s",
-                jarInfoExtractor.getArtifactId(), jarInfoExtractor.getVersion()));
+                jarAndPomInfoExtractor.getArtifactId(), jarAndPomInfoExtractor.getVersion()));
     }
 
     private List<Signature> getSignaturesToInsert(List<ClassFileInfo> signatures,
-                                                  JarInfoExtractor jarInfoExtractor) {
+                                                  JarAndPomInfoExtractor jarAndPomInfoExtractor) {
         return signatures.stream()
-                .map(signature -> createSignature(signature, jarInfoExtractor))
+                .map(signature -> createSignature(signature, jarAndPomInfoExtractor))
                 .collect(Collectors.toList());
     }
 
@@ -120,8 +121,8 @@ public class FileAnalyzer {
         logger.info("Total number of unique hashes: " + uniqueHashes.size());
     }
 
-    private Signature createSignature(ClassFileInfo signature, JarInfoExtractor jarInfoExtractor) {
-        return new Signature(0, signature.getClassName(), signature.getHashCode(), signature.getCrc(), jarInfoExtractor.getGroupId(), jarInfoExtractor.getArtifactId(), jarInfoExtractor.getVersion());
+    private Signature createSignature(ClassFileInfo signature, JarAndPomInfoExtractor jarAndPomInfoExtractor) {
+        return new Signature(0, signature.getClassName(), signature.getHashCode(), signature.getCrc(), jarAndPomInfoExtractor.getGroupId(), jarAndPomInfoExtractor.getArtifactId(), jarAndPomInfoExtractor.getVersion());
     }
 
     public int getProcessedFiles() {
