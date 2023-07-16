@@ -5,16 +5,10 @@ import nl.tudelft.cornul11.thesis.corpus.commandline.OptionsBuilder;
 import nl.tudelft.cornul11.thesis.corpus.database.DatabaseConfig;
 import nl.tudelft.cornul11.thesis.corpus.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
-import nl.tudelft.cornul11.thesis.corpus.jarfile.JarFileExplorer;
-import nl.tudelft.cornul11.thesis.corpus.jarfile.JarFrequencyAnalyzer;
-import nl.tudelft.cornul11.thesis.corpus.service.VulnerabilityAnalyzer;
 import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Map;
 
 public class OracleCommandExecutor {
     private final OptionsBuilder options;
@@ -47,8 +41,8 @@ public class OracleCommandExecutor {
             if ("ORACLE_CORPUS_GEN_MODE".equals(mode)) {
                 String pomPathsFilePath = options.getFilename();
                 if (pomPathsFilePath != null) {
-                    Path pathToFile = Paths.get("paths/pom_files.txt");
-                    PomFilesProcessor app = new PomFilesProcessor(1);
+                    Path pathToFile = Paths.get(pomPathsFilePath);
+                    PomFilesProcessor app = new PomFilesProcessor(/*config.getNumConsumerThreads()*/    1);
                     app.processPomFiles(pathToFile);
 
                 } else {

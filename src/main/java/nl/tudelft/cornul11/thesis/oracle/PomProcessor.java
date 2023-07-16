@@ -3,13 +3,17 @@ package nl.tudelft.cornul11.thesis.oracle;
 import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
 import org.apache.maven.model.*;
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
+import org.codehaus.plexus.util.ReaderFactory;
+import org.codehaus.plexus.util.xml.Xpp3Dom;
+import org.codehaus.plexus.util.xml.Xpp3DomWriter;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.io.FileReader;
+import java.io.PrintWriter;
 import java.io.Reader;
+import java.io.StringWriter;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -44,9 +48,6 @@ public class PomProcessor implements Runnable {
             boolean containsShadeConfig = false;
 
             Model model = parseModel(pomPath);
-            //System.out.println(model.getArtifactId());
-            //System.out.println(model.getVersion());
-            //System.out.println(model.getGroupId());
 
             if (model == null) {
                 return;
@@ -112,7 +113,30 @@ public class PomProcessor implements Runnable {
                         .filter(plugin -> plugin.getArtifactId().equals("maven-shade-plugin"))
                         .findFirst()
                         .orElse(null);
-                signatureDao.insertPluginInfo(model, shadePlugin);
+
+                List<String> serializedConfigurations = new ArrayList<>();
+                List<PluginExecution> executions = null;
+                if (shadePlugin != null) {
+                    executions = shadePlugin.getExecutions();
+                }
+
+                if (executions != null) {
+                    for (PluginExecution execution : executions) {
+                        Object configuration = execution.getConfiguration();
+                        if (configuration != null) {
+                            try {
+                                String serializedConfiguration = serializeXpp3Dom((Xpp3Dom) configuration);
+                                serializedConfigurations.add(serializedConfiguration);
+                            } catch (Exception e) {
+                                logger.debug("The error occurred during serialization configuration", e);
+                            }
+                        } else {
+                            logger.debug("The configuration is null, cannot serialize");
+                        }
+                    }
+                }
+
+                signatureDao.insertPluginInfo(model, shadePlugin, serializedConfigurations);
             } else {
                 //System.out.println("Will not be used for the oracle");
             }
@@ -129,6 +153,12 @@ public class PomProcessor implements Runnable {
         }
     }
 
+    public String serializeXpp3Dom(Xpp3Dom dom) {
+        StringWriter writer = new StringWriter();
+        Xpp3DomWriter.write(new PrintWriter(writer), dom);
+        return writer.toString();
+    }
+
     private Model parseModel(Path pomPath) throws Exception {
         MavenXpp3Reader reader = new MavenXpp3Reader();
         Model model;
@@ -137,7 +167,7 @@ public class PomProcessor implements Runnable {
         if (modelCache.containsKey(key)) {
             model = modelCache.get(key);
         } else {
-            try (Reader fileReader = new FileReader(pomPath.toFile())) {
+            try (Reader fileReader = ReaderFactory.newXmlReader(pomPath.toFile())) {
                 model = reader.read(fileReader);
                 modelCache.put(key, model);
             }

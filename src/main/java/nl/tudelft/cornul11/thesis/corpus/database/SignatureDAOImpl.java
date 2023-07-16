@@ -10,13 +10,10 @@ import org.apache.maven.model.Model;
 import org.apache.maven.model.Plugin;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.codehaus.plexus.util.xml.Xpp3DomBuilder;
-import org.codehaus.plexus.util.xml.Xpp3DomWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.PrintWriter;
 import java.io.StringReader;
-import java.io.StringWriter;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -166,12 +163,12 @@ public class SignatureDAOImpl implements SignatureDAO {
     }
 
     @Override
-    public void insertPluginInfo(Model model, Plugin shadePlugin) {
+    public void insertPluginInfo(Model model, Plugin shadePlugin, List<String> pluginConfigurations) {
         long startTime = System.currentTimeMillis();
 
         String insertLibraryQuery = "INSERT INTO oracle_libraries (group_id, artifact_id, version) VALUES (?, ?, ?)";
-        String insertDependencyQuery = "INSERT INTO dependencies (group_id, artifact_id, version, scope) VALUES (?, ?, ?, ?)";
-        String insertPluginQuery = "INSERT INTO plugins (group_id, artifact_id, version) VALUES (?, ?, ?)";
+        String insertDependencyQuery = "INSERT INTO dependencies (library_id, group_id, artifact_id, version, scope) VALUES (?, ?, ?, ?, ?)";
+        String insertPluginQuery = "INSERT INTO plugins (library_id, group_id, artifact_id, version) VALUES (?, ?, ?, ?)";
         String insertPluginConfigQuery = "INSERT INTO plugin_config (plugin_id, config) VALUES (?, ?)";
 
         executeWithDeadlockRetry(connection -> {
@@ -182,30 +179,40 @@ public class SignatureDAOImpl implements SignatureDAO {
                 libraryStatement.setString(3, model.getVersion());
                 libraryStatement.executeUpdate();
 
-                List<Dependency> dependencies = model.getDependencies();
-                PreparedStatement dependencyStatement = connection.prepareStatement(insertDependencyQuery);
-                for (Dependency dependency : dependencies) {
-                    dependencyStatement.setString(1, dependency.getGroupId());
-                    dependencyStatement.setString(2, dependency.getArtifactId());
-                    dependencyStatement.setString(3, dependency.getVersion());
-                    dependencyStatement.setString(4, dependency.getScope());
-                    dependencyStatement.executeUpdate();
-                }
+                ResultSet generatedKeys = libraryStatement.getGeneratedKeys();
 
-                PreparedStatement pluginStatement = connection.prepareStatement(insertPluginQuery, Statement.RETURN_GENERATED_KEYS);
-                pluginStatement.setString(1, shadePlugin.getGroupId());
-                pluginStatement.setString(2, shadePlugin.getArtifactId());
-                pluginStatement.setString(3, shadePlugin.getVersion());
-                pluginStatement.executeUpdate();
-
-                ResultSet generatedKeys = pluginStatement.getGeneratedKeys();
                 if (generatedKeys.next()) {
-                    int pluginId = generatedKeys.getInt(1);
+                    int libraryId = generatedKeys.getInt(1);
 
-                    PreparedStatement configStatement = connection.prepareStatement(insertPluginConfigQuery);
-                    configStatement.setInt(1, pluginId);
-                    configStatement.setString(2, serializeXpp3Dom((Xpp3Dom) shadePlugin.getConfiguration()));
-                    configStatement.executeUpdate();
+                    List<Dependency> dependencies = model.getDependencies();
+                    PreparedStatement dependencyStatement = connection.prepareStatement(insertDependencyQuery);
+                    for (Dependency dependency : dependencies) {
+                        dependencyStatement.setInt(1, libraryId);
+                        dependencyStatement.setString(2, dependency.getGroupId());
+                        dependencyStatement.setString(3, dependency.getArtifactId());
+                        dependencyStatement.setString(4, dependency.getVersion());
+                        dependencyStatement.setString(5, dependency.getScope());
+                        dependencyStatement.executeUpdate();
+                    }
+
+                    PreparedStatement pluginStatement = connection.prepareStatement(insertPluginQuery, Statement.RETURN_GENERATED_KEYS);
+                    pluginStatement.setInt(1, libraryId);
+                    pluginStatement.setString(2, shadePlugin.getGroupId());
+                    pluginStatement.setString(3, shadePlugin.getArtifactId());
+                    pluginStatement.setString(4, shadePlugin.getVersion());
+                    pluginStatement.executeUpdate();
+
+                    generatedKeys = pluginStatement.getGeneratedKeys();
+                    if (generatedKeys.next()) {
+                        int pluginId = generatedKeys.getInt(1);
+
+                        for (String pluginConfiguration : pluginConfigurations) {
+                            PreparedStatement configStatement = connection.prepareStatement(insertPluginConfigQuery);
+                            configStatement.setInt(1, pluginId);
+                            configStatement.setString(2, pluginConfiguration);
+                            configStatement.executeUpdate();
+                        }
+                    }
                 }
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -220,12 +227,11 @@ public class SignatureDAOImpl implements SignatureDAO {
     @Override
     public Model retrievePluginInfo(String groupId, String artifactId, String version) {
         String selectLibraryQuery = "SELECT * FROM oracle_libraries WHERE group_id = ? AND artifact_id = ? AND version = ?";
-        String selectDependencyQuery = "SELECT * FROM dependencies WHERE group_id = ? AND artifact_id = ? AND version = ?";
-        String selectPluginQuery = "SELECT * FROM plugins WHERE group_id = ? AND artifact_id = ? AND version = ?";
+        String selectDependencyQuery = "SELECT * FROM dependencies WHERE library_id = ?";
+        String selectPluginQuery = "SELECT * FROM plugins WHERE library_id = ?";
         String selectPluginConfigQuery = "SELECT * FROM plugin_config WHERE plugin_id = ?";
 
         Model model = new Model();
-        Plugin shadePlugin = new Plugin();
 
         executeWithDeadlockRetry(connection -> {
             try {
@@ -239,43 +245,56 @@ public class SignatureDAOImpl implements SignatureDAO {
                     model.setGroupId(libraryResultSet.getString("group_id"));
                     model.setArtifactId(libraryResultSet.getString("artifact_id"));
                     model.setVersion(libraryResultSet.getString("version"));
-                }
 
-                PreparedStatement dependencyStatement = connection.prepareStatement(selectDependencyQuery);
-                dependencyStatement.setString(1, groupId);
-                dependencyStatement.setString(2, artifactId);
-                dependencyStatement.setString(3, version);
+                    int libraryId = libraryResultSet.getInt("id");
 
-                ResultSet dependencyResultSet = dependencyStatement.executeQuery();
-                List<Dependency> dependencies = new ArrayList<>();
-                while (dependencyResultSet.next()) {
-                    Dependency dependency = new Dependency();
-                    dependency.setGroupId(dependencyResultSet.getString("group_id"));
-                    dependency.setArtifactId(dependencyResultSet.getString("artifact_id"));
-                    dependency.setVersion(dependencyResultSet.getString("version"));
-                    dependency.setScope(dependencyResultSet.getString("scope"));
-                    dependencies.add(dependency);
-                }
-                model.setDependencies(dependencies);
+                    PreparedStatement dependencyStatement = connection.prepareStatement(selectDependencyQuery);
+                    dependencyStatement.setInt(1, libraryId);
 
-                PreparedStatement pluginStatement = connection.prepareStatement(selectPluginQuery);
-                pluginStatement.setString(1, groupId);
-                pluginStatement.setString(2, artifactId);
-                pluginStatement.setString(3, version);
-
-                ResultSet pluginResultSet = pluginStatement.executeQuery();
-                if (pluginResultSet.next()) {
-                    shadePlugin.setGroupId(pluginResultSet.getString("group_id"));
-                    shadePlugin.setArtifactId(pluginResultSet.getString("artifact_id"));
-                    shadePlugin.setVersion(pluginResultSet.getString("version"));
-
-                    PreparedStatement configStatement = connection.prepareStatement(selectPluginConfigQuery);
-                    configStatement.setInt(1, pluginResultSet.getInt("id"));
-                    ResultSet configResultSet = configStatement.executeQuery();
-
-                    if (configResultSet.next()) {
-                        shadePlugin.setConfiguration(deserializeXpp3Dom(configResultSet.getString("config")));
+                    ResultSet dependencyResultSet = dependencyStatement.executeQuery();
+                    List<Dependency> dependencies = new ArrayList<>();
+                    while (dependencyResultSet.next()) {
+                        Dependency dependency = new Dependency();
+                        dependency.setGroupId(dependencyResultSet.getString("group_id"));
+                        dependency.setArtifactId(dependencyResultSet.getString("artifact_id"));
+                        dependency.setVersion(dependencyResultSet.getString("version"));
+                        dependency.setScope(dependencyResultSet.getString("scope"));
+                        dependencies.add(dependency);
                     }
+                    model.setDependencies(dependencies);
+
+                    PreparedStatement pluginStatement = connection.prepareStatement(selectPluginQuery);
+                    pluginStatement.setInt(1, libraryId);
+
+                    ResultSet pluginResultSet = pluginStatement.executeQuery();
+                    Build build = model.getBuild();
+                    if (build == null) {
+                        build = new Build();
+                    }
+
+                    while (pluginResultSet.next()) {
+                        Plugin plugin = new Plugin();
+                        plugin.setGroupId(pluginResultSet.getString("group_id"));
+                        plugin.setArtifactId(pluginResultSet.getString("artifact_id"));
+                        plugin.setVersion(pluginResultSet.getString("version"));
+
+                        int pluginId = pluginResultSet.getInt("id");
+
+                        PreparedStatement configStatement = connection.prepareStatement(selectPluginConfigQuery);
+                        configStatement.setInt(1, pluginId);
+                        ResultSet configResultSet = configStatement.executeQuery();
+
+                        List<Xpp3Dom> pluginConfigs = new ArrayList<>();
+                        while (configResultSet.next()) {
+                            Xpp3Dom config = Xpp3DomBuilder.build(new StringReader(configResultSet.getString("config")));
+                            pluginConfigs.add(config);
+                        }
+
+                        plugin.setConfiguration(pluginConfigs);
+
+                        build.addPlugin(plugin);
+                    }
+                    model.setBuild(build);
                 }
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -286,27 +305,7 @@ public class SignatureDAOImpl implements SignatureDAO {
             }
         });
 
-        Build build;
-        if (model.getBuild() == null) {
-            build = new Build();
-        } else {
-            build = model.getBuild();
-        }
-
-        build.addPlugin(shadePlugin);
-        model.setBuild(build);
-
         return model;
-    }
-
-    public String serializeXpp3Dom(Xpp3Dom dom) {
-        StringWriter writer = new StringWriter();
-        Xpp3DomWriter.write(new PrintWriter(writer), dom);
-        return writer.toString();
-    }
-
-    public Xpp3Dom deserializeXpp3Dom(String xml) throws Exception {
-        return Xpp3DomBuilder.build(new StringReader(xml));
     }
 
     private void executeWithDeadlockRetry(Consumer<Connection> action) {

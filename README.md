@@ -37,3 +37,8 @@ Poor verification, execute the following command from the project root:
 ```bash
 sh run_inference.sh <path_to_uber_jar>
 ```
+
+Used to create the paths file
+```bash
+find /home/dan/.m2/repository \( -name "*.jar" -fprint jar_files.txt \) -o \( -name "*.pom" -fprint pom_files.txt \)
+```

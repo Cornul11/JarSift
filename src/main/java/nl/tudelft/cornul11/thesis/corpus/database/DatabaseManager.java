@@ -67,10 +67,12 @@ public class DatabaseManager {
     private void createDependenciesTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS dependencies (" +
                 "id INT PRIMARY KEY AUTO_INCREMENT, " +
+                "library_id INT NOT NULL, " +
                 "group_id VARCHAR(255) NOT NULL, " +
                 "artifact_id VARCHAR(255) NOT NULL," +
                 "version VARCHAR(255) NOT NULL, " +
-                "scope VARCHAR(255))";
+                "scope VARCHAR(255)," +
+                "FOREIGN KEY (library_id) REFERENCES oracle_libraries(id))";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {
@@ -84,9 +86,11 @@ public class DatabaseManager {
     private void createPluginsTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS plugins (" +
                 "id INT PRIMARY KEY AUTO_INCREMENT, " +
+                "library_id INT NOT NULL, " +
                 "group_id VARCHAR(255), " +
                 "artifact_id VARCHAR(255) NOT NULL, " +
-                "version VARCHAR(255))";
+                "version VARCHAR(255)," +
+                "FOREIGN KEY (library_id) REFERENCES oracle_libraries(id))";
 
         try (Connection connection = ds.getConnection();
 Statement statement = connection.createStatement()) {
@@ -101,8 +105,8 @@ Statement statement = connection.createStatement()) {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS plugin_config (" +
                 "id INT PRIMARY KEY AUTO_INCREMENT, " +
                 "plugin_id INT NOT NULL, " +
-                "config_key VARCHAR(255) NOT NULL, " +
-                "config_value VARCHAR(1020))";
+                "config TEXT NOT NULL," +
+                "FOREIGN KEY (plugin_id) REFERENCES plugins(id))";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {
