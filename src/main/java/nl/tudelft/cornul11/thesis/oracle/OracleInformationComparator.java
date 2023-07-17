@@ -19,12 +19,15 @@ import java.util.stream.Collectors;
 public class OracleInformationComparator {
     private final Logger logger = LoggerFactory.getLogger(OracleInformationComparator.class);
     private final SignatureDAO signatureDAO;
+    private int TP = 0, FP = 0, TN = 0, FN = 0, UN = 0;
+
 
     public OracleInformationComparator(SignatureDAO signatureDAO) {
         this.signatureDAO = signatureDAO;
     }
 
-    public boolean validateUberJar(String uberJarPathString) {
+    public void validateUberJar(String uberJarPathString) {
+        long startTime = System.currentTimeMillis();
         Path uberJarPath = Paths.get(uberJarPathString);
 
         List<String> inferredLibraries = inferLibraries(uberJarPath);
@@ -33,7 +36,7 @@ public class OracleInformationComparator {
         Model model = getModelByJarPath(uberJarPath);
         if (model == null || model.getBuild() == null || model.getBuild().getPlugins() == null) {
             System.err.println("Could not find information for " + uberJarPath);
-            return false;
+            return;
         }
 
         Plugin shadePlugin = model.getBuild().getPlugins()
@@ -44,7 +47,7 @@ public class OracleInformationComparator {
 
         if (shadePlugin == null) {
             System.err.println("Could not find shade plugin for " + uberJarPath);
-            return false;
+            return;
         }
 
         Map<String, List<String>> shadePluginConfigParameters = extractConfigurationParameters(shadePlugin);
@@ -54,15 +57,40 @@ public class OracleInformationComparator {
                 .filter(dep -> shouldIncludeDependency(dep, shadePluginConfigParameters))
                 .map(dep -> dep.getGroupId() + ":" + dep.getArtifactId() + ":" + dep.getVersion())
                 .collect(Collectors.toList());
-        Collections.sort(dbLibraries);
 
-        if (dbLibraries.equals(inferredLibraries)) {
-            System.out.println("Uber-JAR validation successful for " + uberJarPath);
-            return true;
-        } else {
-            System.err.println("Mismatch found in uber-JAR " + uberJarPath);
-            return false;
+
+        Iterator<String> allPossibleLibraries = signatureDAO.getAllPossibleLibraries();
+
+        for (String dbLibrary : dbLibraries) {
+            if (inferredLibraries.contains(dbLibrary)) {
+                TP++;  // true positive: the library is in the db and was correctly inferred
+            } else {
+                if (signatureDAO.isLibraryInDB(dbLibrary)) {
+                    FN++;  // false negative: the library is in the db but was not inferred
+                } else {
+                    UN++;  // unknown negative: the library is in the db but was not inferred and its signature is not in the db
+                }
+            }
         }
+
+        String uberJarGAV = getGAVFromPath(uberJarPath);
+
+        for (String inferredLibrary : inferredLibraries) {
+            if (!dbLibraries.contains(inferredLibrary) &&
+                    !inferredLibrary.equals(uberJarGAV)) {  // add condition to check if inferredLibrary equals input JAR
+                FP++;  // false positive: the library is not in the db but was inferred
+            }
+        }
+
+        while (allPossibleLibraries.hasNext()) {
+            String possibleLibrary = allPossibleLibraries.next();
+            if (!dbLibraries.contains(possibleLibrary) && !inferredLibraries.contains(possibleLibrary)) {
+                TN++;  // true negative: the library is not in the db and was correctly not inferred
+            }
+        }
+
+        long endTime = System.currentTimeMillis();
+        logger.info("Validation of {} took {} s", uberJarPath, (double) (endTime - startTime) / 1000);
     }
 
     private boolean shouldIncludeDependency(Dependency dep, Map<String, List<String>> shadePluginConfigParameters) {
@@ -128,9 +156,15 @@ public class OracleInformationComparator {
     }
 
     private String convertPattern(String pattern) {
-        return pattern.replace(".", "\\.")
+        pattern = pattern.replace(".", "\\.")
                 .replace("?", ".")
                 .replace("*", ".*");
+
+        if (!pattern.endsWith(":.*")) {
+            pattern += ":.*";
+        }
+
+        return pattern;
     }
 
     private void extractDom(Map<String, List<String>> configurationParameters, String key, Xpp3Dom parentDom, String childName) {
@@ -195,18 +229,26 @@ public class OracleInformationComparator {
         return libsWithHighRatio.isEmpty() ? null : libsWithHighRatio;
     }
 
-    private Model getModelByJarPath(Path jarPath) {
-        String jarName = jarPath.toString();
-        JarAndPomInfoExtractor jarAndPomInfoExtractor = new JarAndPomInfoExtractor(jarName);
-
+    private String getGAVFromPath(Path jarPath) {
+        JarAndPomInfoExtractor jarAndPomInfoExtractor = new JarAndPomInfoExtractor(jarPath.toString());
         String groupId = jarAndPomInfoExtractor.getGroupId();
         String artifactId = jarAndPomInfoExtractor.getArtifactId();
         String version = jarAndPomInfoExtractor.getVersion();
 
-        return signatureDAO.retrievePluginInfo(groupId, artifactId, version);
+        return groupId + ":" + artifactId + ":" + version;
+    }
+
+    private Model getModelByJarPath(Path jarPath) {
+        String GAV = getGAVFromPath(jarPath);
+        String[] parts = GAV.split(":");
+        return signatureDAO.retrievePluginInfo(parts[0], parts[1], parts[2]);
     }
 
     public String getResults() {
-        return null;
+        return "True Positives (TP): " + TP + "\n" +
+                "False Positives (FP): " + FP + "\n" +
+                "True Negatives (TN): " + TN + "\n" +
+                "False Negatives (FN): " + FN + "\n" +
+                "Unknown Negatives (UN): " + UN + "\n";
     }
 }

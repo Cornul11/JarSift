@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import java.io.StringReader;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -105,6 +106,57 @@ public class SignatureDAOImpl implements SignatureDAO {
         });
 
         return totalRowsInserted.get();
+    }
+
+    @Override
+    public Iterator<String> getAllPossibleLibraries() {
+        String selectLibrariesQuery = "SELECT group_id, artifact_id, version FROM libraries";
+
+        try {
+            Connection connection = ds.getConnection();
+            PreparedStatement statement = connection.prepareStatement(selectLibrariesQuery, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+            statement.setFetchSize(1000);  // Fetch 1000 rows at a time
+            statement.setFetchDirection(ResultSet.FETCH_FORWARD);
+            ResultSet resultSet = statement.executeQuery();
+            return new Iterator<>() {
+                @Override
+                public boolean hasNext() {
+                    try {
+                        return resultSet.next();
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                        return false;
+                    }
+                }
+
+                @Override
+                public String next() {
+                    try {
+                        return resultSet.getString("group_id") + ":" + resultSet.getString("artifact_id") + ":" + resultSet.getString("version");
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                        return null;
+                    }
+                }
+            };
+        } catch (SQLException e) {
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public boolean isLibraryInDB(String library) {
+        String selectLibraryQuery = "SELECT 1 FROM libraries WHERE CONCAT(group_id, ':', artifact_id, ':', version) = ?";
+        try (Connection connection = ds.getConnection();
+             PreparedStatement statement = connection.prepareStatement(selectLibraryQuery)) {
+            statement.setString(1, library);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next();
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override

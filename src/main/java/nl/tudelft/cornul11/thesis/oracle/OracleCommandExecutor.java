@@ -56,6 +56,8 @@ public class OracleCommandExecutor {
                     comparator.validateUberJar(fileName);
                     if (comparator.getResults() == null) {
                         System.out.println("Error in processing jar file");
+                    } else {
+                        System.out.println("Results: " + comparator.getResults());
                     }
 
                 } else {

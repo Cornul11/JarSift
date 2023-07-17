@@ -17,6 +17,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
 public class PomProcessor implements Runnable {
     private static final Logger logger = LoggerFactory.getLogger(PomProcessor.class);
@@ -40,7 +41,7 @@ public class PomProcessor implements Runnable {
     @Override
     public void run() {
         try {
-            if (pomPath.toString().contains("narayana-jta")) {
+            if (pomPath.toString().contains("jdependency-2.1.1")) {
                 logger.info("Processing pom: " + pomPath);
             }
             Model model = parseModel(pomPath);
@@ -68,10 +69,32 @@ public class PomProcessor implements Runnable {
                 if (shadePluginOptional.isPresent()) {
                     Plugin shadePlugin = shadePluginOptional.get();
 
-                    Object configuration = shadePlugin.getConfiguration();
-                    if (configuration != null | isExecutionConfigPresent(shadePlugin.getExecutions())) {
-                        signatureDao.insertPluginInfo(model, shadePlugin);
-                        insertedPomCount.incrementAndGet();
+                    if (!isConfigMultiplicityAcceptable(shadePlugin)) {
+                        logger.debug("More than one config present in POM: " + pomPath);
+                        return;
+                    }
+
+                    Xpp3Dom pluginConfiguration = (Xpp3Dom) shadePlugin.getConfiguration();
+
+                    if (pluginConfiguration != null) {
+                        if (!isMinimizeJarConfigPresent(pluginConfiguration)) {
+                            signatureDao.insertPluginInfo(model, shadePlugin);
+                            insertedPomCount.incrementAndGet();
+                        } else {
+                            logger.debug("Minimize jar config present in POM: " + pomPath);
+                        }
+                    }
+
+                    for (PluginExecution execution : shadePlugin.getExecutions()) {
+                        Xpp3Dom executionConfiguration = (Xpp3Dom) execution.getConfiguration();
+                        if (executionConfiguration != null) {
+                            if (!isMinimizeJarConfigPresent(executionConfiguration)) {
+                                signatureDao.insertPluginInfo(model, shadePlugin);
+                                insertedPomCount.incrementAndGet();
+                            } else {
+                                logger.debug("Minimize jar config present in execution of POM: " + pomPath);
+                            }
+                        }
                     }
                 }
             }
@@ -79,6 +102,26 @@ public class PomProcessor implements Runnable {
             brokenPomCount.incrementAndGet();
             logger.debug("Error while processing POM file: " + pomPath, e);
         }
+    }
+
+    private boolean isMinimizeJarConfigPresent(Xpp3Dom config) {
+        Xpp3Dom minimizeJarNode = config.getChild("minimizeJar");
+        return minimizeJarNode != null && Boolean.parseBoolean(minimizeJarNode.getValue());
+    }
+
+    private long countNonNullConfigurations(Plugin plugin) {
+        Stream<Xpp3Dom> allConfigs = Stream.concat(
+                Stream.ofNullable((Xpp3Dom) plugin.getConfiguration()),
+                plugin.getExecutions().stream().map(execution -> (Xpp3Dom) execution.getConfiguration())
+        );
+        return allConfigs
+                .filter(Objects::nonNull)
+                .count();
+    }
+
+    private boolean isConfigMultiplicityAcceptable(Plugin plugin) {
+        long count = countNonNullConfigurations(plugin);
+        return count <= 1;
     }
 
     private void incrementShadePluginCount(Build build) {
@@ -110,6 +153,7 @@ public class PomProcessor implements Runnable {
             // if version is a property placeholder, attempt to resolve it
             if (version.startsWith("${") && version.endsWith("}")) {
                 if (dependency.getScope() != null && dependency.getScope().equals("test")) {
+                    // we do not care about the version resolution of test dependencies (they are not shaded)
                     continue;
                 }
 
@@ -203,9 +247,17 @@ public class PomProcessor implements Runnable {
         if (modelCache.containsKey(key)) {
             model = modelCache.get(key);
         } else {
+            // check if pomPath exists
+            if (!new File(pomPath.toString()).exists()) {
+                logger.warn("POM file not found: " + pomPath);
+                return null;
+            }
             try (Reader fileReader = ReaderFactory.newXmlReader(pomPath.toFile())) {
                 model = reader.read(fileReader);
                 modelCache.put(key, model);
+            } catch (Exception e) {
+                logger.warn("Error while parsing POM file: " + pomPath, e);
+                return null;
             }
         }
 

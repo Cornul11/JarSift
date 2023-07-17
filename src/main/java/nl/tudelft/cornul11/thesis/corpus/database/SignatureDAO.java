@@ -6,6 +6,7 @@ import nl.tudelft.cornul11.thesis.corpus.model.Signature;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Plugin;
 
+import java.util.Iterator;
 import java.util.List;
 
 public interface SignatureDAO {
@@ -20,4 +21,8 @@ public interface SignatureDAO {
     List<LibraryMatchInfo> returnTopLibraryMatches(List<Long> hashes);
 
     void closeConnection();
+
+    boolean isLibraryInDB(String library);
+
+    Iterator<String> getAllPossibleLibraries();
 }
