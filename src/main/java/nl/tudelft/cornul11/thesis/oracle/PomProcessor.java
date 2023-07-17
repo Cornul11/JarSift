@@ -52,13 +52,7 @@ public class PomProcessor implements Runnable {
 
             Build build = model.getBuild();
             if (build != null) {
-                List<Plugin> plugins = build.getPlugins();
-                Optional<Plugin> shadePluginOptional = plugins.stream()
-                        .filter(plugin -> plugin.getArtifactId().equals("maven-shade-plugin"))
-                        .findFirst();
-                if (shadePluginOptional.isPresent()) {
-                    usingShadePlugin.getAndIncrement();
-                }
+                incrementShadePluginCount(build);
             }
 
             if (!verifyModel(model)) {
@@ -83,8 +77,17 @@ public class PomProcessor implements Runnable {
             }
         } catch (Exception e) {
             brokenPomCount.incrementAndGet();
-            throw new RuntimeException(e);
-//            logger.debug("Error while processing POM file: " + pomPath, e);
+            logger.debug("Error while processing POM file: " + pomPath, e);
+        }
+    }
+
+    private void incrementShadePluginCount(Build build) {
+        List<Plugin> plugins = build.getPlugins();
+        Optional<Plugin> shadePluginOptional = plugins.stream()
+                .filter(plugin -> plugin.getArtifactId().equals("maven-shade-plugin"))
+                .findFirst();
+        if (shadePluginOptional.isPresent()) {
+            usingShadePlugin.getAndIncrement();
         }
     }
 
@@ -106,6 +109,10 @@ public class PomProcessor implements Runnable {
 
             // if version is a property placeholder, attempt to resolve it
             if (version.startsWith("${") && version.endsWith("}")) {
+                if (dependency.getScope() != null && dependency.getScope().equals("test")) {
+                    continue;
+                }
+
                 String propertyKey = version.substring(2, version.length() - 1);
                 String propertyValue = properties.getProperty(propertyKey);
                 if (propertyValue == null) {
@@ -120,7 +127,7 @@ public class PomProcessor implements Runnable {
         Parent parent = model.getParent();
         if (parent != null) {
             parent = resolveParentProperties(parent, model);
-            Path parentPomPath = getPomPath(parent);
+            Path parentPomPath = getPomPath(parent, model);
             if (!verifyParent(parent, parentPomPath)) {
                 logger.warn("Parent POM file not found: " + parentPomPath);
                 return false;
@@ -141,6 +148,10 @@ public class PomProcessor implements Runnable {
     }
 
     private String resolveProperty(String propertyValue, Model model) {
+        if (propertyValue == null) {
+            return null;
+        }
+
         if (propertyValue.startsWith("${") && propertyValue.endsWith("}")) {
             String propertyKey = propertyValue.substring(2, propertyValue.length() - 1);
             Properties properties = model.getProperties();
@@ -155,7 +166,7 @@ public class PomProcessor implements Runnable {
             } else {
                 Parent parent = model.getParent();
                 if (parent != null) {
-                    Path parentPomPath = getPomPath(parent);
+                    Path parentPomPath = getPomPath(parent, model);
                     try {
                         Model parentModel = parseModel(parentPomPath);
                         propertyValue = resolveProperty(propertyValue, parentModel);
@@ -198,31 +209,9 @@ public class PomProcessor implements Runnable {
             }
         }
 
-//        // resolve placeholder properties in dependencies' versions
-//        List<Dependency> dependencies = model.getDependencies();
-//        for (Dependency dependency : dependencies) {
-//            String version = dependency.getVersion();
-//            if (version.startsWith("${") && version.endsWith("}")) {
-//                version = resolveProperty(version, model.getProperties());
-//                dependency.setVersion(version);
-//            }
-//        }
-//
-//        DependencyManagement depManagement = model.getDependencyManagement();
-//        if (depManagement != null) {
-//            for (Dependency dependency : depManagement.getDependencies()) {
-//                String version = dependency.getVersion();
-//                if (version.startsWith("${") && version.endsWith("}")) {
-//                    version = resolveProperty(version, model.getProperties());
-//                    dependency.setVersion(version);
-//                }
-//            }
-//        }
-
-
         Parent parent = model.getParent();
         if (parent != null) {
-            Path parentPomPath = getPomPath(parent);
+            Path parentPomPath = getPomPath(parent, model);
 
             // check if parentPomPath exists
             if (!new File(parentPomPath.toString()).exists()) {
@@ -298,18 +287,20 @@ public class PomProcessor implements Runnable {
             }
         }
 
-        resolveImportedDependencies(model, pomPath);
+        resolveImportedDependencies(model);
 
         return model;
     }
 
-    private void resolveImportedDependencies(Model model, Path pomPath) throws Exception {
+    private void resolveImportedDependencies(Model model) throws Exception {
         DependencyManagement depManagement = model.getDependencyManagement();
         if (depManagement != null) {
             List<Dependency> addDependencies = new ArrayList<>();
-            for (Dependency depManagementDependency : depManagement.getDependencies()) {
+            Iterator<Dependency> dependencyIterator = depManagement.getDependencies().iterator();
+            while (dependencyIterator.hasNext()) {
+                Dependency depManagementDependency = dependencyIterator.next();
                 if (depManagementDependency.getScope() != null && depManagementDependency.getScope().equals("import")) {
-                    Path importedPomPath = getPomPath(depManagementDependency.getGroupId(), depManagementDependency.getArtifactId(), depManagementDependency.getVersion());
+                    Path importedPomPath = getPomPath(depManagementDependency.getGroupId(), depManagementDependency.getArtifactId(), depManagementDependency.getVersion(), model);
                     Model importedModel = parseModel(importedPomPath);
                     if (importedModel != null && importedModel.getDependencyManagement() != null) {
                         List<Dependency> importedDependencies = importedModel.getDependencyManagement().getDependencies();
@@ -319,9 +310,16 @@ public class PomProcessor implements Runnable {
                         });
                         addDependencies.addAll(importedDependencies);
                     }
+                    dependencyIterator.remove();
                 }
             }
             depManagement.getDependencies().addAll(addDependencies);
+
+            for (Dependency addDependency : addDependencies) {
+                if (!model.getDependencies().contains(addDependency)) {
+                    model.getDependencies().add(addDependency);
+                }
+            }
         }
     }
 
@@ -329,21 +327,12 @@ public class PomProcessor implements Runnable {
         return pomPath.toString();
     }
 
-    private Path getPomPath(Parent parent) {
-        String parentPomPath = String.join(
-                "/",
-                parent.getGroupId().replace(".", "/"),
-                parent.getArtifactId(),
-                parent.getVersion(),
-                parent.getArtifactId() + "-" + parent.getVersion() + ".pom"
-        );
+    private Path getPomPath(Parent parent, Model model) {
+        String groupId = resolveProperty(parent.getGroupId(), model);
+        String artifactId = resolveProperty(parent.getArtifactId(), model);
+        String version = resolveProperty(parent.getVersion(), model);
 
-        String m2RepoPath = pomPath.toString().substring(0, pomPath.toString().lastIndexOf(".m2/repository") + ".m2/repository".length());
 
-        return Paths.get(m2RepoPath, parentPomPath);
-    }
-
-    private Path getPomPath(String groupId, String artifactId, String version) {
         String parentPomPath = String.join(
                 "/",
                 groupId.replace(".", "/"),
@@ -351,6 +340,25 @@ public class PomProcessor implements Runnable {
                 version,
                 artifactId + "-" + version + ".pom"
         );
+
+        String m2RepoPath = pomPath.toString().substring(0, pomPath.toString().lastIndexOf(".m2/repository") + ".m2/repository".length());
+
+        return Paths.get(m2RepoPath, parentPomPath);
+    }
+
+    private Path getPomPath(String groupId, String artifactId, String version, Model model) {
+        groupId = resolveProperty(groupId, model);
+        artifactId = resolveProperty(artifactId, model);
+        version = resolveProperty(version, model);
+
+        String parentPomPath = String.join(
+                "/",
+                groupId.replace(".", "/"),
+                artifactId,
+                version,
+                artifactId + "-" + version + ".pom"
+        );
+
 
         String m2RepoPath = pomPath.toString().substring(0, pomPath.toString().lastIndexOf(".m2/repository") + ".m2/repository".length());
 
