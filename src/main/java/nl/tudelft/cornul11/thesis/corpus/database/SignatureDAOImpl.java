@@ -111,16 +111,15 @@ public class SignatureDAOImpl implements SignatureDAO {
     public List<LibraryMatchInfo> returnTopLibraryMatches(List<Long> hashes) {
         long startTime = System.currentTimeMillis();
 
-        String createTempTable = "CREATE TEMPORARY TABLE temp_hashes (class_hash BIGINT)";
+        String createTempTable = "CREATE TEMPORARY TABLE IF NOT EXISTS temp_hashes (class_hash BIGINT NOT NULL)";
+        String dropTempTable = "DROP TABLE temp_hashes";
         String insertIntoTempTable = "INSERT INTO temp_hashes (class_hash) VALUES (?)";
 
-        // Create the mainQuery
-        String mainQuery = "SELECT libraries.group_id, libraries.artifact_id, libraries.version, libraries.total_class_files, COUNT(*) as matched_count " +
+        String mainQuery = "SELECT library_id, group_id, artifact_id, version, total_class_files, COUNT(*) as matched_count " +
                 "FROM signatures " +
                 "JOIN libraries ON signatures.library_id = libraries.id " +
                 "JOIN temp_hashes ON signatures.class_hash = temp_hashes.class_hash " +
-                "GROUP BY libraries.group_id, libraries.artifact_id, libraries.version, libraries.total_class_files";
-
+                "GROUP BY library_id";
 
         List<LibraryMatchInfo> libraryHashesCount = new ArrayList<>();
 
@@ -149,6 +148,10 @@ public class SignatureDAOImpl implements SignatureDAO {
                     LibraryMatchInfo libraryMatchInfo = new LibraryMatchInfo(resultGroupId, resultArtifactId, resultVersion, resultMatchedCount, resultTotalCount);
                     libraryHashesCount.add(libraryMatchInfo);
                 }
+            }
+
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(dropTempTable);
             }
         } catch (SQLException e) {
             e.printStackTrace();
