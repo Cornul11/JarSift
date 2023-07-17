@@ -4,10 +4,8 @@ import com.zaxxer.hikari.HikariDataSource;
 import nl.tudelft.cornul11.thesis.corpus.file.JarAndPomInfoExtractor;
 import nl.tudelft.cornul11.thesis.corpus.file.LibraryMatchInfo;
 import nl.tudelft.cornul11.thesis.corpus.model.Signature;
-import org.apache.maven.model.Build;
-import org.apache.maven.model.Dependency;
-import org.apache.maven.model.Model;
-import org.apache.maven.model.Plugin;
+import nl.tudelft.cornul11.thesis.oracle.PomProcessor;
+import org.apache.maven.model.*;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.codehaus.plexus.util.xml.Xpp3DomBuilder;
 import org.slf4j.Logger;
@@ -113,7 +111,7 @@ public class SignatureDAOImpl implements SignatureDAO {
     public List<LibraryMatchInfo> returnTopLibraryMatches(List<Long> hashes) {
         long startTime = System.currentTimeMillis();
 
-        String createTempTable = "CREATE TEMPORARY TABLe temp_hashes (class_hash BIGINT)";
+        String createTempTable = "CREATE TEMPORARY TABLE temp_hashes (class_hash BIGINT)";
         String insertIntoTempTable = "INSERT INTO temp_hashes (class_hash) VALUES (?)";
 
         // Create the mainQuery
@@ -163,13 +161,13 @@ public class SignatureDAOImpl implements SignatureDAO {
     }
 
     @Override
-    public void insertPluginInfo(Model model, Plugin shadePlugin, List<String> pluginConfigurations) {
+    public void insertPluginInfo(Model model, Plugin shadePlugin) {
         long startTime = System.currentTimeMillis();
 
         String insertLibraryQuery = "INSERT INTO oracle_libraries (group_id, artifact_id, version) VALUES (?, ?, ?)";
         String insertDependencyQuery = "INSERT INTO dependencies (library_id, group_id, artifact_id, version, scope) VALUES (?, ?, ?, ?, ?)";
         String insertPluginQuery = "INSERT INTO plugins (library_id, group_id, artifact_id, version) VALUES (?, ?, ?, ?)";
-        String insertPluginConfigQuery = "INSERT INTO plugin_config (plugin_id, config) VALUES (?, ?)";
+        String insertPluginConfigQuery = "INSERT INTO plugin_config (plugin_id, execution_id, config) VALUES (?, ?, ?)";
 
         executeWithDeadlockRetry(connection -> {
             try {
@@ -206,11 +204,42 @@ public class SignatureDAOImpl implements SignatureDAO {
                     if (generatedKeys.next()) {
                         int pluginId = generatedKeys.getInt(1);
 
-                        for (String pluginConfiguration : pluginConfigurations) {
-                            PreparedStatement configStatement = connection.prepareStatement(insertPluginConfigQuery);
-                            configStatement.setInt(1, pluginId);
-                            configStatement.setString(2, pluginConfiguration);
-                            configStatement.executeUpdate();
+
+                        // save plugin-level configuration
+                        Object pluginConfiguration = shadePlugin.getConfiguration();
+                        if (pluginConfiguration != null) {
+                            try {
+                                String serializedConfiguration = PomProcessor.serializeXpp3Dom((Xpp3Dom) pluginConfiguration);
+                                PreparedStatement configStatement = connection.prepareStatement(insertPluginConfigQuery);
+                                configStatement.setInt(1, pluginId);
+                                configStatement.setString(2, null);
+                                configStatement.setString(3, serializedConfiguration);
+                                configStatement.executeUpdate();
+                            } catch (Exception e) {
+                                logger.debug("The error occurred during the serialization of the plugin configuration.", e);
+                            }
+                        } else {
+                            logger.debug("The plugin configuration is null.");
+                        }
+
+                        // save execution-level configuration
+                        List<PluginExecution> executions = shadePlugin.getExecutions();
+                        for (PluginExecution execution : executions) {
+                            Object configuration = execution.getConfiguration();
+                            if (configuration != null) {
+                                try {
+                                    String serializedConfiguration = PomProcessor.serializeXpp3Dom((Xpp3Dom) configuration);
+                                    PreparedStatement configStatement = connection.prepareStatement(insertPluginConfigQuery);
+                                    configStatement.setInt(1, pluginId);
+                                    configStatement.setString(2, execution.getId());
+                                    configStatement.setString(3, serializedConfiguration);
+                                    configStatement.executeUpdate();
+                                } catch (Exception e) {
+                                    logger.debug("The error occurred during the serialization of the plugin configuration.", e);
+                                }
+                            } else {
+                                logger.debug("The plugin execution configuration is null.");
+                            }
                         }
                     }
                 }
@@ -229,7 +258,7 @@ public class SignatureDAOImpl implements SignatureDAO {
         String selectLibraryQuery = "SELECT * FROM oracle_libraries WHERE group_id = ? AND artifact_id = ? AND version = ?";
         String selectDependencyQuery = "SELECT * FROM dependencies WHERE library_id = ?";
         String selectPluginQuery = "SELECT * FROM plugins WHERE library_id = ?";
-        String selectPluginConfigQuery = "SELECT * FROM plugin_config WHERE plugin_id = ?";
+        String selectPluginConfigQuery = "SELECT * FROM plugin_config WHERE plugin_id = ? ORDER BY execution_id";
 
         Model model = new Model();
 
@@ -284,13 +313,23 @@ public class SignatureDAOImpl implements SignatureDAO {
                         configStatement.setInt(1, pluginId);
                         ResultSet configResultSet = configStatement.executeQuery();
 
-                        List<Xpp3Dom> pluginConfigs = new ArrayList<>();
+                        // handle the first configuration as plugin level configuration (because we add it first)
+                        // and the rest as execution level configurations
+                        boolean isFirstConfig = true;
+                        List<PluginExecution> executions = new ArrayList<>();
                         while (configResultSet.next()) {
                             Xpp3Dom config = Xpp3DomBuilder.build(new StringReader(configResultSet.getString("config")));
-                            pluginConfigs.add(config);
+                            if (isFirstConfig) {
+                                plugin.setConfiguration(config);
+                                isFirstConfig = false;
+                            } else {
+                                PluginExecution execution = new PluginExecution();
+                                execution.setConfiguration(config);
+                                executions.add(execution);
+                            }
                         }
 
-                        plugin.setConfiguration(pluginConfigs);
+                        plugin.setExecutions(executions);
 
                         build.addPlugin(plugin);
                     }

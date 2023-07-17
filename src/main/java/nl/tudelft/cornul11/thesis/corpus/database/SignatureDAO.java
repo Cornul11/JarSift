@@ -13,7 +13,7 @@ public interface SignatureDAO {
 
     int insertSignatures(List<Signature> signatures, long jarHash, long jarCrc);
 
-    void insertPluginInfo(Model model, Plugin plugin, List<String> pluginConfigurations);
+    void insertPluginInfo(Model model, Plugin plugin);
 
     Model retrievePluginInfo(String groupId, String artifactId, String version);
 

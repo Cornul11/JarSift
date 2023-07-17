@@ -104,6 +104,7 @@ Statement statement = connection.createStatement()) {
     private void createPluginConfigTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS plugin_config (" +
                 "id INT PRIMARY KEY AUTO_INCREMENT, " +
+                "execution_id VARCHAR(255), " +
                 "plugin_id INT NOT NULL, " +
                 "config TEXT NOT NULL," +
                 "FOREIGN KEY (plugin_id) REFERENCES plugins(id))";

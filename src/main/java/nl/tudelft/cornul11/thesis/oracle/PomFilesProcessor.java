@@ -36,7 +36,7 @@ public class PomFilesProcessor {
         DatabaseManager databaseManager = DatabaseManager.getInstance(databaseConfig);
         SignatureDAO signatureDao = databaseManager.getSignatureDao();
 
-        List<String> usingShadePlugin = new CopyOnWriteArrayList<>();
+        AtomicInteger usingShadePlugin = new AtomicInteger(0);
         AtomicInteger brokenPomCount = new AtomicInteger(0);
         AtomicInteger processedPomCount = new AtomicInteger(0);
         try {
@@ -68,15 +68,14 @@ public class PomFilesProcessor {
             long endTime = System.currentTimeMillis();
             logger.info("Processed all POM files listed in " + pathToFile + " in " + (endTime - startTime) / 1000 + " seconds");
 
-            if (usingShadePlugin.isEmpty()) {
+            if (usingShadePlugin.get() == 0) {
                 logger.info("No POM files using the shade plugin were found");
             } else {
-                logger.info("POM files using the shade plugin:");
-//            usingShadePlugin.forEach(logger::info);
-                logger.info("Total: " + usingShadePlugin.size());
+                logger.info("Total: " + usingShadePlugin.get());
                 // print percentage of total
-                logger.info("Percentage of total: " + (double) usingShadePlugin.size() / totalLineCount * 100 + "%");
+                logger.info("Percentage of total: " + (double) usingShadePlugin.get() / totalLineCount * 100 + "%");
             }
+            logger.info("Inserted " + processedPomCount.get() + " POM files into the database");
             logger.warn("Broken POM files: " + brokenPomCount.get());
         } catch (IOException e) {
             logger.error("Error while processing files", e);
