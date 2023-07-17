@@ -40,7 +40,7 @@ public class PomProcessor implements Runnable {
     @Override
     public void run() {
         try {
-            if (pomPath.toString().contains("narayana")) {
+            if (pomPath.toString().contains("narayana-jta")) {
                 logger.info("Processing pom: " + pomPath);
             }
             Model model = parseModel(pomPath);
@@ -83,7 +83,8 @@ public class PomProcessor implements Runnable {
             }
         } catch (Exception e) {
             brokenPomCount.incrementAndGet();
-            logger.debug("Error while processing POM file: " + pomPath, e);
+            throw new RuntimeException(e);
+//            logger.debug("Error while processing POM file: " + pomPath, e);
         }
     }
 
@@ -99,7 +100,7 @@ public class PomProcessor implements Runnable {
         // check if all dependencies are resolved
         for (Dependency dependency : dependencies) {
             String version = dependency.getVersion();
-            if (version == null || version.contains("[") || version.contains("$")) {
+            if (version == null || version.contains("[")) {
                 return false;
             }
 
@@ -118,7 +119,7 @@ public class PomProcessor implements Runnable {
         // check parent
         Parent parent = model.getParent();
         if (parent != null) {
-            parent = resolveParentProperties(parent, properties);
+            parent = resolveParentProperties(parent, model);
             Path parentPomPath = getPomPath(parent);
             if (!verifyParent(parent, parentPomPath)) {
                 logger.warn("Parent POM file not found: " + parentPomPath);
@@ -129,22 +130,39 @@ public class PomProcessor implements Runnable {
         return true;
     }
 
-    private Parent resolveParentProperties(Parent parent, Properties properties) {
-        String groupId = resolveProperty(parent.getGroupId(), properties);
-        String artifactId = resolveProperty(parent.getArtifactId(), properties);
-        String version = resolveProperty(parent.getVersion(), properties);
+    private Parent resolveParentProperties(Parent parent, Model model) {
+        String groupId = resolveProperty(parent.getGroupId(), model);
+        String artifactId = resolveProperty(parent.getArtifactId(), model);
+        String version = resolveProperty(parent.getVersion(), model);
         parent.setGroupId(groupId);
         parent.setArtifactId(artifactId);
         parent.setVersion(version);
         return parent;
     }
 
-    private String resolveProperty(String propertyValue, Properties properties) {
+    private String resolveProperty(String propertyValue, Model model) {
         if (propertyValue.startsWith("${") && propertyValue.endsWith("}")) {
             String propertyKey = propertyValue.substring(2, propertyValue.length() - 1);
+            Properties properties = model.getProperties();
+
+            if ("project.version".equals(propertyKey)) {
+                return model.getVersion();
+            }
+
             String resolvedValue = properties.getProperty(propertyKey);
             if (resolvedValue != null) {
                 propertyValue = resolvedValue;
+            } else {
+                Parent parent = model.getParent();
+                if (parent != null) {
+                    Path parentPomPath = getPomPath(parent);
+                    try {
+                        Model parentModel = parseModel(parentPomPath);
+                        propertyValue = resolveProperty(propertyValue, parentModel);
+                    } catch (Exception e) {
+                        logger.debug("Error while processing parent POM file: " + parentPomPath, e);
+                    }
+                }
             }
         }
         return propertyValue;
@@ -180,6 +198,28 @@ public class PomProcessor implements Runnable {
             }
         }
 
+//        // resolve placeholder properties in dependencies' versions
+//        List<Dependency> dependencies = model.getDependencies();
+//        for (Dependency dependency : dependencies) {
+//            String version = dependency.getVersion();
+//            if (version.startsWith("${") && version.endsWith("}")) {
+//                version = resolveProperty(version, model.getProperties());
+//                dependency.setVersion(version);
+//            }
+//        }
+//
+//        DependencyManagement depManagement = model.getDependencyManagement();
+//        if (depManagement != null) {
+//            for (Dependency dependency : depManagement.getDependencies()) {
+//                String version = dependency.getVersion();
+//                if (version.startsWith("${") && version.endsWith("}")) {
+//                    version = resolveProperty(version, model.getProperties());
+//                    dependency.setVersion(version);
+//                }
+//            }
+//        }
+
+
         Parent parent = model.getParent();
         if (parent != null) {
             Path parentPomPath = getPomPath(parent);
@@ -212,6 +252,15 @@ public class PomProcessor implements Runnable {
                 }
             }
             model.setDependencies(mergedDependencies);
+
+            model.getDependencies().forEach(dependency -> {
+                String version = resolveProperty(dependency.getVersion(), model);
+                dependency.setVersion(version);
+            });
+
+            if (!verifyModel(model)) {
+                return null;
+            }
 
             // Merge plugins
             if (model.getBuild() == null) {
@@ -248,7 +297,32 @@ public class PomProcessor implements Runnable {
                 model.getBuild().setPlugins(mergedPlugins);
             }
         }
+
+        resolveImportedDependencies(model, pomPath);
+
         return model;
+    }
+
+    private void resolveImportedDependencies(Model model, Path pomPath) throws Exception {
+        DependencyManagement depManagement = model.getDependencyManagement();
+        if (depManagement != null) {
+            List<Dependency> addDependencies = new ArrayList<>();
+            for (Dependency depManagementDependency : depManagement.getDependencies()) {
+                if (depManagementDependency.getScope() != null && depManagementDependency.getScope().equals("import")) {
+                    Path importedPomPath = getPomPath(depManagementDependency.getGroupId(), depManagementDependency.getArtifactId(), depManagementDependency.getVersion());
+                    Model importedModel = parseModel(importedPomPath);
+                    if (importedModel != null && importedModel.getDependencyManagement() != null) {
+                        List<Dependency> importedDependencies = importedModel.getDependencyManagement().getDependencies();
+                        importedDependencies.forEach(dependency -> {
+                            String version = resolveProperty(dependency.getVersion(), importedModel);
+                            dependency.setVersion(version);
+                        });
+                        addDependencies.addAll(importedDependencies);
+                    }
+                }
+            }
+            depManagement.getDependencies().addAll(addDependencies);
+        }
     }
 
     private String getKey(Path pomPath) {
@@ -262,6 +336,20 @@ public class PomProcessor implements Runnable {
                 parent.getArtifactId(),
                 parent.getVersion(),
                 parent.getArtifactId() + "-" + parent.getVersion() + ".pom"
+        );
+
+        String m2RepoPath = pomPath.toString().substring(0, pomPath.toString().lastIndexOf(".m2/repository") + ".m2/repository".length());
+
+        return Paths.get(m2RepoPath, parentPomPath);
+    }
+
+    private Path getPomPath(String groupId, String artifactId, String version) {
+        String parentPomPath = String.join(
+                "/",
+                groupId.replace(".", "/"),
+                artifactId,
+                version,
+                artifactId + "-" + version + ".pom"
         );
 
         String m2RepoPath = pomPath.toString().substring(0, pomPath.toString().lastIndexOf(".m2/repository") + ".m2/repository".length());
