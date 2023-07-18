@@ -86,7 +86,7 @@ public class JarSignatureMapper {
     }
 
     private ClassFileInfo processClassFile(JarEntry entry, JarFile jarFile) throws IOException {
-        logger.info("Processing class file: " + entry.getName());
+//        logger.info("Processing class file: " + entry.getName());
         try (InputStream classFileInputStream = jarFile.getInputStream(entry)) {
             byte[] bytecode = BytecodeUtils.readBytecodeAndCalculateCRCWhenNotAvailable(entry, classFileInputStream);
 

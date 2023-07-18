@@ -64,6 +64,20 @@ public class OracleCommandExecutor {
                     System.out.println("File name is required for COMPARISON_MODE");
                     printHelpMessage();
                 }
+            } else if ("BATCH_COMPARISON_MODE".equals(mode)) {
+                String repoPath = options.getDirectory();
+                if (repoPath != null) {
+                    OracleInformationComparator comparator = new OracleInformationComparator(signatureDao);
+                    comparator.validateUberJars(repoPath);
+                    if (comparator.getResults() == null) {
+                        System.out.println("Error in the batch validation of jar files");
+                    } else {
+                        System.out.println("Results: " + comparator.getResults());
+                    }
+                } else {
+                    System.out.println("M2 repo root path is required for BATCH_COMPARISON_MODE");
+                    printHelpMessage();
+                }
             } else {
                 System.out.println("Invalid mode specified: " + mode);
                 printHelpMessage();

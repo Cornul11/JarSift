@@ -1,16 +1,15 @@
 package nl.tudelft.cornul11.thesis.oracle;
 
 import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
+import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAOImpl;
 import nl.tudelft.cornul11.thesis.corpus.file.JarAndPomInfoExtractor;
 import nl.tudelft.cornul11.thesis.corpus.jarfile.JarFrequencyAnalyzer;
-import org.apache.maven.model.Dependency;
-import org.apache.maven.model.Model;
-import org.apache.maven.model.Plugin;
-import org.apache.maven.model.PluginExecution;
+import org.apache.maven.model.*;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
@@ -20,6 +19,7 @@ public class OracleInformationComparator {
     private final Logger logger = LoggerFactory.getLogger(OracleInformationComparator.class);
     private final SignatureDAO signatureDAO;
     private int TP = 0, FP = 0, TN = 0, FN = 0, UN = 0;
+    private List<SignatureDAOImpl.OracleLibrary> cachedOracleLibraries = null;
 
 
     public OracleInformationComparator(SignatureDAO signatureDAO) {
@@ -30,12 +30,18 @@ public class OracleInformationComparator {
         long startTime = System.currentTimeMillis();
         Path uberJarPath = Paths.get(uberJarPathString);
 
-        List<String> inferredLibraries = inferLibraries(uberJarPath);
+        List<String> inferredLibraries;
+        try {
+            inferredLibraries = inferLibraries(uberJarPath);
+        } catch (Exception e) {
+            logger.error("Error while inferring libraries for " + uberJarPath, e);
+            return;
+        }
         Collections.sort(inferredLibraries);
 
         Model model = getModelByJarPath(uberJarPath);
         if (model == null || model.getBuild() == null || model.getBuild().getPlugins() == null) {
-            System.err.println("Could not find information for " + uberJarPath);
+            logger.error("Could not find information for " + uberJarPath);
             return;
         }
 
@@ -211,7 +217,7 @@ public class OracleInformationComparator {
         extractDom(configurationParameters, "transformerImplementation", config.getChild("transformers"), "implementation");
     }
 
-    private List<String> inferLibraries(Path jarPath) {
+    private List<String> inferLibraries(Path jarPath) throws Exception {
 
         final double THRESHOLD = 0.8;
         JarFrequencyAnalyzer jarFrequencyAnalyzer = new JarFrequencyAnalyzer(signatureDAO);
@@ -250,5 +256,163 @@ public class OracleInformationComparator {
                 "True Negatives (TN): " + TN + "\n" +
                 "False Negatives (FN): " + FN + "\n" +
                 "Unknown Negatives (UN): " + UN + "\n";
+    }
+
+    public void validateUberJars(String repoPath) {
+        TP = 0;
+        FP = 0;
+        TN = 0;
+        FN = 0;
+        UN = 0;
+        long uberJarCount = 0, correctUberJarCount = 0;
+        double totalPrecision = 0, totalAccuracy = 0;
+
+        long startTime = System.currentTimeMillis();
+
+        List<Path> uberJarPaths = getUberJarPaths(repoPath);
+        for (Path uberJarPath : uberJarPaths) {
+            // jar file does not exist
+            if (!new File(uberJarPath.toString()).exists()) {
+                continue;
+            }
+
+            List<String> inferredLibraries = null;
+            try {
+                inferredLibraries = inferLibraries(uberJarPath);
+            } catch (Exception e) {
+                e.printStackTrace();
+                logger.error("Error while inferring libraries for " + uberJarPath.toString() + ": " + e.getMessage());
+            }
+
+            if (inferredLibraries == null) {
+                UN++;
+                continue;
+            }
+
+            boolean isInferredUberJar = inferredLibraries.size() > 1;
+
+            String uberJarGAV = getGAVFromPath(uberJarPath);
+            String[] splitGAV = uberJarGAV.split(":");
+            String groupId = splitGAV[0];
+            String artifactId = splitGAV[1];
+            String version = splitGAV[2];
+
+            boolean isOracleUberJar = false;
+
+            for (SignatureDAOImpl.OracleLibrary oracleLibrary : getCachedOracleLibraries()) {
+                if (oracleLibrary.getGroupId().equals(groupId) &&
+                        oracleLibrary.getArtifactId().equals(artifactId) &&
+                        oracleLibrary.getVersion().equals(version)) {
+                    isOracleUberJar = oracleLibrary.isAnUberJar();
+                    break;
+                }
+            }
+
+            if (isInferredUberJar == isOracleUberJar) correctUberJarCount++;
+            uberJarCount++;
+
+            if (isInferredUberJar) {
+                Model model = getModelByJarPath(uberJarPath);
+                if (model == null || model.getBuild() == null || model.getBuild().getPlugins() == null) {
+                    logger.error("Could not find information for " + uberJarPath);
+                    return;
+                }
+
+                Plugin shadePlugin = model.getBuild().getPlugins()
+                        .stream()
+                        .filter(plugin -> plugin.getArtifactId().equals("maven-shade-plugin"))
+                        .findFirst()
+                        .orElse(null);
+
+                if (shadePlugin == null) {
+                    // TODO: why tho?
+                    System.err.println("Could not find shade plugin for " + uberJarPath);
+                    uberJarCount--;
+                    continue;
+                }
+
+
+                Map<String, List<String>> shadePluginConfigParameters = extractConfigurationParameters(shadePlugin);
+
+                List<String> dbLibraries = model.getDependencies()
+                        .stream()
+                        .filter(dep -> shouldIncludeDependency(dep, shadePluginConfigParameters))
+                        .map(dep -> dep.getGroupId() + ":" + dep.getArtifactId() + ":" + dep.getVersion())
+                        .collect(Collectors.toList());
+
+
+                Iterator<String> allPossibleLibraries = signatureDAO.getAllPossibleLibraries();
+
+                for (String dbLibrary : dbLibraries) {
+                    if (inferredLibraries.contains(dbLibrary)) {
+                        TP++;  // true positive: the library is in the db and was correctly inferred
+                    } else {
+                        if (signatureDAO.isLibraryInDB(dbLibrary)) {
+                            FN++;  // false negative: the library is in the db but was not inferred
+                        } else {
+                            UN++;  // unknown negative: the library is in the db but was not inferred and its signature is not in the db
+                        }
+                    }
+                }
+
+                for (String inferredLibrary : inferredLibraries) {
+                    if (!dbLibraries.contains(inferredLibrary) &&
+                            !inferredLibrary.equals(uberJarGAV)) {  // add condition to check if inferredLibrary equals input JAR
+                        FP++;  // false positive: the library is not in the db but was inferred
+                    }
+                }
+
+                while (allPossibleLibraries.hasNext()) {
+                    String possibleLibrary = allPossibleLibraries.next();
+                    if (!dbLibraries.contains(possibleLibrary) && !inferredLibraries.contains(possibleLibrary)) {
+                        TN++;  // true negative: the library is not in the db and was correctly not inferred
+                    }
+                }
+
+                long total = TP + FP + TN + FN + UN;
+                double accuracy = total != 0 ? (double) (TP + TN) / total : 1;
+                totalAccuracy += accuracy;
+
+                double precision = (TP + FP) != 0 ? (double) TP / (TP + FP) : 1;
+                totalPrecision += precision;
+            }
+            long endTime = System.currentTimeMillis();
+            logger.info("Validation of {} took {} s", uberJarPath, (double) (endTime - startTime) / 1000);
+        }
+
+        System.out.println("Uber-jar classification accuracy: " + (double) correctUberJarCount / uberJarCount);
+        System.out.println("Average library classification accuracy: " + totalAccuracy / uberJarCount);
+        System.out.println("Average library classification precision: " + totalPrecision / uberJarCount);
+
+
+        logger.info("Validation of all uber jars took {} s", (double) (System.currentTimeMillis() - startTime) / 1000);
+    }
+
+
+    private List<SignatureDAOImpl.OracleLibrary> getCachedOracleLibraries() {
+        if (cachedOracleLibraries == null) {
+            cachedOracleLibraries = signatureDAO.getOracleLibraries();
+        }
+        return cachedOracleLibraries;
+    }
+
+    private Path getPathFromGAV(SignatureDAOImpl.OracleLibrary library, String repoPath) {
+        String groupId = library.getGroupId();
+        String artifactId = library.getArtifactId();
+        String version = library.getVersion();
+
+        String path = String.join(
+                "/"
+                , groupId.replace(".", "/"),
+                artifactId,
+                version,
+                artifactId + "-" + version + ".jar"
+        );
+
+        return Paths.get(repoPath, path);
+    }
+
+    private List<Path> getUberJarPaths(String repoPath) {
+        return getCachedOracleLibraries().stream().map(oracleLibrary -> getPathFromGAV(oracleLibrary, repoPath)).collect(Collectors.toList());
     }
 }

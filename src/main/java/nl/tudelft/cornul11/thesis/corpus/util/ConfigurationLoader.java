@@ -43,7 +43,9 @@ public class ConfigurationLoader {
                 config.getProperty("dataSource.cacheServerConfiguration"),
                 config.getProperty("dataSource.elideSetAutoCommits"),
                 config.getProperty("dataSource.maintainTimeStats"),
-                config.getProperty("dataSource.maximumPoolSize")
+                config.getProperty("dataSource.maximumPoolSize"),
+                config.getProperty("dataSource.connectionTimeout"),
+                config.getProperty("dataSource.leakDetectionThreshold")
         );
     }
 

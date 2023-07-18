@@ -34,119 +34,119 @@ import org.eclipse.jetty.util.resource.Resource;
  * Jetty server
  */
 public class FatJarServer extends AbstractHandler {
-  Path multipartTmpDir = Paths.get("target", "multipart-tmp");
-  String location = multipartTmpDir.toString();
-  long maxFileSize = 10 * 1024 * 1024; // 10 MB
-  long maxRequestSize = 10 * 1024 * 1024; // 10 MB
-  int fileSizeThreshold = 64 * 1024; // 64 KB
+    Path multipartTmpDir = Paths.get("target", "multipart-tmp");
+    String location = multipartTmpDir.toString();
+    long maxFileSize = 10 * 1024 * 1024; // 10 MB
+    long maxRequestSize = 10 * 1024 * 1024; // 10 MB
+    int fileSizeThreshold = 64 * 1024; // 64 KB
 
-  ConfigurationLoader config = new ConfigurationLoader();
-  DatabaseConfig databaseConfig = config.getDatabaseConfig();
-  DatabaseManager databaseManager = DatabaseManager.getInstance(databaseConfig);
-  SignatureDAO signatureDao = databaseManager.getSignatureDao();
-  JarSignatureMapper jarSignatureMapper = new JarSignatureMapper(signatureDao);
+    ConfigurationLoader config = new ConfigurationLoader();
+    DatabaseConfig databaseConfig = config.getDatabaseConfig();
+    DatabaseManager databaseManager = DatabaseManager.getInstance(databaseConfig);
+    SignatureDAO signatureDao = databaseManager.getSignatureDao();
+    JarSignatureMapper jarSignatureMapper = new JarSignatureMapper(signatureDao);
 
-  MultipartConfigElement multipartConfig = new MultipartConfigElement(location, maxFileSize, maxRequestSize,
-      fileSizeThreshold);
+    MultipartConfigElement multipartConfig = new MultipartConfigElement(location, maxFileSize, maxRequestSize,
+            fileSizeThreshold);
 
-  public FatJarServer() {
-    super();
-  }
+    public FatJarServer() {
+        super();
+    }
 
-  private void handleUpload(HttpServletRequest request, HttpServletResponse response, Path outputDir)
-      throws ServletException, IOException {
-    response.setCharacterEncoding("utf-8");
-    response.setContentType("application/json");
+    private void handleUpload(HttpServletRequest request, HttpServletResponse response, Path outputDir)
+            throws ServletException, IOException {
+        response.setCharacterEncoding("utf-8");
+        response.setContentType("application/json");
 
-    for (Part part : request.getParts()) {
-      String filename = part.getSubmittedFileName();
-      if (StringUtil.isNotBlank(filename) && filename.endsWith(".jar")) {
-        try (InputStream inputStream = part.getInputStream()) {
+        for (Part part : request.getParts()) {
+            String filename = part.getSubmittedFileName();
+            if (StringUtil.isNotBlank(filename) && filename.endsWith(".jar")) {
+                try (InputStream inputStream = part.getInputStream()) {
 
-          Path file = outputDir.resolve("jarfile.jar");
-          Files.copy(inputStream, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-          Map<String, Map<String, Object>> inferJarFile = jarSignatureMapper.inferJarFile(file);
-          System.out.println("Inferred libraries in jar file: " + file + " " + inferJarFile.size());
-          response.getWriter().append("{");
-          for (Map.Entry<String, Map<String, Object>> entry : inferJarFile.entrySet()) {
-            String key = entry.getKey();
-            Map<String, Object> value = entry.getValue();
-            response.getWriter().append("\"" + key + "\": {");
-            // join keys
-            String keys = value.keySet().stream().map(String::valueOf).collect(Collectors.joining(", "));
-            for (Map.Entry<String, Object> entry2 : value.entrySet()) {
-              String key2 = entry2.getKey();
-              Object value2 = entry2.getValue();
-              response.getWriter().append("\"" + key2 + "\": \"" + value2 + "\"");
-              if (!key2.equals(keys)) {
-                response.getWriter().append(", ");
-              }
+                    Path file = outputDir.resolve("jarfile.jar");
+                    Files.copy(inputStream, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    Map<String, Map<String, Object>> inferJarFile = jarSignatureMapper.inferJarFile(file);
+                    System.out.println("Inferred libraries in jar file: " + file + " " + inferJarFile.size());
+                    response.getWriter().append("{");
+                    for (Map.Entry<String, Map<String, Object>> entry : inferJarFile.entrySet()) {
+                        String key = entry.getKey();
+                        Map<String, Object> value = entry.getValue();
+                        response.getWriter().append("\"" + key + "\": {");
+                        // join keys
+                        String keys = value.keySet().stream().map(String::valueOf).collect(Collectors.joining(", "));
+                        for (Map.Entry<String, Object> entry2 : value.entrySet()) {
+                            String key2 = entry2.getKey();
+                            Object value2 = entry2.getValue();
+                            response.getWriter().append("\"" + key2 + "\": \"" + value2 + "\"");
+                            if (!key2.equals(keys)) {
+                                response.getWriter().append(", ");
+                            }
+                        }
+                        response.getWriter().append("}");
+                    }
+                    response.getWriter().append("}");
+                    file.toFile().delete();
+                }
             }
-            response.getWriter().append("}");
-          }
-          response.getWriter().append("}");
-          file.toFile().delete();
         }
-      }
+        response.setStatus(HttpServletResponse.SC_OK);
+        response.getWriter().flush();
     }
-    response.setStatus(HttpServletResponse.SC_OK);
-    response.getWriter().flush();
-  }
 
-  @Override
-  public void handle(String target, Request jettyRequest, HttpServletRequest request,
-      HttpServletResponse response) {
-    // get file upload from request
-    if (target.equals("/upload")) {
-      jettyRequest.setAttribute(Request.__MULTIPART_CONFIG_ELEMENT, multipartConfig);
-      try {
-        handleUpload(jettyRequest, response, Path.of("uploads"));
-      } catch (ServletException | IOException e) {
-        e.printStackTrace();
-      }
+    @Override
+    public void handle(String target, Request jettyRequest, HttpServletRequest request,
+                       HttpServletResponse response) {
+        // get file upload from request
+        if (target.equals("/upload")) {
+            jettyRequest.setAttribute(Request.__MULTIPART_CONFIG_ELEMENT, multipartConfig);
+            try {
+                handleUpload(jettyRequest, response, Path.of("uploads"));
+            } catch (ServletException | IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
-  }
 
-  public void run() throws Exception {
-    int port = System.getenv("PORT") != null ? Integer.parseInt(System.getenv("PORT")) : 8080;
-    // Create a Server instance.
-    Server server = new Server(port);
+    public void run() throws Exception {
+        int port = System.getenv("PORT") != null ? Integer.parseInt(System.getenv("PORT")) : 8080;
+        // Create a Server instance.
+        Server server = new Server(port);
 
-    // Create a ServerConnector to accept connections from clients.
-    Connector connector = new ServerConnector(server);
+        // Create a ServerConnector to accept connections from clients.
+        Connector connector = new ServerConnector(server);
 
-    // Add the Connector to the Server
-    server.addConnector(connector);
+        // Add the Connector to the Server
+        server.addConnector(connector);
 
-    // Create a ContextHandlerCollection to hold contexts.
-    ContextHandlerCollection contextCollection = new ContextHandlerCollection();
-    // Link the ContextHandlerCollection to the Server.
-    server.setHandler(contextCollection);
+        // Create a ContextHandlerCollection to hold contexts.
+        ContextHandlerCollection contextCollection = new ContextHandlerCollection();
+        // Link the ContextHandlerCollection to the Server.
+        server.setHandler(contextCollection);
 
-    // Create and configure a ResourceHandler.
-    ResourceHandler ressourceHandler = new ResourceHandler();
-    // Configure the directory where static resources are located.
-    ressourceHandler.setBaseResource(Resource.newResource("www/"));
-    // Configure directory listing.
-    ressourceHandler.setDirectoriesListed(true);
-    // Configure welcome files.
-    ressourceHandler.setWelcomeFiles(new String[] { "index.html" });
-    // Configure whether to accept range requests.
-    ressourceHandler.setAcceptRanges(true);
+        // Create and configure a ResourceHandler.
+        ResourceHandler ressourceHandler = new ResourceHandler();
+        // Configure the directory where static resources are located.
+        ressourceHandler.setBaseResource(Resource.newResource("www/"));
+        // Configure directory listing.
+        ressourceHandler.setDirectoriesListed(true);
+        // Configure welcome files.
+        ressourceHandler.setWelcomeFiles(new String[]{"index.html"});
+        // Configure whether to accept range requests.
+        ressourceHandler.setAcceptRanges(true);
 
-    ContextHandler apiContext = new ContextHandler();
-    apiContext.setContextPath("/api");
-    apiContext.setHandler(new FatJarServer());
-    contextCollection.addHandler(apiContext);
+        ContextHandler apiContext = new ContextHandler();
+        apiContext.setContextPath("/api");
+        apiContext.setHandler(new FatJarServer());
+        contextCollection.addHandler(apiContext);
 
-    ContextHandler publicContext = new ContextHandler();
-    publicContext.setContextPath("/");
-    publicContext.setHandler(ressourceHandler);
-    contextCollection.addHandler(publicContext);
+        ContextHandler publicContext = new ContextHandler();
+        publicContext.setContextPath("/");
+        publicContext.setHandler(ressourceHandler);
+        contextCollection.addHandler(publicContext);
 
-    // Start the Server so it starts accepting connections from clients.
-    server.start();
-    server.join();
-  }
+        // Start the Server so it starts accepting connections from clients.
+        server.start();
+        server.join();
+    }
 
 }

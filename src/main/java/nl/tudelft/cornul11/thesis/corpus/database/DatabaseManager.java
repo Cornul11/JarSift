@@ -29,6 +29,8 @@ public class DatabaseManager {
         hikariConfig.addDataSourceProperty("elideSetAutoCommits", config.getElideSetAutoCommits());
         hikariConfig.addDataSourceProperty("maintainTimeStats", config.getMaintainTimeStats());
         hikariConfig.setMaximumPoolSize(Integer.parseInt(config.getMaximumPoolSize()));
+        hikariConfig.setConnectionTimeout(Long.parseLong(config.getConnectionTimeout()));
+        hikariConfig.setLeakDetectionThreshold(Long.parseLong(config.getLeakDetectionThreshold()));
         hikariConfig.setIdleTimeout(60000);
         hikariConfig.setMaxLifetime(6000000);
 
@@ -107,6 +109,7 @@ Statement statement = connection.createStatement()) {
                 "execution_id VARCHAR(255), " +
                 "plugin_id INT NOT NULL, " +
                 "config TEXT NOT NULL," +
+                "using_minimize_jar BOOLEAN NOT NULL," +
                 "FOREIGN KEY (plugin_id) REFERENCES plugins(id))";
 
         try (Connection connection = ds.getConnection();
@@ -139,7 +142,9 @@ Statement statement = connection.createStatement()) {
                 "id INT PRIMARY KEY AUTO_INCREMENT, "
                 + "group_id VARCHAR(255) NOT NULL, "
                 + "artifact_id VARCHAR(255) NOT NULL, "
-                + "version VARCHAR(255) NOT NULL)";
+                + "version VARCHAR(255) NOT NULL,"
+                + "using_maven_shade_plugin BOOLEAN NOT NULL,"
+                + "is_an_uber_jar BOOLEAN NOT NULL)";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {

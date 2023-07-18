@@ -14,9 +14,11 @@ public interface SignatureDAO {
 
     int insertSignatures(List<Signature> signatures, long jarHash, long jarCrc);
 
-    void insertPluginInfo(Model model, Plugin plugin);
+    void insertPluginInfo(Model model, Plugin shadePlugin, boolean minimizeJar, boolean usingMavenShade, boolean isUberJar);
 
     Model retrievePluginInfo(String groupId, String artifactId, String version);
+
+    List<SignatureDAOImpl.OracleLibrary> getOracleLibraries();
 
     List<LibraryMatchInfo> returnTopLibraryMatches(List<Long> hashes);
 

@@ -110,39 +110,60 @@ public class SignatureDAOImpl implements SignatureDAO {
 
     @Override
     public Iterator<String> getAllPossibleLibraries() {
-        String selectLibrariesQuery = "SELECT group_id, artifact_id, version FROM libraries";
+        return new LibraryIterator(ds);
+    }
 
-        try {
-            Connection connection = ds.getConnection();
-            PreparedStatement statement = connection.prepareStatement(selectLibrariesQuery, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+    public class OracleLibrary {
+        public String getGroupId() {
+            return groupId;
+        }
+
+        public String getArtifactId() {
+            return artifactId;
+        }
+
+        public String getVersion() {
+            return version;
+        }
+
+        public boolean isAnUberJar() {
+            return isAnUberJar;
+        }
+
+        private final String groupId;
+        private final String artifactId;
+        private final String version;
+        private final boolean isAnUberJar;
+
+        public OracleLibrary(String groupId, String artifactId, String version, boolean isAnUberJar) {
+            this.groupId = groupId;
+            this.artifactId = artifactId;
+            this.version = version;
+            this.isAnUberJar = isAnUberJar;
+        }
+    }
+
+    @Override
+    public List<OracleLibrary> getOracleLibraries() {
+        String selectLibrariesQuery = "SELECT group_id, artifact_id, version, is_an_uber_jar FROM oracle_libraries";
+
+        List<OracleLibrary> libraries = new ArrayList<>();
+        try (Connection connection = ds.getConnection();
+             PreparedStatement statement = connection.prepareStatement(selectLibrariesQuery, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
             statement.setFetchSize(1000);  // Fetch 1000 rows at a time
             statement.setFetchDirection(ResultSet.FETCH_FORWARD);
-            ResultSet resultSet = statement.executeQuery();
-            return new Iterator<>() {
-                @Override
-                public boolean hasNext() {
-                    try {
-                        return resultSet.next();
-                    } catch (SQLException e) {
-                        e.printStackTrace();
-                        return false;
-                    }
-                }
 
-                @Override
-                public String next() {
-                    try {
-                        return resultSet.getString("group_id") + ":" + resultSet.getString("artifact_id") + ":" + resultSet.getString("version");
-                    } catch (SQLException e) {
-                        e.printStackTrace();
-                        return null;
-                    }
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    libraries.add(new OracleLibrary(resultSet.getString("group_id"), resultSet.getString("artifact_id"), resultSet.getString("version"), resultSet.getBoolean("is_an_uber_jar")));
                 }
-            };
+            }
         } catch (SQLException e) {
             e.printStackTrace();
             throw new RuntimeException(e);
         }
+
+        return libraries;
     }
 
     @Override
@@ -216,13 +237,13 @@ public class SignatureDAOImpl implements SignatureDAO {
     }
 
     @Override
-    public void insertPluginInfo(Model model, Plugin shadePlugin) {
+    public void insertPluginInfo(Model model, Plugin shadePlugin, boolean minimizeJar, boolean usingMavenShade, boolean isUberJar) {
         long startTime = System.currentTimeMillis();
 
-        String insertLibraryQuery = "INSERT INTO oracle_libraries (group_id, artifact_id, version) VALUES (?, ?, ?)";
+        String insertLibraryQuery = "INSERT INTO oracle_libraries (group_id, artifact_id, version, using_maven_shade_plugin, is_an_uber_jar) VALUES (?, ?, ?, ?, ?)";
         String insertDependencyQuery = "INSERT INTO dependencies (library_id, group_id, artifact_id, version, scope) VALUES (?, ?, ?, ?, ?)";
         String insertPluginQuery = "INSERT INTO plugins (library_id, group_id, artifact_id, version) VALUES (?, ?, ?, ?)";
-        String insertPluginConfigQuery = "INSERT INTO plugin_config (plugin_id, execution_id, config) VALUES (?, ?, ?)";
+        String insertPluginConfigQuery = "INSERT INTO plugin_config (plugin_id, execution_id, config, using_minimize_jar) VALUES (?, ?, ?, ?)";
 
         executeWithDeadlockRetry(connection -> {
             try {
@@ -230,6 +251,8 @@ public class SignatureDAOImpl implements SignatureDAO {
                 libraryStatement.setString(1, model.getGroupId());
                 libraryStatement.setString(2, model.getArtifactId());
                 libraryStatement.setString(3, model.getVersion());
+                libraryStatement.setBoolean(4, usingMavenShade);
+                libraryStatement.setBoolean(5, isUberJar);
                 libraryStatement.executeUpdate();
 
                 ResultSet generatedKeys = libraryStatement.getGeneratedKeys();
@@ -248,52 +271,56 @@ public class SignatureDAOImpl implements SignatureDAO {
                         dependencyStatement.executeUpdate();
                     }
 
-                    PreparedStatement pluginStatement = connection.prepareStatement(insertPluginQuery, Statement.RETURN_GENERATED_KEYS);
-                    pluginStatement.setInt(1, libraryId);
-                    pluginStatement.setString(2, shadePlugin.getGroupId());
-                    pluginStatement.setString(3, shadePlugin.getArtifactId());
-                    pluginStatement.setString(4, shadePlugin.getVersion());
-                    pluginStatement.executeUpdate();
+                    if (shadePlugin != null) {
+                        PreparedStatement pluginStatement = connection.prepareStatement(insertPluginQuery, Statement.RETURN_GENERATED_KEYS);
+                        pluginStatement.setInt(1, libraryId);
+                        pluginStatement.setString(2, shadePlugin.getGroupId());
+                        pluginStatement.setString(3, shadePlugin.getArtifactId());
+                        pluginStatement.setString(4, shadePlugin.getVersion());
+                        pluginStatement.executeUpdate();
 
-                    generatedKeys = pluginStatement.getGeneratedKeys();
-                    if (generatedKeys.next()) {
-                        int pluginId = generatedKeys.getInt(1);
+                        generatedKeys = pluginStatement.getGeneratedKeys();
+                        if (generatedKeys.next()) {
+                            int pluginId = generatedKeys.getInt(1);
 
 
-                        // save plugin-level configuration
-                        Object pluginConfiguration = shadePlugin.getConfiguration();
-                        if (pluginConfiguration != null) {
-                            try {
-                                String serializedConfiguration = PomProcessor.serializeXpp3Dom((Xpp3Dom) pluginConfiguration);
-                                PreparedStatement configStatement = connection.prepareStatement(insertPluginConfigQuery);
-                                configStatement.setInt(1, pluginId);
-                                configStatement.setString(2, null);
-                                configStatement.setString(3, serializedConfiguration);
-                                configStatement.executeUpdate();
-                            } catch (Exception e) {
-                                logger.debug("The error occurred during the serialization of the plugin configuration.", e);
-                            }
-                        } else {
-                            logger.debug("The plugin configuration is null.");
-                        }
-
-                        // save execution-level configuration
-                        List<PluginExecution> executions = shadePlugin.getExecutions();
-                        for (PluginExecution execution : executions) {
-                            Object configuration = execution.getConfiguration();
-                            if (configuration != null) {
+                            // save plugin-level configuration
+                            Object pluginConfiguration = shadePlugin.getConfiguration();
+                            if (pluginConfiguration != null) {
                                 try {
-                                    String serializedConfiguration = PomProcessor.serializeXpp3Dom((Xpp3Dom) configuration);
+                                    String serializedConfiguration = PomProcessor.serializeXpp3Dom((Xpp3Dom) pluginConfiguration);
                                     PreparedStatement configStatement = connection.prepareStatement(insertPluginConfigQuery);
                                     configStatement.setInt(1, pluginId);
-                                    configStatement.setString(2, execution.getId());
+                                    configStatement.setString(2, null);
                                     configStatement.setString(3, serializedConfiguration);
+                                    configStatement.setBoolean(4, minimizeJar);
                                     configStatement.executeUpdate();
                                 } catch (Exception e) {
                                     logger.debug("The error occurred during the serialization of the plugin configuration.", e);
                                 }
                             } else {
-                                logger.debug("The plugin execution configuration is null.");
+                                logger.debug("The plugin configuration is null.");
+                            }
+
+                            // save execution-level configuration
+                            List<PluginExecution> executions = shadePlugin.getExecutions();
+                            for (PluginExecution execution : executions) {
+                                Object configuration = execution.getConfiguration();
+                                if (configuration != null) {
+                                    try {
+                                        String serializedConfiguration = PomProcessor.serializeXpp3Dom((Xpp3Dom) configuration);
+                                        PreparedStatement configStatement = connection.prepareStatement(insertPluginConfigQuery);
+                                        configStatement.setInt(1, pluginId);
+                                        configStatement.setString(2, execution.getId());
+                                        configStatement.setString(3, serializedConfiguration);
+                                        configStatement.setBoolean(4, minimizeJar);
+                                        configStatement.executeUpdate();
+                                    } catch (Exception e) {
+                                        logger.debug("The error occurred during the serialization of the plugin configuration.", e);
+                                    }
+                                } else {
+                                    logger.debug("The plugin execution configuration is null.");
+                                }
                             }
                         }
                     }

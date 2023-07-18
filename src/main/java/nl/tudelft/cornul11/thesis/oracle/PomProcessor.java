@@ -41,7 +41,7 @@ public class PomProcessor implements Runnable {
     @Override
     public void run() {
         try {
-            if (pomPath.toString().contains("jdependency-2.1.1")) {
+            if (pomPath.toString().contains("drill-jdbc-all")) {
                 logger.info("Processing pom: " + pomPath);
             }
             Model model = parseModel(pomPath);
@@ -67,6 +67,7 @@ public class PomProcessor implements Runnable {
                         .findFirst();
 
                 if (shadePluginOptional.isPresent()) {
+                    boolean usingShadePlugin = true;
                     Plugin shadePlugin = shadePluginOptional.get();
 
                     if (!isConfigMultiplicityAcceptable(shadePlugin)) {
@@ -75,26 +76,38 @@ public class PomProcessor implements Runnable {
                     }
 
                     Xpp3Dom pluginConfiguration = (Xpp3Dom) shadePlugin.getConfiguration();
+                    boolean isMinimizeJarPresent = isMinimizeJarConfigPresent(pluginConfiguration);
 
                     if (pluginConfiguration != null) {
-                        if (!isMinimizeJarConfigPresent(pluginConfiguration)) {
-                            signatureDao.insertPluginInfo(model, shadePlugin);
-                            insertedPomCount.incrementAndGet();
-                        } else {
+                        signatureDao.insertPluginInfo(model, shadePlugin, isMinimizeJarPresent, usingShadePlugin, true);
+                        insertedPomCount.incrementAndGet();
+                        if (isMinimizeJarPresent) {
                             logger.debug("Minimize jar config present in POM: " + pomPath);
                         }
                     }
 
                     for (PluginExecution execution : shadePlugin.getExecutions()) {
                         Xpp3Dom executionConfiguration = (Xpp3Dom) execution.getConfiguration();
+                        isMinimizeJarPresent = isMinimizeJarConfigPresent(executionConfiguration);
                         if (executionConfiguration != null) {
-                            if (!isMinimizeJarConfigPresent(executionConfiguration)) {
-                                signatureDao.insertPluginInfo(model, shadePlugin);
-                                insertedPomCount.incrementAndGet();
-                            } else {
+                            signatureDao.insertPluginInfo(model, shadePlugin, isMinimizeJarPresent, usingShadePlugin, true);
+                            insertedPomCount.incrementAndGet();
+                            if (isMinimizeJarPresent) {
                                 logger.debug("Minimize jar config present in execution of POM: " + pomPath);
                             }
                         }
+                    }
+                } else {
+                    // check if maven-assembly-plugin is present
+                    Optional<Plugin> assemblyPluginOptional = plugins.stream()
+                            .filter(plugin -> plugin.getArtifactId().equals("maven-assembly-plugin"))
+                            .findFirst();
+
+                    // if both maven-shade-plugin and maven-assembly-plugin are not present,
+                    // we can most likely assume that this is not an uber jar
+                    if (assemblyPluginOptional.isEmpty()) {
+                        signatureDao.insertPluginInfo(model, null, false, false, false);
+                        insertedPomCount.incrementAndGet();
                     }
                 }
             }
