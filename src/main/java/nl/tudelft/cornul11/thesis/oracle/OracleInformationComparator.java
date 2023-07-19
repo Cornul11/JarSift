@@ -4,7 +4,10 @@ import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAOImpl;
 import nl.tudelft.cornul11.thesis.corpus.file.JarAndPomInfoExtractor;
 import nl.tudelft.cornul11.thesis.corpus.jarfile.JarFrequencyAnalyzer;
-import org.apache.maven.model.*;
+import org.apache.maven.model.Dependency;
+import org.apache.maven.model.Model;
+import org.apache.maven.model.Plugin;
+import org.apache.maven.model.PluginExecution;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,7 +40,6 @@ public class OracleInformationComparator {
             logger.error("Error while inferring libraries for " + uberJarPath, e);
             return;
         }
-        Collections.sort(inferredLibraries);
 
         Model model = getModelByJarPath(uberJarPath);
         if (model == null || model.getBuild() == null || model.getBuild().getPlugins() == null) {
@@ -165,7 +167,6 @@ public class OracleInformationComparator {
         pattern = pattern.replace(".", "\\.")
                 .replace("?", ".")
                 .replace("*", ".*");
-
         if (!pattern.endsWith(":.*")) {
             pattern += ":.*";
         }
@@ -334,12 +335,18 @@ public class OracleInformationComparator {
 
                 Map<String, List<String>> shadePluginConfigParameters = extractConfigurationParameters(shadePlugin);
 
-                List<String> dbLibraries = model.getDependencies()
-                        .stream()
-                        .filter(dep -> shouldIncludeDependency(dep, shadePluginConfigParameters))
-                        .map(dep -> dep.getGroupId() + ":" + dep.getArtifactId() + ":" + dep.getVersion())
-                        .collect(Collectors.toList());
-
+                List<String> dbLibraries;
+                try {
+                    dbLibraries = model.getDependencies()
+                            .stream()
+                            .filter(dep -> shouldIncludeDependency(dep, shadePluginConfigParameters))
+                            .map(dep -> dep.getGroupId() + ":" + dep.getArtifactId() + ":" + dep.getVersion())
+                            .collect(Collectors.toList());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    logger.error("Error while extracting dependencies for " + uberJarPath + ": " + e.getMessage());
+                    continue;
+                }
 
                 Iterator<String> allPossibleLibraries = signatureDAO.getAllPossibleLibraries();
 
