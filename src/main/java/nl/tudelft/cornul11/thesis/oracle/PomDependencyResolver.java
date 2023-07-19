@@ -15,25 +15,39 @@ import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
 
 public class PomDependencyResolver {
 
+  private static File settingsFile;
   ConfigurationLoader config = new ConfigurationLoader();
   DatabaseConfig databaseConfig = config.getDatabaseConfig();
   DatabaseManager databaseManager = DatabaseManager.getInstance(databaseConfig);
   private String m2Path;
 
   public static void main(String[] args) {
-    String m2Path = "$HOME/.m2/";
+    String m2Path = "$HOME/.m2/repository";
     if (args.length == 1) {
       m2Path = args[0];
     }
     m2Path = m2Path.replace("$HOME", System.getProperty("user.home"));
     m2Path = m2Path.replace("~", System.getProperty("user.home"));
     m2Path = Path.of(m2Path).toAbsolutePath().toString();
+
+    String settingStr = "<settings><localRepository>" + m2Path
+        + "</localRepository><interactiveMode>false</interactiveMode><offline>true</offline></settings>";
+    // create tmp file
+    settingsFile = new File("settings.xml");
+    try {
+      settingsFile.createNewFile();
+      java.io.FileWriter writer = new java.io.FileWriter(settingsFile);
+      writer.write(settingStr);
+      writer.close();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
     new PomDependencyResolver().run(m2Path);
   }
 
   private void run(String m2Path) {
     this.m2Path = m2Path;
-    
+
     databaseManager.createTmpDependenciesTable();
 
     // walk on all pom.xml files in the m2Path
@@ -80,8 +94,9 @@ public class PomDependencyResolver {
         parentLibraryId = statement.getResultSet().getInt("id");
       }
 
-      MavenResolvedArtifact[] artifacts = Maven.configureResolver().workOffline().loadPomFromFile(absolutePath)
-          .importRuntimeDependencies()
+      MavenResolvedArtifact[] artifacts = Maven.configureResolver().fromFile(settingsFile)
+          .loadPomFromFile(absolutePath)
+          .importCompileAndRuntimeDependencies()
           .resolve().withTransitivity().asResolvedArtifact();
       try (PreparedStatement statement = connection.prepareStatement(insertDependencyQuery)) {
         for (MavenResolvedArtifact artifact : artifacts) {
@@ -102,7 +117,8 @@ public class PomDependencyResolver {
           }
 
           statement.setInt(1, parentLibraryId);
-          statement.setInt(2, libraryId);
+          if (libraryId != null)
+            statement.setInt(2, libraryId);
           statement.setString(3, dependencyGroupId);
           statement.setString(4, dependencyArtifactId);
           statement.setString(5, dependencyVersion);
