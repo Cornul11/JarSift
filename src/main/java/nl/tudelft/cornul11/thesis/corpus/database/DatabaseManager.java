@@ -14,6 +14,16 @@ public class DatabaseManager {
     private static final Logger logger = LoggerFactory.getLogger(DatabaseManager.class);
 
     private DatabaseManager(DatabaseConfig config) {
+        ds = new HikariDataSource(getHikariConfig(config));
+        logger.info("Connected to the database.");
+        createSchema();
+    }
+
+    public HikariDataSource getDataSource() {
+        return ds;
+    }
+
+    public static HikariConfig getHikariConfig(DatabaseConfig config) {
         HikariConfig hikariConfig = new HikariConfig();
         hikariConfig.setJdbcUrl(config.getUrl());
         hikariConfig.setUsername(config.getUsername());
@@ -33,10 +43,25 @@ public class DatabaseManager {
         hikariConfig.setLeakDetectionThreshold(Long.parseLong(config.getLeakDetectionThreshold()));
         hikariConfig.setIdleTimeout(60000);
         hikariConfig.setMaxLifetime(6000000);
+        return hikariConfig;
+    }
 
-        ds = new HikariDataSource(hikariConfig);
-        logger.info("Connected to the database.");
-        createSchema();
+    public void createTmpDependenciesTable() {
+        String createTableQuery = "CREATE TABLE IF NOT EXISTS tmp_dependencies (" +
+                "id INT PRIMARY KEY AUTO_INCREMENT, " +
+                "parent_library_id INT, " +
+                "library_id INT NOT NULL, " +
+                "group_id VARCHAR(255) NOT NULL, " +
+                "artifact_id VARCHAR(255) NOT NULL," +
+                "version VARCHAR(255) NOT NULL)";
+
+        try (Connection connection = ds.getConnection();
+             Statement statement = connection.createStatement()) {
+            statement.executeUpdate(createTableQuery);
+            logger.info("Temporary dependencies table created or already exists.");
+        } catch (SQLException e) {
+            logger.error("Error while creating temporary dependencies table.", e);
+        }
     }
 
     private static final class InstanceHolder {
@@ -62,6 +87,7 @@ public class DatabaseManager {
         createDependenciesTable();
         createPluginsTable();
         createPluginConfigTable();
+        createTmpDependenciesTable();
 //        createLibrarySignatureTable();
 //        addIndexes();
     }
@@ -122,9 +148,9 @@ Statement statement = connection.createStatement()) {
     }
 
     private void addIndexes() {
-        String createLibraryIdIndexQuery = "CREATE INDEX idx_library_id ON library_signature (library_id)";
-        String createSignatureIdIndexQuery = "CREATE INDEX idx_signature_id ON library_signature (signature_id)";
-        String createSignatureHashIndexQuery = "CREATE INDEX idx_signature_hash ON signatures (hash)";
+        String createLibraryIdIndexQuery = "CREATE INDEX idx_library_id ON libraries (id)";
+        String createSignatureIdIndexQuery = "CREATE INDEX idx_signature_library_id ON signatures (library_id)";
+        String createSignatureHashIndexQuery = "CREATE INDEX idx_signature_class_hash ON signatures (class_hash)";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {

@@ -1,135 +1,137 @@
 package nl.tudelft.cornul11.thesis.oracle;
 
+import nl.tudelft.cornul11.thesis.corpus.database.DatabaseConfig;
+import nl.tudelft.cornul11.thesis.corpus.database.DatabaseManager;
+import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
+import org.jboss.shrinkwrap.resolver.api.maven.Maven;
+import org.jboss.shrinkwrap.resolver.api.maven.MavenResolvedArtifact;
+import org.jboss.shrinkwrap.resolver.api.maven.coordinate.MavenCoordinate;
+
 import java.io.File;
 import java.nio.file.Path;
 import java.sql.PreparedStatement;
 import java.util.Arrays;
 
-import org.jboss.shrinkwrap.resolver.api.maven.Maven;
-import org.jboss.shrinkwrap.resolver.api.maven.MavenResolvedArtifact;
-import org.jboss.shrinkwrap.resolver.api.maven.coordinate.MavenCoordinate;
-
-import nl.tudelft.cornul11.thesis.corpus.database.DatabaseConfig;
-import nl.tudelft.cornul11.thesis.corpus.database.DatabaseManager;
-import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
-
 public class PomDependencyResolver {
+    private static File settingsFile;
 
-  private static File settingsFile;
-  ConfigurationLoader config = new ConfigurationLoader();
-  DatabaseConfig databaseConfig = config.getDatabaseConfig();
-  DatabaseManager databaseManager = DatabaseManager.getInstance(databaseConfig);
-  private String m2Path;
+    ConfigurationLoader config = new ConfigurationLoader();
+    DatabaseConfig databaseConfig = config.getDatabaseConfig();
+    DatabaseManager databaseManager = DatabaseManager.getInstance(databaseConfig);
+    private String m2Path;
 
-  public static void main(String[] args) {
-    String m2Path = "$HOME/.m2/repository";
-    if (args.length == 1) {
-      m2Path = args[0];
-    }
-    m2Path = m2Path.replace("$HOME", System.getProperty("user.home"));
-    m2Path = m2Path.replace("~", System.getProperty("user.home"));
-    m2Path = Path.of(m2Path).toAbsolutePath().toString();
-
-    String settingStr = "<settings><localRepository>" + m2Path
-        + "</localRepository><interactiveMode>false</interactiveMode><offline>true</offline></settings>";
-    // create tmp file
-    settingsFile = new File("settings.xml");
-    try {
-      settingsFile.createNewFile();
-      java.io.FileWriter writer = new java.io.FileWriter(settingsFile);
-      writer.write(settingStr);
-      writer.close();
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-    new PomDependencyResolver().run(m2Path);
-  }
-
-  private void run(String m2Path) {
-    this.m2Path = m2Path;
-
-    databaseManager.createTmpDependenciesTable();
-
-    // walk on all pom.xml files in the m2Path
-    File dir = new File(m2Path);
-    getDirectoryListing(dir);
-  }
-
-  private void getDirectoryListing(File dir) {
-    File[] directoryListing = dir.listFiles();
-    if (directoryListing != null) {
-      for (File child : directoryListing) {
-        if (child.getName().endsWith(".pom")) {
-          resolvePom(child.getAbsolutePath());
-        } else if (child.isDirectory()) {
-          getDirectoryListing(child);
+    public static void main(String[] args) {
+        String m2Path = "$HOME/.m2/repository";
+        if (args.length == 1) {
+            m2Path = args[0];
         }
-      }
-    }
-  }
+        m2Path = m2Path.replace("$HOME", System.getProperty("user.home"));
+        m2Path = m2Path.replace("~", System.getProperty("user.home"));
+        m2Path = Path.of(m2Path).toAbsolutePath().toString();
 
-  private void resolvePom(String absolutePath) {
-    String insertDependencyQuery = "INSERT INTO tmp_dependencies (parent_library_id, library_id, group_id, artifact_id, version) VALUES (?, ?, ?, ?, ?)";
-    String findLib = "SELECT * FROM libraries WHERE group_id = ? AND artifact_id = ? AND version = ?";
 
-    // search repository in absolutePath
-    String artifactM2Path = absolutePath.indexOf("/repository/") != -1
-        ? absolutePath.substring(absolutePath.indexOf("/repository/") + 12)
-        : absolutePath.replace(m2Path, "");
-    String[] splittedPath = artifactM2Path.split("/");
-    String groupId = Arrays.stream(splittedPath).limit(splittedPath.length - 3).reduce((a, b) -> a + "." + b).get();
-    String artifactOd = splittedPath[splittedPath.length - 3];
-    String version = splittedPath[splittedPath.length - 2];
-
-    try (java.sql.Connection connection = databaseManager.getDataSource().getConnection()) {
-      int parentLibraryId = -1;
-      try (PreparedStatement statement = connection.prepareStatement(findLib)) {
-        statement.setString(1, groupId);
-        statement.setString(2, artifactOd);
-        statement.setString(3, version);
-        statement.execute();
-        if (!statement.getResultSet().next()) {
-          return;
+        String settingStr = "<settings><localRepository>" + m2Path
+                + "</localRepository><interactiveMode>false</interactiveMode><offline>true</offline></settings>";
+        // create tmp file
+        settingsFile = new File("settings.xml");
+        try {
+            settingsFile.createNewFile();
+            java.io.FileWriter writer = new java.io.FileWriter(settingsFile);
+            writer.write(settingStr);
+            writer.close();
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        parentLibraryId = statement.getResultSet().getInt("id");
-      }
+        new PomDependencyResolver().run(m2Path);
+    }
 
-      MavenResolvedArtifact[] artifacts = Maven.configureResolver().fromFile(settingsFile)
-          .loadPomFromFile(absolutePath)
-          .importCompileAndRuntimeDependencies()
-          .resolve().withTransitivity().asResolvedArtifact();
-      try (PreparedStatement statement = connection.prepareStatement(insertDependencyQuery)) {
-        for (MavenResolvedArtifact artifact : artifacts) {
-          Integer libraryId = null;
-          MavenCoordinate coordinate = artifact.getCoordinate();
-          String dependencyGroupId = coordinate.getGroupId();
-          String dependencyArtifactId = coordinate.getArtifactId();
-          String dependencyVersion = coordinate.getVersion();
+    private void run(String m2Path) {
+        this.m2Path = m2Path;
 
-          try (PreparedStatement depStatement = connection.prepareStatement(findLib)) {
-            depStatement.setString(1, dependencyGroupId);
-            depStatement.setString(2, dependencyArtifactId);
-            depStatement.setString(3, dependencyVersion);
-            depStatement.execute();
-            if (depStatement.getResultSet().next()) {
-              libraryId = depStatement.getResultSet().getInt("id");
+        databaseManager.createTmpDependenciesTable();
+
+        // walk on all pom.xml files in the m2Path
+        File dir = new File(m2Path);
+        getDirectoryListing(dir);
+    }
+
+    private void getDirectoryListing(File dir) {
+        File[] directoryListing = dir.listFiles();
+        if (directoryListing != null) {
+            for (File child : directoryListing) {
+                if (child.getName().endsWith(".pom")) {
+                    resolvePom(child.getAbsolutePath());
+                } else if (child.isDirectory()) {
+                    getDirectoryListing(child);
+                }
             }
-          }
-
-          statement.setInt(1, parentLibraryId);
-          if (libraryId != null)
-            statement.setInt(2, libraryId);
-          statement.setString(3, dependencyGroupId);
-          statement.setString(4, dependencyArtifactId);
-          statement.setString(5, dependencyVersion);
-          statement.addBatch();
         }
-        statement.executeBatch();
-      }
-    } catch (java.lang.IllegalArgumentException e) {
-      // e.printStackTrace();
-    } catch (Exception e) {
-      e.printStackTrace();
     }
-  }
+
+    private void resolvePom(String absolutePath) {
+        String insertDependencyQuery = "INSERT INTO tmp_dependencies (parent_library_id, library_id, group_id, artifact_id, version) VALUES (?, ?, ?, ?, ?)";
+        String findLib = "SELECT * FROM libraries WHERE group_id = ? AND artifact_id = ? AND version = ?";
+
+        // search repository in absolutePath
+        String artifactM2Path = absolutePath.indexOf("/repository/") != -1
+                ? absolutePath.substring(absolutePath.indexOf("/repository/") + 12)
+                : absolutePath.replace(m2Path, "");
+        String[] splittedPath = artifactM2Path.split("/");
+        String groupId = Arrays.stream(splittedPath).limit(splittedPath.length - 3).reduce((a, b) -> a + "." + b).get();
+        String artifactOd = splittedPath[splittedPath.length - 3];
+        String version = splittedPath[splittedPath.length - 2];
+
+        try (java.sql.Connection connection = databaseManager.getDataSource().getConnection()) {
+            int parentLibraryId = -1;
+            try (PreparedStatement statement = connection.prepareStatement(findLib)) {
+                statement.setString(1, groupId);
+                statement.setString(2, artifactOd);
+                statement.setString(3, version);
+                statement.execute();
+                if (!statement.getResultSet().next()) {
+                    return;
+                }
+                parentLibraryId = statement.getResultSet().getInt("id");
+            }
+
+
+            MavenResolvedArtifact[] artifacts = Maven.configureResolver().fromFile(settingsFile)
+                    .loadPomFromFile(absolutePath)
+                    .importCompileAndRuntimeDependencies()
+                    .resolve().withTransitivity().asResolvedArtifact();
+            try (PreparedStatement statement = connection.prepareStatement(insertDependencyQuery)) {
+                for (MavenResolvedArtifact artifact : artifacts) {
+                    Integer libraryId = null;
+                    MavenCoordinate coordinate = artifact.getCoordinate();
+                    String dependencyGroupId = coordinate.getGroupId();
+                    String dependencyArtifactId = coordinate.getArtifactId();
+                    String dependencyVersion = coordinate.getVersion();
+
+                    try (PreparedStatement depStatement = connection.prepareStatement(findLib)) {
+                        depStatement.setString(1, dependencyGroupId);
+                        depStatement.setString(2, dependencyArtifactId);
+                        depStatement.setString(3, dependencyVersion);
+                        depStatement.execute();
+                        if (depStatement.getResultSet().next()) {
+                            libraryId = depStatement.getResultSet().getInt("id");
+                        }
+                    }
+
+                    statement.setInt(1, parentLibraryId);
+                    if (libraryId != null) {
+                        statement.setInt(2, libraryId);
+                    }
+                    statement.setString(3, dependencyGroupId);
+                    statement.setString(4, dependencyArtifactId);
+                    statement.setString(5, dependencyVersion);
+                    statement.addBatch();
+                }
+                statement.executeBatch();
+            }
+        } catch (java.lang.IllegalArgumentException e) {
+            // e.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 }
