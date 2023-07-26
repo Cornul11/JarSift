@@ -26,15 +26,49 @@ angular
       return input.replace(new RegExp(from, "g"), to);
     };
   })
+  .directive("timer", [
+    function () {
+      return {
+        restrict: "A",
+        link: function (scope, element, attrs) {
+          function displayTimer() {
+            const startTime = parseInt(attrs.timer);
+            const time = Math.floor((Date.now() - startTime) / 1000);
+            const hours = Math.floor(time / 3600);
+            const minutes = Math.floor((time - hours * 3600) / 60);
+            const seconds = time - hours * 3600 - minutes * 60;
+            element[0].innerHTML = `${hours}h ${minutes}m ${seconds}s`;
+          }
+          const timeer = setInterval(displayTimer, 1000);
+          displayTimer();
+          scope.$on("$destroy", (e) => {
+            clearInterval(timeer);
+          });
+        },
+      };
+    },
+  ])
   .controller("mainController", function ($scope, $http, $location) {
     $scope.libraries = [];
     $scope.jarFile = null;
+    $scope.isLoading = false;
+    $scope.loadingStart = new Date();
     $scope.threshold = 85;
 
     $scope.clear = function () {
       $scope.libraries = [];
     };
+    $scope.$watch("jarFile", function (newValue, oldValue) {
+      if (newValue !== oldValue) {
+        $scope.analyze();
+      }
+    });
     $scope.analyze = function () {
+      if (!$scope.jarFile) {
+        return;
+      }
+      $scope.loadingStart = new Date();
+      $scope.isLoading = true;
       const fd = new FormData();
       fd.append("file", $scope.jarFile);
       fd.append("threshold", $scope.threshold / 100);
@@ -46,6 +80,9 @@ angular
         .then(function (response) {
           $scope.libraries = response.data;
           setTimeout($scope.generateCluster, 100);
+        })
+        .finally(function () {
+          $scope.isLoading = false;
         });
     };
 
@@ -58,6 +95,15 @@ angular
       } else {
         element.classList.add("show");
       }
+    };
+
+    $scope.search = function (item) {
+      if (!$scope.searchTerm) {
+        return true;
+      }
+      return (
+        item.id.toLowerCase().indexOf($scope.searchTerm.toLowerCase()) !== -1
+      );
     };
 
     $scope.hoverLinks = function (links) {
@@ -110,6 +156,7 @@ angular
     let nodes = [];
     let links = [];
     let simulation = null;
+    let refresh = null;
     let isNodeClick = false;
     $scope.generateCluster = function () {
       nodes = [];
@@ -238,19 +285,29 @@ angular
 
       node.append("title").text((d) => d.id);
 
-      function refresh() {
+      refresh = function () {
         link
           .attr("x1", (d) => d.source.x)
           .attr("y1", (d) => d.source.y)
           .attr("x2", (d) => d.target.x)
           .attr("y2", (d) => d.target.y);
+        svg
+          .selectAll(".hover-link")
+          .attr("x1", (d) => d.source.x)
+          .attr("y1", (d) => d.source.y)
+          .attr("x2", (d) => d.target.x)
+          .attr("y2", (d) => d.target.y);
         node.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
-      }
-      const refreshInterval = setInterval(refresh, 2500);
-      let timeoutRefresh = null;
+      };
+      refresh();
+
+      const refreshInterval = setInterval(refresh, 500);
+      let timoutRefresh = null;
       simulation.on("tick", () => {
-        if (timeoutRefresh) clearTimeout(timeoutRefresh);
-        timeoutRefresh = setTimeout(() => {
+        if (timoutRefresh) {
+          clearTimeout(timoutRefresh);
+        }
+        timoutRefresh = setTimeout(() => {
           clearInterval(refreshInterval);
         }, 1000);
       });

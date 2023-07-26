@@ -61,7 +61,7 @@
   </head>
   <body class="ng-scope" ng-controller="mainController">
     <div class="container-fluid h-100">
-      <div class="uploadForm" ng-show="!libraries.length">
+      <div class="uploadForm" ng-show="!libraries.length && !isLoading">
         <h1>Upload Uber-jar</h1>
         <form>
           <div class="form-group">
@@ -78,7 +78,7 @@
             <label for="threshold">Threshold {{threshold|number}}%</label>
             <input
               type="range"
-              class="form-control"
+              class="form-control-range"
               id="threshold"
               name="threshold"
               ng-model="threshold"
@@ -94,21 +94,44 @@
           />
         </form>
       </div>
-      <div class="results h-100" ng-show="libraries.length">
+      <div class="loading h-100" ng-if="isLoading">
+        <div class="container-fluid h-100 row align-items-center text-center">
+          <div class="col-12">
+            <h1>
+              Loading... (<span timer="{{loadingStart.getTime()}}"></span>)
+            </h1>
+          </div>
+        </div>
+      </div>
+      <div class="results h-100" ng-show="libraries.length && !isLoading">
         <div class="container-fluid h-100 row align-items-stretch">
           <div class="col-6 scrollable">
-            <h1>{{libraries.length}} Libraries found</h1>
-            <button class="btn btn-primary mb-2" ng-click="analyze();">
-              Re-analyze
-            </button>
-            <button class="btn btn-primary mb-2" ng-click="clear();">
-              Clear
-            </button>
+            <h1>{{libraries.length}} Libraries found for {{jarFile.name}}</h1>
+            <div class="d-flex mb-2">
+              <form class="form-inline mb-2">
+                <div class="form-group mr-2">
+                  <label for="inputSearch" class="sr-only">Serach</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="inputSearch"
+                    ng-model="searchTerm"
+                    placeholder="Search..."
+                  />
+                </div>
+                <button class="btn btn-primary mr-2" ng-click="analyze();">
+                  Re-analyze
+                </button>
+                <button class="btn btn-danger" ng-click="clear();">
+                  Clear
+                </button>
+              </form>
+            </div>
             <ul class="list-group accordion">
               <li
                 class="list-group-item text-left"
                 id="list_{{lib.id}}"
-                ng-repeat="lib in libraries"
+                ng-repeat="lib in libraries | filter:search track by $index "
                 ng-click="collapse(lib.id)"
                 ng-mouseenter="hoverLib(lib)"
                 ng-mouseleave="leaveLib(lib)"
@@ -141,14 +164,17 @@
                   <ul class="list-group">
                     <li
                       class="list-group-item"
-                      ng-repeat="alt in lib.alternatives"
+                      ng-repeat="alt in lib.alternatives track by $index"
                     >
                       {{alt}}
                     </li>
                   </ul>
-                  Included
+                  Includes
                   <ul class="list-group">
-                    <li class="list-group-item" ng-repeat="alt in lib.include">
+                    <li
+                      class="list-group-item"
+                      ng-repeat="alt in lib.include track by $index"
+                    >
                       {{alt}}
                     </li>
                   </ul>

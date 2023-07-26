@@ -66,14 +66,18 @@ public class FatJarServer extends AbstractHandler {
             String filename = part.getSubmittedFileName();
             if (StringUtil.isNotBlank(filename) && filename.endsWith(".jar")) {
                 try (InputStream inputStream = part.getInputStream()) {
-
                     // String fileName = part.getSubmittedFileName();
-
                     List<LibraryCandidate> inferJarFile = jarSignatureMapper.inferJarFile(inputStream);
 
                     // Sort in decreasing order of count
-                    inferJarFile.sort((data1, data2) -> Double.compare(data2.getIncludedRatio(),
-                            data1.getIncludedRatio()));
+                    inferJarFile.sort((data1, data2) -> {
+                        int compare = Double.compare(data2.getIncludedRatio(),
+                                data1.getIncludedRatio());
+                        if (compare == 0) {
+                            return data2.getHashes().size() - data1.getHashes().size();
+                        }
+                        return compare;
+                    });
 
                     response.getWriter().append("[");
                     boolean isFirst = true;

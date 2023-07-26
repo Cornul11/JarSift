@@ -303,7 +303,8 @@ public class SignatureDAOImpl implements SignatureDAO {
         }
 
         public boolean equals(LibraryCandidate other) {
-            return this.libraryId.equals(other.libraryId) || this.alternatives.stream().anyMatch(other::equals);
+            return this.libraryId.equals(other.libraryId)
+                    || (this.alternatives != null && this.alternatives.stream().anyMatch(other::equals));
         }
 
         public Set<Long> getHashes() {
@@ -328,6 +329,7 @@ public class SignatureDAOImpl implements SignatureDAO {
             sb.append("\"alternatives\": [");
             if (this.alternatives != null) {
                 boolean isFirst = true;
+                this.alternatives.sort((data1, data2) -> data1.getAGV().compareTo(data2.getAGV()));
                 for (LibraryCandidate alternative : this.alternatives) {
                     if (!isFirst) {
                         sb.append(",");
@@ -355,6 +357,7 @@ public class SignatureDAOImpl implements SignatureDAO {
             sb.append("\"includedIn\": [");
             if (this.includedIn != null) {
                 boolean isFirst = true;
+                this.includedIn.sort((data1, data2) -> data1.getAGV().compareTo(data2.getAGV()));
                 for (LibraryCandidate alternative : this.includedIn) {
                     if (!isFirst) {
                         sb.append(",");
@@ -368,6 +371,7 @@ public class SignatureDAOImpl implements SignatureDAO {
             sb.append("\"include\": [");
             if (this.includes != null) {
                 boolean isFirst = true;
+                this.includes.sort((data1, data2) -> data1.getAGV().compareTo(data2.getAGV()));
                 for (LibraryCandidate alternative : this.includes) {
                     if (!isFirst) {
                         sb.append(",");
@@ -430,7 +434,8 @@ public class SignatureDAOImpl implements SignatureDAO {
                 statement.executeBatch();
             }
 
-            Map<Long, Set<Integer>> hashToLib = new HashMap<>(hashes.size());
+            int nbUniqueHashes = hashes.size();
+            Map<Long, Set<Integer>> hashToLib = new HashMap<>(nbUniqueHashes);
             Map<Integer, Set<Long>> libToHash = new HashMap<>(100);
 
             try (PreparedStatement statement = connection.prepareStatement(mainQuery)) {
@@ -449,7 +454,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                     libToHash.get(libraryId).add(classHash);
                 }
             }
-            logger.info("# file not found in DB: " + (hashes.size() - hashToLib.size()) + " "
+            logger.info("# file not found in DB: " + (nbUniqueHashes - hashToLib.size()) + " "
                     + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds.");
 
             List<String> sortedPath = pathes.stream().sorted((p1, p2) -> {
@@ -458,10 +463,11 @@ public class SignatureDAOImpl implements SignatureDAO {
 
             lib: for (Integer lib : libToHash.keySet()) {
                 Set<Long> hashesInLib = libToHash.get(lib);
-                if (hashesInLib.size() == 1) {
+                int nbHashesInLib = hashesInLib.size();
+                if (nbHashesInLib < 2) {
                     continue;
                 }
-                if (hashesInLib.size() * 1.0 / hashes.size() > 0.9) {
+                if (nbHashesInLib * 1.0 / nbUniqueHashes > 0.5) {
                     // if the lib includes more than 90% of the hashes we do consider it
                     candidates.add(new LibraryCandidate().setLibraryId(lib)
                             .setHashes(hashesInLib));
@@ -469,8 +475,11 @@ public class SignatureDAOImpl implements SignatureDAO {
                 }
                 for (String path : sortedPath) {
                     Set<Long> hashInPackage = packagesToHashes.get(path);
+                    if (hashInPackage.size() == 1) {
+                        continue;
+                    }
                     // if the lib includes all the hashes of a package we do consider it
-                    if (hashesInLib.size() >= hashInPackage.size() && hashesInLib.containsAll(hashInPackage)) {
+                    if (nbHashesInLib >= hashInPackage.size() && hashesInLib.containsAll(hashInPackage)) {
                         candidates.add(new LibraryCandidate().setLibraryId(lib)
                                 .setHashes(hashesInLib));
                         continue lib;
@@ -503,27 +512,29 @@ public class SignatureDAOImpl implements SignatureDAO {
                     if (candidates.get(index).getLibraryId() != libraryId) {
                         throw new RuntimeException("The library id does not match.");
                     }
-                    candidates.get(index).setGroupId(resultGroupId).setArtifactId(resultArtifactId)
-                            .setVersion(resultVersion).setExpectedNumberOfClasses(nbUniqueLibClass);
+                    candidates.get(index).setGroupId(resultGroupId)
+                            .setArtifactId(resultArtifactId)
+                            .setVersion(resultVersion)
+                            .setExpectedNumberOfClasses(nbUniqueLibClass);
                     index++;
                 }
             }
 
-            candidates.sort((data1, data2) -> data1.getGroupId().compareTo(data2.getGroupId()));
+            candidates.sort((data1, data2) -> data1.getArtifactId().compareTo(data2.getArtifactId()));
 
             for (LibraryCandidate lib : candidates) {
                 if (lib.getHashes() == null) {
                     continue;
                 }
                 for (LibraryCandidate lib2 : candidates) {
-                    if (lib.libraryId.equals(lib2.libraryId) || lib2.getHashes() == null) {
+                    if (lib.equals(lib2) || lib2.getHashes() == null) {
                         continue;
                     }
-                    if (lib.contains(lib2)) {
+                    if (lib.expectedNumberOfClasses >= lib2.expectedNumberOfClasses && lib.contains(lib2)) {
                         if (lib.expectedNumberOfClasses == lib2.expectedNumberOfClasses
                                 && lib.getHashes().size() == lib2.getHashes().size()) {
                             lib.addAlternative(lib2);
-                        } else {
+                        } else if (lib.expectedNumberOfClasses > lib2.expectedNumberOfClasses) {
                             lib.addIncludes(lib2);
                         }
                     }
