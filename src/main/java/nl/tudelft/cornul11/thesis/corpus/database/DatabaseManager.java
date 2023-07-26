@@ -49,11 +49,14 @@ public class DatabaseManager {
     public void createTmpDependenciesTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS tmp_dependencies (" +
                 "id INT PRIMARY KEY AUTO_INCREMENT, " +
-                "parent_library_id INT, " +
-                "library_id INT NOT NULL, " +
+                "parent_library_id INT NOT NULL, " +
+                "library_id INT, " +
                 "group_id VARCHAR(255) NOT NULL, " +
                 "artifact_id VARCHAR(255) NOT NULL," +
-                "version VARCHAR(255) NOT NULL)";
+                "version VARCHAR(255) NOT NULL, " +
+                "UNIQUE INDEX uindex (parent_library_id , library_id), " +
+                "FOREIGN KEY (parent_library_id) REFERENCES libraries(id), " +
+                "FOREIGN KEY (library_id) REFERENCES libraries(id))";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {
@@ -103,7 +106,7 @@ public class DatabaseManager {
                 "FOREIGN KEY (library_id) REFERENCES oracle_libraries(id))";
 
         try (Connection connection = ds.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.executeUpdate(createTableQuery);
             logger.info("Dependencies table created or already exists.");
         } catch (SQLException e) {
@@ -121,7 +124,7 @@ public class DatabaseManager {
                 "FOREIGN KEY (library_id) REFERENCES oracle_libraries(id))";
 
         try (Connection connection = ds.getConnection();
-Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.executeUpdate(createTableQuery);
             logger.info("Plugins table created or already exists.");
         } catch (SQLException e) {
@@ -139,7 +142,7 @@ Statement statement = connection.createStatement()) {
                 "FOREIGN KEY (plugin_id) REFERENCES plugins(id))";
 
         try (Connection connection = ds.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.executeUpdate(createTableQuery);
             logger.info("Plugin config table created or already exists.");
         } catch (SQLException e) {
@@ -153,7 +156,7 @@ Statement statement = connection.createStatement()) {
         String createSignatureHashIndexQuery = "CREATE INDEX idx_signature_class_hash ON signatures (class_hash)";
 
         try (Connection connection = ds.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.executeUpdate(createLibraryIdIndexQuery);
             statement.executeUpdate(createSignatureIdIndexQuery);
             statement.executeUpdate(createSignatureHashIndexQuery);
@@ -173,7 +176,7 @@ Statement statement = connection.createStatement()) {
                 + "is_an_uber_jar BOOLEAN NOT NULL)";
 
         try (Connection connection = ds.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.executeUpdate(createTableQuery);
             logger.info("Oracle libraries table created or already exists.");
         } catch (SQLException e) {
@@ -194,7 +197,7 @@ Statement statement = connection.createStatement()) {
                 + "total_class_files INT NOT NULL)";
 
         try (Connection connection = ds.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.executeUpdate(createTableQuery);
             logger.info("Libraries table created or already exists.");
         } catch (SQLException e) {
@@ -210,7 +213,7 @@ Statement statement = connection.createStatement()) {
                 "class_crc BIGINT NOT NULL)";
 
         try (Connection connection = ds.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.executeUpdate(createTableQuery);
             logger.info("Signatures table created or already exists.");
         } catch (SQLException e) {
@@ -220,38 +223,38 @@ Statement statement = connection.createStatement()) {
 
     private void createLibrarySignatureTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS library_signature (" +
-            "library_id INT NOT NULL, " +
-            "signature_id INT NOT NULL) " +
-            "PARTITION BY RANGE (library_id) (" +
-            "PARTITION p0 VALUES LESS THAN (100001)," +
-            "PARTITION p1 VALUES LESS THAN (200001)," +
-            "PARTITION p2 VALUES LESS THAN (300001)," +
-            "PARTITION p3 VALUES LESS THAN (400001)," +
-            "PARTITION p4 VALUES LESS THAN (500001)," +
-            "PARTITION p5 VALUES LESS THAN (600001)," +
-            "PARTITION p6 VALUES LESS THAN (700001)," +
-            "PARTITION p7 VALUES LESS THAN (800001)," +
-            "PARTITION p8 VALUES LESS THAN (900001)," +
-            "PARTITION p9 VALUES LESS THAN (1000001)," +
-            "PARTITION p10 VALUES LESS THAN (1100001)," +
-            "PARTITION p11 VALUES LESS THAN (1200001)," +
-            "PARTITION p12 VALUES LESS THAN (1300001)," +
-            "PARTITION p13 VALUES LESS THAN (1400001)," +
-            "PARTITION p14 VALUES LESS THAN (1500001)," +
-            "PARTITION p15 VALUES LESS THAN (1600001)," +
-            "PARTITION p16 VALUES LESS THAN (1700001)," +
-            "PARTITION p17 VALUES LESS THAN (1800001)," +
-            "PARTITION p18 VALUES LESS THAN (1900001)," +
-            "PARTITION p19 VALUES LESS THAN (2000001)," +
-            "PARTITION p20 VALUES LESS THAN (2100001)," +
-            "PARTITION p21 VALUES LESS THAN (2200001)," +
-            "PARTITION p22 VALUES LESS THAN (2300001)," +
-            "PARTITION p23 VALUES LESS THAN (2400001)," +
-            "PARTITION p24 VALUES LESS THAN (2500001)," +
-            "PARTITION p25 VALUES LESS THAN MAXVALUE)";
+                "library_id INT NOT NULL, " +
+                "signature_id INT NOT NULL) " +
+                "PARTITION BY RANGE (library_id) (" +
+                "PARTITION p0 VALUES LESS THAN (100001)," +
+                "PARTITION p1 VALUES LESS THAN (200001)," +
+                "PARTITION p2 VALUES LESS THAN (300001)," +
+                "PARTITION p3 VALUES LESS THAN (400001)," +
+                "PARTITION p4 VALUES LESS THAN (500001)," +
+                "PARTITION p5 VALUES LESS THAN (600001)," +
+                "PARTITION p6 VALUES LESS THAN (700001)," +
+                "PARTITION p7 VALUES LESS THAN (800001)," +
+                "PARTITION p8 VALUES LESS THAN (900001)," +
+                "PARTITION p9 VALUES LESS THAN (1000001)," +
+                "PARTITION p10 VALUES LESS THAN (1100001)," +
+                "PARTITION p11 VALUES LESS THAN (1200001)," +
+                "PARTITION p12 VALUES LESS THAN (1300001)," +
+                "PARTITION p13 VALUES LESS THAN (1400001)," +
+                "PARTITION p14 VALUES LESS THAN (1500001)," +
+                "PARTITION p15 VALUES LESS THAN (1600001)," +
+                "PARTITION p16 VALUES LESS THAN (1700001)," +
+                "PARTITION p17 VALUES LESS THAN (1800001)," +
+                "PARTITION p18 VALUES LESS THAN (1900001)," +
+                "PARTITION p19 VALUES LESS THAN (2000001)," +
+                "PARTITION p20 VALUES LESS THAN (2100001)," +
+                "PARTITION p21 VALUES LESS THAN (2200001)," +
+                "PARTITION p22 VALUES LESS THAN (2300001)," +
+                "PARTITION p23 VALUES LESS THAN (2400001)," +
+                "PARTITION p24 VALUES LESS THAN (2500001)," +
+                "PARTITION p25 VALUES LESS THAN MAXVALUE)";
 
         try (Connection connection = ds.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.executeUpdate(createTableQuery);
             logger.info("Library-Signature table created or already exists.");
         } catch (SQLException e) {

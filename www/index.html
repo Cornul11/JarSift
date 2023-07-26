@@ -1,13 +1,92 @@
 <!DOCTYPE html>
-<html lang="en-US">
-<head>
-    <title>Upload jar</title>
-</head>
-<body>
-    <h1>Upload Uber-jar</h1>
-    <form action="/api/upload" method="post" enctype="multipart/form-data">
-        <input type="file" name="jar"/></br>
-        <input type="submit" value="Upload jar" name="submit">
-    </form>
-</body>
+<html lang="en" ng-app="jar-website" ng-controller="mainController">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="style/external/bootstrap.min.css" />
+    <title>JAR Rmbeded Jar Analyzer</title>
+    <script src="js/external/angular.min.js"></script>
+    <script src="js/app.js"></script>
+
+    <style>
+      #wrapper,
+      #page-wrapper,
+      body,
+      html {
+        height: 100%;
+        width: 100%;
+      }
+      .editor {
+        height: 100%;
+      }
+      .scrollable {
+        position: relative;
+        max-height: 100%;
+        overflow: hidden;
+        overflow-y: scroll;
+        overflow-wrap: break-word;
+        margin: 0;
+        padding: 0;
+      }
+      pre {
+        font-size: 70.5%;
+        color: #212529;
+        background: #e5e5e5;
+        padding: 5px;
+        border-radius: 4px;
+        margin-top: 3px;
+      }
+      .ast-highlight {
+        background: #bcbcbc;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container-fluid">
+      <div class="uploadForm" ng-if="!libraries.length">
+        <h1>Upload Uber-jar</h1>
+        <form>
+          <div class="form-group">
+            <label for="jarInput">JAR file</label>
+            <input
+              type="file"
+              class="form-control-file"
+              id="jarInput"
+              name="jar"
+              file-model="jarFile"
+            />
+          </div>
+
+          <input
+            class="btn btn-primary mb-2"
+            type="submit"
+            ng-click="analyze();"
+          />
+        </form>
+      </div>
+      <div class="results" ng-if="libraries.length">
+        <h1>{{libraries.length}} Libraries found</h1>
+        <button class="btn btn-primary mb-2" ng-click="analyze();">
+          Re-analyze
+        </button>
+        <button class="btn btn-primary mb-2" ng-click="clear();">Clear</button>
+
+        <ul class="list-group">
+          <li class="list-group-item" ng-repeat="lib in libraries">
+            {{lib.id}}
+            <span class="badge badge-primary badge-pill"
+              >{{lib.count}}/{{lib.total}}</span
+            >
+            <div class="alternatives" ng-if="lib.alternatives.length">
+              Alternatives:
+              <ul class="list-group">
+                <li class="list-group-item" ng-repeat="alt in lib.alternatives">
+                  {{alt}}
+                </li>
+              </ul>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </body>
 </html>

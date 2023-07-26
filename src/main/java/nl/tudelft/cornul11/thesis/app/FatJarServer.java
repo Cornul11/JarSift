@@ -8,8 +8,10 @@ import jakarta.servlet.http.Part;
 import nl.tudelft.cornul11.thesis.corpus.database.DatabaseConfig;
 import nl.tudelft.cornul11.thesis.corpus.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
+import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAOImpl.LibraryCandidate;
 import nl.tudelft.cornul11.thesis.corpus.jarfile.JarSignatureMapper;
 import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
+
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Server;
@@ -23,11 +25,9 @@ import org.eclipse.jetty.util.resource.Resource;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.List;
 
 /**
  * Jetty server
@@ -35,8 +35,8 @@ import java.util.stream.Collectors;
 public class FatJarServer extends AbstractHandler {
     Path multipartTmpDir = Paths.get("target", "multipart-tmp");
     String location = multipartTmpDir.toString();
-    long maxFileSize = 10 * 1024 * 1024; // 10 MB
-    long maxRequestSize = 10 * 1024 * 1024; // 10 MB
+    long maxFileSize = 100000 * 1024 * 1024; // 1 GB
+    long maxRequestSize = 100000 * 1024 * 1024; // 10 MB
     int fileSizeThreshold = 64 * 1024; // 64 KB
 
     ConfigurationLoader config = new ConfigurationLoader();
@@ -62,29 +62,28 @@ public class FatJarServer extends AbstractHandler {
             if (StringUtil.isNotBlank(filename) && filename.endsWith(".jar")) {
                 try (InputStream inputStream = part.getInputStream()) {
 
-                    Path file = outputDir.resolve("jarfile.jar");
-                    Files.copy(inputStream, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                    Map<String, Map<String, Object>> inferJarFile = jarSignatureMapper.inferJarFile(file);
-                    System.out.println("Inferred libraries in jar file: " + file + " " + inferJarFile.size());
-                    response.getWriter().append("{");
-                    for (Map.Entry<String, Map<String, Object>> entry : inferJarFile.entrySet()) {
-                        String key = entry.getKey();
-                        Map<String, Object> value = entry.getValue();
-                        response.getWriter().append("\"" + key + "\": {");
-                        // join keys
-                        String keys = value.keySet().stream().map(String::valueOf).collect(Collectors.joining(", "));
-                        for (Map.Entry<String, Object> entry2 : value.entrySet()) {
-                            String key2 = entry2.getKey();
-                            Object value2 = entry2.getValue();
-                            response.getWriter().append("\"" + key2 + "\": \"" + value2 + "\"");
-                            if (!key2.equals(keys)) {
-                                response.getWriter().append(", ");
-                            }
+                    // String fileName = part.getSubmittedFileName();
+
+                    List<LibraryCandidate> inferJarFile = jarSignatureMapper.inferJarFile(inputStream);
+
+                    // Sort in decreasing order of count
+                    inferJarFile.sort((data1, data2) -> Double.compare(data2.getIncludedRatio(),
+                            data1.getIncludedRatio()));
+
+                    response.getWriter().append("[");
+                    boolean isFirst = true;
+                    for (LibraryCandidate lib : inferJarFile) {
+                        if (lib.getIncludedRatio() < 0.85) {
+                            continue;
                         }
-                        response.getWriter().append("}");
+                        if (!isFirst) {
+                            response.getWriter().append(",");
+                        } else {
+                            isFirst = false;
+                        }
+                        response.getWriter().append(lib.toJSON());
                     }
-                    response.getWriter().append("}");
-                    file.toFile().delete();
+                    response.getWriter().append("]");
                 }
             }
         }
@@ -94,7 +93,7 @@ public class FatJarServer extends AbstractHandler {
 
     @Override
     public void handle(String target, Request jettyRequest, HttpServletRequest request,
-                       HttpServletResponse response) {
+            HttpServletResponse response) {
         // get file upload from request
         if (target.equals("/upload")) {
             jettyRequest.setAttribute(Request.__MULTIPART_CONFIG_ELEMENT, multipartConfig);
@@ -129,7 +128,7 @@ public class FatJarServer extends AbstractHandler {
         // Configure directory listing.
         ressourceHandler.setDirectoriesListed(true);
         // Configure welcome files.
-        ressourceHandler.setWelcomeFiles(new String[]{"index.html"});
+        ressourceHandler.setWelcomeFiles(new String[] { "index.html" });
         // Configure whether to accept range requests.
         ressourceHandler.setAcceptRanges(true);
 

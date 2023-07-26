@@ -1,6 +1,8 @@
 package nl.tudelft.cornul11.thesis.corpus.database;
 
 import com.zaxxer.hikari.HikariDataSource;
+
+import nl.tudelft.cornul11.thesis.corpus.file.ClassFileInfo;
 import nl.tudelft.cornul11.thesis.corpus.file.JarAndPomInfoExtractor;
 import nl.tudelft.cornul11.thesis.corpus.file.LibraryMatchInfo;
 import nl.tudelft.cornul11.thesis.corpus.model.Signature;
@@ -14,10 +16,15 @@ import org.slf4j.LoggerFactory;
 import java.io.StringReader;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 public class SignatureDAOImpl implements SignatureDAO {
     private final HikariDataSource ds;
@@ -29,18 +36,21 @@ public class SignatureDAOImpl implements SignatureDAO {
     }
 
     @Override
-    public int insertLibrary(JarAndPomInfoExtractor jarAndPomInfoExtractor, long jarHash, long jarCrc, boolean isBrokenJar) {
+    public int insertLibrary(JarAndPomInfoExtractor jarAndPomInfoExtractor, long jarHash, long jarCrc,
+            boolean isBrokenJar) {
         String insertLibraryQuery = "INSERT INTO libraries (group_id, artifact_id, version, jar_hash, jar_crc, is_uber_jar, total_class_files) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         executeWithDeadlockRetry(connection -> {
-            try (PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery, Statement.RETURN_GENERATED_KEYS)) {
+            try (PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery,
+                    Statement.RETURN_GENERATED_KEYS)) {
                 libraryStatement.setString(1, jarAndPomInfoExtractor.getGroupId());
                 libraryStatement.setString(2, jarAndPomInfoExtractor.getArtifactId());
                 libraryStatement.setString(3, jarAndPomInfoExtractor.getVersion());
                 libraryStatement.setLong(4, jarHash);
                 libraryStatement.setLong(5, jarCrc);
                 libraryStatement.setBoolean(6, !isBrokenJar);
-                // there won't be any matches with this lib because there is no signature in the db, thus we don't need the total number of class files in it
+                // there won't be any matches with this lib because there is no signature in the
+                // db, thus we don't need the total number of class files in it
                 libraryStatement.setInt(7, -1);
                 libraryStatement.executeUpdate();
 
@@ -56,12 +66,16 @@ public class SignatureDAOImpl implements SignatureDAO {
     @Override
     public int insertSignatures(List<Signature> signatures, long jarHash, long jarCrc) {
         String insertLibraryQuery = "INSERT INTO libraries (group_id, artifact_id, version, jar_hash, jar_crc, is_uber_jar, total_class_files) VALUES (?, ?, ?, ?, ?, ?, ?)";
-        String insertSignatureQuery = "INSERT INTO signatures (library_id, class_hash, class_crc) VALUES (?, ?, ?)";  // library_id is added here.
+        String insertSignatureQuery = "INSERT INTO signatures (library_id, class_hash, class_crc) VALUES (?, ?, ?)"; // library_id
+                                                                                                                     // is
+                                                                                                                     // added
+                                                                                                                     // here.
 
         AtomicInteger totalRowsInserted = new AtomicInteger();
         executeWithDeadlockRetry(connection -> {
             try {
-                PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery, Statement.RETURN_GENERATED_KEYS);
+                PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery,
+                        Statement.RETURN_GENERATED_KEYS);
                 Signature firstSignature = signatures.get(0);
                 libraryStatement.setString(1, firstSignature.getGroupID());
                 libraryStatement.setString(2, firstSignature.getArtifactId());
@@ -82,7 +96,7 @@ public class SignatureDAOImpl implements SignatureDAO {
 
                     int i = 0;
                     for (Signature signature : signatures) {
-                        insertStatement.setInt(1, libraryId);  // setting the library_id for each signature
+                        insertStatement.setInt(1, libraryId); // setting the library_id for each signature
                         insertStatement.setLong(2, signature.getHash());
                         insertStatement.setLong(3, signature.getCrc());
                         insertStatement.addBatch();
@@ -149,13 +163,15 @@ public class SignatureDAOImpl implements SignatureDAO {
 
         List<OracleLibrary> libraries = new ArrayList<>();
         try (Connection connection = ds.getConnection();
-             PreparedStatement statement = connection.prepareStatement(selectLibrariesQuery, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
-            statement.setFetchSize(1000);  // Fetch 1000 rows at a time
+                PreparedStatement statement = connection.prepareStatement(selectLibrariesQuery,
+                        ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
+            statement.setFetchSize(1000); // Fetch 1000 rows at a time
             statement.setFetchDirection(ResultSet.FETCH_FORWARD);
 
             try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {
-                    libraries.add(new OracleLibrary(resultSet.getString("group_id"), resultSet.getString("artifact_id"), resultSet.getString("version"), resultSet.getBoolean("is_an_uber_jar")));
+                    libraries.add(new OracleLibrary(resultSet.getString("group_id"), resultSet.getString("artifact_id"),
+                            resultSet.getString("version"), resultSet.getBoolean("is_an_uber_jar")));
                 }
             }
         } catch (SQLException e) {
@@ -170,7 +186,7 @@ public class SignatureDAOImpl implements SignatureDAO {
     public boolean isLibraryInDB(String library) {
         String selectLibraryQuery = "SELECT 1 FROM libraries WHERE CONCAT(group_id, ':', artifact_id, ':', version) = ?";
         try (Connection connection = ds.getConnection();
-             PreparedStatement statement = connection.prepareStatement(selectLibraryQuery)) {
+                PreparedStatement statement = connection.prepareStatement(selectLibraryQuery)) {
             statement.setString(1, library);
             try (ResultSet resultSet = statement.executeQuery()) {
                 return resultSet.next();
@@ -180,21 +196,199 @@ public class SignatureDAOImpl implements SignatureDAO {
         }
     }
 
+    public class LibraryCandidate {
+        private Integer libraryId;
+        private Set<Long> hashes;
+        private Set<String> paths;
+        private String groupId;
+        private String artifactId;
+        private String version;
+
+        private List<LibraryCandidate> alternatives;
+        private List<LibraryCandidate> included;
+        private int expectedNumberOfClasses;
+
+        public Integer getLibraryId() {
+            return libraryId;
+        }
+
+        public String getGroupId() {
+            return groupId;
+        }
+
+        public String getArtifactId() {
+            return artifactId;
+        }
+
+        public String getVersion() {
+            return version;
+        }
+
+        /**
+         * Returns the AGV of the library.
+         * 
+         * @return
+         */
+        public String getAGV() {
+            return groupId + ":" + artifactId + ":" + version;
+        }
+
+        public int getExpectedNumberOfClasses() {
+            return expectedNumberOfClasses;
+        }
+
+        public LibraryCandidate setGroupId(String groupId) {
+            this.groupId = groupId;
+            return this;
+        }
+
+        public LibraryCandidate setArtifactId(String artifactId) {
+            this.artifactId = artifactId;
+            return this;
+        }
+
+        public LibraryCandidate setVersion(String version) {
+            this.version = version;
+            return this;
+        }
+
+        public LibraryCandidate setLibraryId(Integer libraryId) {
+            this.libraryId = libraryId;
+            return this;
+        }
+
+        public LibraryCandidate setHashes(Set<Long> hashes) {
+            this.hashes = hashes;
+            return this;
+        }
+
+        public LibraryCandidate setPaths(Set<String> paths) {
+            this.paths = paths;
+            return this;
+        }
+
+        public boolean addAlternative(LibraryCandidate alternative) {
+            if (alternatives == null) {
+                alternatives = new ArrayList<>();
+            }
+            alternatives.add(alternative);
+            alternative.hashes = null;
+            alternative.paths = null;
+            return true;
+        }
+
+        public LibraryCandidate addIncluded(LibraryCandidate included) {
+            if (this.included == null) {
+                this.included = new ArrayList<>();
+            }
+            this.included.add(included);
+            return this;
+        }
+
+        public boolean contains(LibraryCandidate candidate) {
+            return this.hashes.containsAll(candidate.hashes);
+        }
+
+        public boolean equals(LibraryCandidate other) {
+            return this.libraryId.equals(other.libraryId) || this.alternatives.stream().anyMatch(other::equals);
+        }
+
+        public Set<Long> getHashes() {
+            return this.hashes;
+        }
+
+        public LibraryCandidate setExpectedNumberOfClasses(int nbUniqueLibClass) {
+            this.expectedNumberOfClasses = nbUniqueLibClass;
+            return this;
+        }
+
+        public double getIncludedRatio() {
+            return this.getHashes().size() * 1.0 / this.expectedNumberOfClasses;
+        }
+
+        public String toJSON() {
+            StringBuilder sb = new StringBuilder();
+            sb.append("{\"id\": \"" + this.getAGV() + "\",");
+            sb.append("\"ratio\": " + this.getIncludedRatio() + ",");
+            sb.append("\"count\": " + this.getHashes().size() + ",");
+            sb.append("\"total\": " + this.getExpectedNumberOfClasses() + ",");
+            sb.append("\"alternatives\": [");
+            if (this.alternatives != null) {
+                boolean isFirst = true;
+                for (LibraryCandidate alternative : this.alternatives) {
+                    if (!isFirst) {
+                        sb.append(",");
+                    } else {
+                        isFirst = false;
+                    }
+                    sb.append("\"" + alternative.getGroupId() + ":" + alternative.getArtifactId() + ":"
+                            + alternative.getVersion() + "\"");
+                }
+            }
+            sb.append("],");
+            sb.append("\"hashes\": [");
+            if (this.alternatives != null) {
+                boolean isFirst = true;
+                for (Long hash : this.getHashes()) {
+                    if (!isFirst) {
+                        sb.append(",");
+                    } else {
+                        isFirst = false;
+                    }
+                    sb.append("\"" + hash + "\"");
+                }
+            }
+            sb.append("],");
+            sb.append("\"include\": [");
+            if (this.included != null) {
+                boolean isFirst = true;
+                for (LibraryCandidate alternative : this.included) {
+                    if (!isFirst) {
+                        sb.append(",");
+                    } else {
+                        isFirst = false;
+                    }
+                    sb.append("\"" + alternative.getGroupId() + ":" + alternative.getArtifactId() + ":"
+                            + alternative.getVersion() + "\"");
+                }
+            }
+            sb.append("]}");
+            return sb.toString();
+        }
+    }
+
     @Override
-    public List<LibraryMatchInfo> returnTopLibraryMatches(List<Long> hashes) {
+    public List<LibraryCandidate> returnTopLibraryMatches(List<ClassFileInfo> signatures) {
         long startTime = System.currentTimeMillis();
 
         String createTempTable = "CREATE TEMPORARY TABLE IF NOT EXISTS temp_hashes (class_hash BIGINT NOT NULL)";
         String dropTempTable = "DROP TABLE temp_hashes";
         String insertIntoTempTable = "INSERT INTO temp_hashes (class_hash) VALUES (?)";
 
-        String mainQuery = "SELECT library_id, group_id, artifact_id, version, total_class_files, COUNT(*) as matched_count " +
-                "FROM signatures " +
-                "JOIN libraries ON signatures.library_id = libraries.id " +
-                "JOIN temp_hashes ON signatures.class_hash = temp_hashes.class_hash " +
-                "GROUP BY library_id";
+        String mainQuery = "SELECT temp_hashes.class_hash, library_id FROM signatures " +
+                "JOIN temp_hashes ON signatures.class_hash = temp_hashes.class_hash";
 
-        List<LibraryMatchInfo> libraryHashesCount = new ArrayList<>();
+        List<LibraryCandidate> libraryHashesCount = new ArrayList<>();
+
+        Map<String, Set<Long>> packahesToHashes = new HashMap<>();
+        Map<Long, Set<String>> hashToPackage = new HashMap<>();
+        Set<Long> hashes = new HashSet<>();
+        Set<String> pathes = new HashSet<>();
+
+        for (ClassFileInfo s : signatures) {
+            hashes.add(s.getHashCode());
+            String path = s.getClassName();
+            String folder = path.substring(0, path.lastIndexOf("/"));
+            pathes.add(folder);
+            if (!packahesToHashes.containsKey(folder)) {
+                packahesToHashes.put(folder, new HashSet<>());
+            }
+            packahesToHashes.get(folder).add(s.getHashCode());
+            if (!hashToPackage.containsKey(s.getHashCode())) {
+                hashToPackage.put(s.getHashCode(), new HashSet<>());
+            }
+            hashToPackage.get(s.getHashCode()).add(folder);
+        }
 
         try (Connection connection = ds.getConnection()) {
             try (Statement statement = connection.createStatement()) {
@@ -209,17 +403,82 @@ public class SignatureDAOImpl implements SignatureDAO {
                 statement.executeBatch();
             }
 
+            Map<Long, ArrayList<Integer>> hashToLib = new HashMap<>(hashes.size());
+            Map<Integer, ArrayList<Long>> libToHash = new HashMap<>(100);
+
             try (PreparedStatement statement = connection.prepareStatement(mainQuery)) {
                 ResultSet resultSet = statement.executeQuery();
                 while (resultSet.next()) {
-                    String resultGroupId = resultSet.getString("group_id");
-                    String resultArtifactId = resultSet.getString("artifact_id");
-                    String resultVersion = resultSet.getString("version");
-                    int resultMatchedCount = resultSet.getInt("matched_count");
-                    int resultTotalCount = resultSet.getInt("total_class_files");
+                    Long classHash = resultSet.getLong("temp_hashes.class_hash");
+                    int libraryId = resultSet.getInt("library_id");
+                    if (!hashToLib.containsKey(classHash)) {
+                        hashToLib.put(classHash, new ArrayList<>());
+                    }
+                    hashToLib.get(classHash).add(libraryId);
 
-                    LibraryMatchInfo libraryMatchInfo = new LibraryMatchInfo(resultGroupId, resultArtifactId, resultVersion, resultMatchedCount, resultTotalCount);
-                    libraryHashesCount.add(libraryMatchInfo);
+                    if (!libToHash.containsKey(libraryId)) {
+                        libToHash.put(libraryId, new ArrayList<>());
+                    }
+                    libToHash.get(libraryId).add(classHash);
+                }
+            }
+            System.out.println("hashToLib: " + hashToLib.size());
+
+            List<LibraryCandidate> candidates = new ArrayList<>();
+
+            lib: for (Integer lib : libToHash.keySet()) {
+                Set<Long> hashesInLib = new HashSet(libToHash.get(lib));
+                for (String path : pathes) {
+                    Set<Long> hashInPackage = packahesToHashes.get(path);
+                    if (hashesInLib.containsAll(hashInPackage)) {
+                        LibraryCandidate libraryCandidate = new LibraryCandidate().setLibraryId(lib)
+                                .setHashes(hashesInLib);
+                        candidates.add(libraryCandidate);
+                        continue lib;
+                    }
+                }
+            }
+
+            System.out.println("# Library Candidate: " + candidates.size() + "/" + libToHash.size());
+
+            for (LibraryCandidate lib : candidates) {
+                try (PreparedStatement statement = connection
+                        .prepareStatement("SELECT * FROM libraries where id = ?")) {
+                    statement.setInt(1, lib.libraryId);
+                    statement.execute();
+                    statement.getResultSet().next();
+
+                    String resultGroupId = statement.getResultSet().getString("group_id");
+                    String resultArtifactId = statement.getResultSet().getString("artifact_id");
+                    String resultVersion = statement.getResultSet().getString("version");
+
+                    int resultTotalCount = statement.getResultSet().getInt("total_class_files");
+                    int nbUniqueLibClass = statement.getResultSet().getInt("unique_signatures");
+
+                    lib.setArtifactId(resultArtifactId).setGroupId(resultGroupId).setVersion(resultVersion);
+                    lib.setExpectedNumberOfClasses(nbUniqueLibClass);
+
+                    libraryHashesCount.add(lib);
+                }
+            }
+
+            candidates.sort((data1, data2) -> data1.getGroupId().compareTo(data2.getGroupId()));
+
+            for (LibraryCandidate lib : candidates) {
+                if (lib.getHashes() == null) {
+                    continue;
+                }
+                for (LibraryCandidate lib2 : candidates) {
+                    if (lib.libraryId.equals(lib2.libraryId) || lib2.getHashes() == null) {
+                        continue;
+                    }
+                    if (lib.contains(lib2)) {
+                        if (lib.expectedNumberOfClasses == lib2.expectedNumberOfClasses) {
+                            lib.addAlternative(lib2);
+                        } else {
+                            lib.addIncluded(lib2);
+                        }
+                    }
                 }
             }
 
@@ -233,11 +492,12 @@ public class SignatureDAOImpl implements SignatureDAO {
         long endTime = System.currentTimeMillis();
         logger.info("Top matches query took " + (endTime - startTime) / 1000.0 + " seconds.");
 
-        return libraryHashesCount;
+        return libraryHashesCount.stream().filter(lib -> lib.getHashes() != null).collect(Collectors.toList());
     }
 
     @Override
-    public void insertPluginInfo(Model model, Plugin shadePlugin, boolean minimizeJar, boolean usingMavenShade, boolean isUberJar) {
+    public void insertPluginInfo(Model model, Plugin shadePlugin, boolean minimizeJar, boolean usingMavenShade,
+            boolean isUberJar) {
         long startTime = System.currentTimeMillis();
 
         String insertLibraryQuery = "INSERT INTO oracle_libraries (group_id, artifact_id, version, using_maven_shade_plugin, is_an_uber_jar) VALUES (?, ?, ?, ?, ?)";
@@ -247,7 +507,8 @@ public class SignatureDAOImpl implements SignatureDAO {
 
         executeWithDeadlockRetry(connection -> {
             try {
-                PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery, Statement.RETURN_GENERATED_KEYS);
+                PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery,
+                        Statement.RETURN_GENERATED_KEYS);
                 libraryStatement.setString(1, model.getGroupId());
                 libraryStatement.setString(2, model.getArtifactId());
                 libraryStatement.setString(3, model.getVersion());
@@ -272,7 +533,8 @@ public class SignatureDAOImpl implements SignatureDAO {
                     }
 
                     if (shadePlugin != null) {
-                        PreparedStatement pluginStatement = connection.prepareStatement(insertPluginQuery, Statement.RETURN_GENERATED_KEYS);
+                        PreparedStatement pluginStatement = connection.prepareStatement(insertPluginQuery,
+                                Statement.RETURN_GENERATED_KEYS);
                         pluginStatement.setInt(1, libraryId);
                         pluginStatement.setString(2, shadePlugin.getGroupId());
                         pluginStatement.setString(3, shadePlugin.getArtifactId());
@@ -283,20 +545,23 @@ public class SignatureDAOImpl implements SignatureDAO {
                         if (generatedKeys.next()) {
                             int pluginId = generatedKeys.getInt(1);
 
-
                             // save plugin-level configuration
                             Object pluginConfiguration = shadePlugin.getConfiguration();
                             if (pluginConfiguration != null) {
                                 try {
-                                    String serializedConfiguration = PomProcessor.serializeXpp3Dom((Xpp3Dom) pluginConfiguration);
-                                    PreparedStatement configStatement = connection.prepareStatement(insertPluginConfigQuery);
+                                    String serializedConfiguration = PomProcessor
+                                            .serializeXpp3Dom((Xpp3Dom) pluginConfiguration);
+                                    PreparedStatement configStatement = connection
+                                            .prepareStatement(insertPluginConfigQuery);
                                     configStatement.setInt(1, pluginId);
                                     configStatement.setString(2, null);
                                     configStatement.setString(3, serializedConfiguration);
                                     configStatement.setBoolean(4, minimizeJar);
                                     configStatement.executeUpdate();
                                 } catch (Exception e) {
-                                    logger.debug("The error occurred during the serialization of the plugin configuration.", e);
+                                    logger.debug(
+                                            "The error occurred during the serialization of the plugin configuration.",
+                                            e);
                                 }
                             } else {
                                 logger.debug("The plugin configuration is null.");
@@ -308,15 +573,19 @@ public class SignatureDAOImpl implements SignatureDAO {
                                 Object configuration = execution.getConfiguration();
                                 if (configuration != null) {
                                     try {
-                                        String serializedConfiguration = PomProcessor.serializeXpp3Dom((Xpp3Dom) configuration);
-                                        PreparedStatement configStatement = connection.prepareStatement(insertPluginConfigQuery);
+                                        String serializedConfiguration = PomProcessor
+                                                .serializeXpp3Dom((Xpp3Dom) configuration);
+                                        PreparedStatement configStatement = connection
+                                                .prepareStatement(insertPluginConfigQuery);
                                         configStatement.setInt(1, pluginId);
                                         configStatement.setString(2, execution.getId());
                                         configStatement.setString(3, serializedConfiguration);
                                         configStatement.setBoolean(4, minimizeJar);
                                         configStatement.executeUpdate();
                                     } catch (Exception e) {
-                                        logger.debug("The error occurred during the serialization of the plugin configuration.", e);
+                                        logger.debug(
+                                                "The error occurred during the serialization of the plugin configuration.",
+                                                e);
                                     }
                                 } else {
                                     logger.debug("The plugin execution configuration is null.");
@@ -395,12 +664,14 @@ public class SignatureDAOImpl implements SignatureDAO {
                         configStatement.setInt(1, pluginId);
                         ResultSet configResultSet = configStatement.executeQuery();
 
-                        // handle the first configuration as plugin level configuration (because we add it first)
+                        // handle the first configuration as plugin level configuration (because we add
+                        // it first)
                         // and the rest as execution level configurations
                         boolean isFirstConfig = true;
                         List<PluginExecution> executions = new ArrayList<>();
                         while (configResultSet.next()) {
-                            Xpp3Dom config = Xpp3DomBuilder.build(new StringReader(configResultSet.getString("config")));
+                            Xpp3Dom config = Xpp3DomBuilder
+                                    .build(new StringReader(configResultSet.getString("config")));
                             if (isFirstConfig) {
                                 plugin.setConfiguration(config);
                                 isFirstConfig = false;
@@ -467,7 +738,7 @@ public class SignatureDAOImpl implements SignatureDAO {
         List<Long> libraryHashes = new ArrayList<>();
 
         try (Connection connection = ds.getConnection();
-             PreparedStatement statement = connection.prepareStatement(mainQuery)) {
+                PreparedStatement statement = connection.prepareStatement(mainQuery)) {
 
             ResultSet resultSet = statement.executeQuery();
             while (resultSet.next()) {
@@ -485,7 +756,8 @@ public class SignatureDAOImpl implements SignatureDAO {
     public void closeConnection() {
         if (ds != null) {
             ds.close();
-            logger.info("Total time spent in database: " + (System.currentTimeMillis() - startTime) / 1000 + " seconds.");
+            logger.info(
+                    "Total time spent in database: " + (System.currentTimeMillis() - startTime) / 1000 + " seconds.");
             logger.info("Database connection closed.");
         }
     }

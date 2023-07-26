@@ -21,7 +21,7 @@ public class JarFrequencyAnalyzer {
         Path jarPath = Paths.get(path);
         if (jarPath.toString().endsWith(".jar")) {
             logger.info("Inferring libraries in jar file: " + jarPath);
-            frequencyMap = jarSignatureMapper.inferJarFile(jarPath);
+            frequencyMap = JarSignatureMapper.getTopMatches(jarSignatureMapper.inferJarFile(jarPath));
         }
         return frequencyMap;
     }
