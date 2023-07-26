@@ -205,7 +205,8 @@ public class SignatureDAOImpl implements SignatureDAO {
         private String version;
 
         private List<LibraryCandidate> alternatives;
-        private List<LibraryCandidate> included;
+        private List<LibraryCandidate> includes;
+        private List<LibraryCandidate> includedIn;
         private int expectedNumberOfClasses;
 
         public Integer getLibraryId() {
@@ -277,11 +278,23 @@ public class SignatureDAOImpl implements SignatureDAO {
             return true;
         }
 
-        public LibraryCandidate addIncluded(LibraryCandidate included) {
-            if (this.included == null) {
-                this.included = new ArrayList<>();
+        public LibraryCandidate addIncludes(LibraryCandidate included) {
+            if (this.includes == null) {
+                this.includes = new ArrayList<>();
             }
-            this.included.add(included);
+            if (!this.includes.contains(included)) {
+                this.includes.add(included);
+                included.addIncludedIn(this);
+            }
+            return this;
+        }
+
+        public LibraryCandidate addIncludedIn(LibraryCandidate other) {
+            if (this.includedIn == null) {
+                this.includedIn = new ArrayList<>();
+            }
+            if (!this.includedIn.contains(other))
+                this.includedIn.add(other);
             return this;
         }
 
@@ -339,17 +352,29 @@ public class SignatureDAOImpl implements SignatureDAO {
                 }
             }
             sb.append("],");
-            sb.append("\"include\": [");
-            if (this.included != null) {
+            sb.append("\"includedIn\": [");
+            if (this.includedIn != null) {
                 boolean isFirst = true;
-                for (LibraryCandidate alternative : this.included) {
+                for (LibraryCandidate alternative : this.includedIn) {
                     if (!isFirst) {
                         sb.append(",");
                     } else {
                         isFirst = false;
                     }
-                    sb.append("\"" + alternative.getGroupId() + ":" + alternative.getArtifactId() + ":"
-                            + alternative.getVersion() + "\"");
+                    sb.append("\"" + alternative.getAGV() + "\"");
+                }
+            }
+            sb.append("],");
+            sb.append("\"include\": [");
+            if (this.includes != null) {
+                boolean isFirst = true;
+                for (LibraryCandidate alternative : this.includes) {
+                    if (!isFirst) {
+                        sb.append(",");
+                    } else {
+                        isFirst = false;
+                    }
+                    sb.append("\"" + alternative.getAGV() + "\"");
                 }
             }
             sb.append("]}");
@@ -370,7 +395,7 @@ public class SignatureDAOImpl implements SignatureDAO {
 
         List<LibraryCandidate> candidates = new ArrayList<>();
 
-        Map<String, Set<Long>> packahesToHashes = new HashMap<>();
+        Map<String, Set<Long>> packagesToHashes = new HashMap<>();
         Map<Long, Set<String>> hashToPackage = new HashMap<>();
         Set<Long> hashes = new HashSet<>();
         Set<String> pathes = new HashSet<>();
@@ -380,10 +405,12 @@ public class SignatureDAOImpl implements SignatureDAO {
             String path = s.getClassName();
             String folder = path.substring(0, path.lastIndexOf("/"));
             pathes.add(folder);
-            if (!packahesToHashes.containsKey(folder)) {
-                packahesToHashes.put(folder, new HashSet<>());
+
+            if (!packagesToHashes.containsKey(folder)) {
+                packagesToHashes.put(folder, new HashSet<>());
             }
-            packahesToHashes.get(folder).add(s.getHashCode());
+            packagesToHashes.get(folder).add(s.getHashCode());
+
             if (!hashToPackage.containsKey(s.getHashCode())) {
                 hashToPackage.put(s.getHashCode(), new HashSet<>());
             }
@@ -403,8 +430,8 @@ public class SignatureDAOImpl implements SignatureDAO {
                 statement.executeBatch();
             }
 
-            Map<Long, ArrayList<Integer>> hashToLib = new HashMap<>(hashes.size());
-            Map<Integer, ArrayList<Long>> libToHash = new HashMap<>(100);
+            Map<Long, Set<Integer>> hashToLib = new HashMap<>(hashes.size());
+            Map<Integer, Set<Long>> libToHash = new HashMap<>(100);
 
             try (PreparedStatement statement = connection.prepareStatement(mainQuery)) {
                 ResultSet resultSet = statement.executeQuery();
@@ -412,54 +439,73 @@ public class SignatureDAOImpl implements SignatureDAO {
                     Long classHash = resultSet.getLong("temp_hashes.class_hash");
                     int libraryId = resultSet.getInt("library_id");
                     if (!hashToLib.containsKey(classHash)) {
-                        hashToLib.put(classHash, new ArrayList<>());
+                        hashToLib.put(classHash, new HashSet<>());
                     }
                     hashToLib.get(classHash).add(libraryId);
 
                     if (!libToHash.containsKey(libraryId)) {
-                        libToHash.put(libraryId, new ArrayList<>());
+                        libToHash.put(libraryId, new HashSet<>());
                     }
                     libToHash.get(libraryId).add(classHash);
                 }
             }
-            System.out.println("hashToLib: " + hashToLib.size());
+            logger.info("# file not found in DB: " + (hashes.size() - hashToLib.size()) + " "
+                    + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds.");
+
+            List<String> sortedPath = pathes.stream().sorted((p1, p2) -> {
+                return packagesToHashes.get(p1).size() - packagesToHashes.get(p2).size();
+            }).collect(Collectors.toList());
 
             lib: for (Integer lib : libToHash.keySet()) {
-                Set<Long> hashesInLib = new HashSet(libToHash.get(lib));
-                for (String path : pathes) {
-                    Set<Long> hashInPackage = packahesToHashes.get(path);
+                Set<Long> hashesInLib = libToHash.get(lib);
+                if (hashesInLib.size() == 1) {
+                    continue;
+                }
+                if (hashesInLib.size() * 1.0 / hashes.size() > 0.9) {
+                    // if the lib includes more than 90% of the hashes we do consider it
+                    candidates.add(new LibraryCandidate().setLibraryId(lib)
+                            .setHashes(hashesInLib));
+                    continue;
+                }
+                for (String path : sortedPath) {
+                    Set<Long> hashInPackage = packagesToHashes.get(path);
+                    // if the lib includes all the hashes of a package we do consider it
                     if (hashesInLib.size() >= hashInPackage.size() && hashesInLib.containsAll(hashInPackage)) {
-                        LibraryCandidate libraryCandidate = new LibraryCandidate().setLibraryId(lib)
-                                .setHashes(hashesInLib);
-                        candidates.add(libraryCandidate);
+                        candidates.add(new LibraryCandidate().setLibraryId(lib)
+                                .setHashes(hashesInLib));
                         continue lib;
                     }
                 }
             }
 
-            System.out.println("# Library Candidate: " + candidates.size() + "/" + libToHash.size());
+            logger.info("# Library Candidate: " + candidates.size() + "/" + libToHash.size() + " "
+                    + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds.");
 
-            Set<String> libIds = candidates.stream().map(mapper -> mapper.getLibraryId() + "")
-                    .collect(Collectors.toSet());
+            candidates.sort((data1, data2) -> data2.getLibraryId() - data1.getLibraryId());
+
+            List<String> libIds = candidates.stream().map(mapper -> mapper.getLibraryId() + "")
+                    .collect(Collectors.toList());
             try (PreparedStatement statement = connection
-                    .prepareStatement("SELECT * FROM libraries where id IN (" + String.join(",", libIds) + ")")) {
+                    .prepareStatement(
+                            "SELECT id, group_id, artifact_id, version, unique_signatures FROM libraries where id IN ("
+                                    + String.join(",", libIds) + ") ORDER BY id DESC")) {
                 statement.execute();
                 ResultSet result = statement.getResultSet();
+                int index = 0;
                 while (result.next()) {
                     int libraryId = result.getInt("id");
                     String resultGroupId = result.getString("group_id");
                     String resultArtifactId = result.getString("artifact_id");
                     String resultVersion = result.getString("version");
-
-                    int resultTotalCount = result.getInt("total_class_files");
                     int nbUniqueLibClass = result.getInt("unique_signatures");
+                    // int resultTotalCount = result.getInt("total_class_files");
 
-                    for (LibraryCandidate lib : candidates) {
-                        if (lib.getLibraryId().equals(libraryId)) {
-                            lib.setArtifactId(resultArtifactId).setGroupId(resultGroupId).setVersion(resultVersion);
-                            lib.setExpectedNumberOfClasses(nbUniqueLibClass);
-                        }
+                    if (candidates.get(index).getLibraryId() != libraryId) {
+                        throw new RuntimeException("The library id does not match.");
                     }
+                    candidates.get(index).setGroupId(resultGroupId).setArtifactId(resultArtifactId)
+                            .setVersion(resultVersion).setExpectedNumberOfClasses(nbUniqueLibClass);
+                    index++;
                 }
             }
 
@@ -478,7 +524,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                                 && lib.getHashes().size() == lib2.getHashes().size()) {
                             lib.addAlternative(lib2);
                         } else {
-                            lib.addIncluded(lib2);
+                            lib.addIncludes(lib2);
                         }
                     }
                 }
@@ -491,11 +537,13 @@ public class SignatureDAOImpl implements SignatureDAO {
             e.printStackTrace();
         }
 
+        // ignore libraries that don't have any hashes, i.e., are alternatives
+        List<LibraryCandidate> output = candidates.stream().filter(lib -> lib.getHashes() != null)
+                .collect(Collectors.toList());
+
         long endTime = System.currentTimeMillis();
         logger.info("Top matches query took " + (endTime - startTime) / 1000.0 + " seconds.");
-
-        // ignore libraries that don't have any hashes, i.e., are alternatives
-        return candidates.stream().filter(lib -> lib.getHashes() != null).collect(Collectors.toList());
+        return output;
     }
 
     @Override

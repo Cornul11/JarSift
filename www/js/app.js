@@ -60,7 +60,29 @@ angular
       }
     };
 
+    $scope.hoverLinks = function (links) {
+      for (const link of links) {
+        document.getElementById(link.target.id).classList.add("hover");
+        document.getElementById(link.source.id).classList.add("hover");
+
+        const listElement = document.getElementById("list_" + link.source.id);
+        if (listElement) listElement.classList.add("active");
+      }
+      d3.select("#cluster svg g")
+        .selectAll(".hover-link")
+        .data(links)
+        .join("line")
+        .attr("x1", (d) => d.source.x)
+        .attr("y1", (d) => d.source.y)
+        .attr("x2", (d) => d.target.x)
+        .attr("y2", (d) => d.target.y)
+        .attr("class", "hover-link")
+        .lower();
+    };
     $scope.hoverLib = function (lib) {
+      if (isNodeClick) {
+        return;
+      }
       const listElement = document.getElementById("list_" + lib.id);
       listElement.classList.add("active");
       const element = document.getElementById(lib.id);
@@ -70,28 +92,12 @@ angular
         .force("link")
         .links()
         .filter((d) => d.source.id === lib.id);
-
-      for (const hash of lib.hashes) {
-        document.getElementById(hash).classList.add("hover");
-      }
-
-      let selector = "." + lib.id.replace(/[:\.]/g, "_") + ".hover-link";
-      if (links.length > 1000) {
-        selector = ".hover-link";
-      }
-
-      d3.select("#cluster svg g")
-        .selectAll(selector)
-        .data(links)
-        .join("line")
-        .attr("x1", (d) => d.source.x)
-        .attr("y1", (d) => d.source.y)
-        .attr("x2", (d) => d.target.x)
-        .attr("y2", (d) => d.target.y)
-        .attr("class", lib.id.replace(/[:\.]/g, "_") + " hover-link")
-        .lower();
+      $scope.hoverLinks(links);
     };
     $scope.leaveLib = function () {
+      if (isNodeClick) {
+        return;
+      }
       document
         .querySelectorAll(".node.hover")
         .forEach((e) => e.classList.remove("hover"));
@@ -99,7 +105,6 @@ angular
         .querySelectorAll(".active")
         .forEach((e) => e.classList.remove("active"));
       d3.select("#cluster svg g").selectAll(".hover-link").remove();
-      isNodeClick = false;
     };
 
     let nodes = [];
@@ -190,22 +195,13 @@ angular
       }, 30000);
 
       function higlight(d) {
+        // lib
         if (d.lib) {
           $scope.hoverLib(d.lib);
           return;
         }
-        if (links.length > 30000) {
-          return;
-        }
-        const libs = new Set();
-        links
-          .filter((l) => l.target.id === d.id)
-          .forEach((l) => {
-            if (l.source.lib) libs.add(l.source.lib);
-          });
-        for (const lib of libs) {
-          $scope.hoverLib(lib);
-        }
+        // class
+        $scope.hoverLinks(links.filter((l) => l.target.id === d.id));
       }
       const node = svg
         .selectAll(".node")
@@ -219,8 +215,8 @@ angular
             isNodeClick = false;
             $scope.leaveLib();
           } else {
-            isNodeClick = true;
             higlight(d);
+            isNodeClick = true;
           }
         })
         .on("mouseleave", (d) => {
@@ -242,13 +238,21 @@ angular
 
       node.append("title").text((d) => d.id);
 
-      simulation.on("tick", function () {
+      function refresh() {
         link
           .attr("x1", (d) => d.source.x)
           .attr("y1", (d) => d.source.y)
           .attr("x2", (d) => d.target.x)
           .attr("y2", (d) => d.target.y);
         node.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
+      }
+      const refreshInterval = setInterval(refresh, 2500);
+      let timeoutRefresh = null;
+      simulation.on("tick", () => {
+        if (timeoutRefresh) clearTimeout(timeoutRefresh);
+        timeoutRefresh = setTimeout(() => {
+          clearInterval(refreshInterval);
+        }, 1000);
       });
     };
   });
