@@ -327,7 +327,7 @@ public class SignatureDAOImpl implements SignatureDAO {
             }
             sb.append("],");
             sb.append("\"hashes\": [");
-            if (this.alternatives != null) {
+            if (this.hashes != null) {
                 boolean isFirst = true;
                 for (Long hash : this.getHashes()) {
                     if (!isFirst) {

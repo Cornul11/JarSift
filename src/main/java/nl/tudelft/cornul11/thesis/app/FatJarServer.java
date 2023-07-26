@@ -57,6 +57,11 @@ public class FatJarServer extends AbstractHandler {
         response.setCharacterEncoding("utf-8");
         response.setContentType("application/json");
 
+        double threasold = 0.85;
+        if (request.getParameter("threshold") != null) {
+            threasold = Double.parseDouble(request.getParameter("threshold"));
+        }
+
         for (Part part : request.getParts()) {
             String filename = part.getSubmittedFileName();
             if (StringUtil.isNotBlank(filename) && filename.endsWith(".jar")) {
@@ -73,7 +78,7 @@ public class FatJarServer extends AbstractHandler {
                     response.getWriter().append("[");
                     boolean isFirst = true;
                     for (LibraryCandidate lib : inferJarFile) {
-                        if (lib.getIncludedRatio() < 0.85) {
+                        if (lib.getIncludedRatio() < threasold) {
                             continue;
                         }
                         if (!isFirst) {
