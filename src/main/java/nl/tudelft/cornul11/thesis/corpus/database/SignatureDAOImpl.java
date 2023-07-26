@@ -286,7 +286,7 @@ public class SignatureDAOImpl implements SignatureDAO {
         }
 
         public boolean contains(LibraryCandidate candidate) {
-            return this.hashes.containsAll(candidate.hashes);
+            return this.hashes.size() >= candidate.hashes.size() && this.hashes.containsAll(candidate.hashes);
         }
 
         public boolean equals(LibraryCandidate other) {
@@ -368,7 +368,7 @@ public class SignatureDAOImpl implements SignatureDAO {
         String mainQuery = "SELECT temp_hashes.class_hash, library_id FROM signatures " +
                 "JOIN temp_hashes ON signatures.class_hash = temp_hashes.class_hash";
 
-        List<LibraryCandidate> libraryHashesCount = new ArrayList<>();
+        List<LibraryCandidate> candidates = new ArrayList<>();
 
         Map<String, Set<Long>> packahesToHashes = new HashMap<>();
         Map<Long, Set<String>> hashToPackage = new HashMap<>();
@@ -424,13 +424,11 @@ public class SignatureDAOImpl implements SignatureDAO {
             }
             System.out.println("hashToLib: " + hashToLib.size());
 
-            List<LibraryCandidate> candidates = new ArrayList<>();
-
             lib: for (Integer lib : libToHash.keySet()) {
                 Set<Long> hashesInLib = new HashSet(libToHash.get(lib));
                 for (String path : pathes) {
                     Set<Long> hashInPackage = packahesToHashes.get(path);
-                    if (hashesInLib.containsAll(hashInPackage)) {
+                    if (hashesInLib.size() >= hashInPackage.size() && hashesInLib.containsAll(hashInPackage)) {
                         LibraryCandidate libraryCandidate = new LibraryCandidate().setLibraryId(lib)
                                 .setHashes(hashesInLib);
                         candidates.add(libraryCandidate);
@@ -441,24 +439,27 @@ public class SignatureDAOImpl implements SignatureDAO {
 
             System.out.println("# Library Candidate: " + candidates.size() + "/" + libToHash.size());
 
-            for (LibraryCandidate lib : candidates) {
-                try (PreparedStatement statement = connection
-                        .prepareStatement("SELECT * FROM libraries where id = ?")) {
-                    statement.setInt(1, lib.libraryId);
-                    statement.execute();
-                    statement.getResultSet().next();
+            Set<String> libIds = candidates.stream().map(mapper -> mapper.getLibraryId() + "")
+                    .collect(Collectors.toSet());
+            try (PreparedStatement statement = connection
+                    .prepareStatement("SELECT * FROM libraries where id IN (" + String.join(",", libIds) + ")")) {
+                statement.execute();
+                ResultSet result = statement.getResultSet();
+                while (result.next()) {
+                    int libraryId = result.getInt("id");
+                    String resultGroupId = result.getString("group_id");
+                    String resultArtifactId = result.getString("artifact_id");
+                    String resultVersion = result.getString("version");
 
-                    String resultGroupId = statement.getResultSet().getString("group_id");
-                    String resultArtifactId = statement.getResultSet().getString("artifact_id");
-                    String resultVersion = statement.getResultSet().getString("version");
+                    int resultTotalCount = result.getInt("total_class_files");
+                    int nbUniqueLibClass = result.getInt("unique_signatures");
 
-                    int resultTotalCount = statement.getResultSet().getInt("total_class_files");
-                    int nbUniqueLibClass = statement.getResultSet().getInt("unique_signatures");
-
-                    lib.setArtifactId(resultArtifactId).setGroupId(resultGroupId).setVersion(resultVersion);
-                    lib.setExpectedNumberOfClasses(nbUniqueLibClass);
-
-                    libraryHashesCount.add(lib);
+                    for (LibraryCandidate lib : candidates) {
+                        if (lib.getLibraryId().equals(libraryId)) {
+                            lib.setArtifactId(resultArtifactId).setGroupId(resultGroupId).setVersion(resultVersion);
+                            lib.setExpectedNumberOfClasses(nbUniqueLibClass);
+                        }
+                    }
                 }
             }
 
@@ -473,7 +474,8 @@ public class SignatureDAOImpl implements SignatureDAO {
                         continue;
                     }
                     if (lib.contains(lib2)) {
-                        if (lib.expectedNumberOfClasses == lib2.expectedNumberOfClasses) {
+                        if (lib.expectedNumberOfClasses == lib2.expectedNumberOfClasses
+                                && lib.getHashes().size() == lib2.getHashes().size()) {
                             lib.addAlternative(lib2);
                         } else {
                             lib.addIncluded(lib2);
@@ -492,7 +494,8 @@ public class SignatureDAOImpl implements SignatureDAO {
         long endTime = System.currentTimeMillis();
         logger.info("Top matches query took " + (endTime - startTime) / 1000.0 + " seconds.");
 
-        return libraryHashesCount.stream().filter(lib -> lib.getHashes() != null).collect(Collectors.toList());
+        // ignore libraries that don't have any hashes, i.e., are alternatives
+        return candidates.stream().filter(lib -> lib.getHashes() != null).collect(Collectors.toList());
     }
 
     @Override

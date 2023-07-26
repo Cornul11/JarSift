@@ -75,8 +75,13 @@ angular
         document.getElementById(hash).classList.add("hover");
       }
 
+      let selector = "." + lib.id.replace(/[:\.]/g, "_") + ".hover-link";
+      if (links.length > 1000) {
+        selector = ".hover-link";
+      }
+
       d3.select("#cluster svg g")
-        .selectAll("." + lib.id.replace(/[:\.]/g, "_") + ".hover-link")
+        .selectAll(selector)
         .data(links)
         .join("line")
         .attr("x1", (d) => d.source.x)
@@ -122,13 +127,15 @@ angular
         })
       );
 
-      const libs = new Set();
+      const classHashes = new Set();
+      const libIds = new Set();
       nodes.push({
         id: "main",
         group: 0,
         cluster: "main",
       });
       for (const lib of $scope.libraries) {
+        libIds.add(lib.id);
         nodes.push({
           id: lib.id,
           group: lib.count,
@@ -136,8 +143,8 @@ angular
           lib,
         });
         for (const artifact of lib.hashes) {
-          if (!libs.has(artifact)) {
-            libs.add(artifact);
+          if (!classHashes.has(artifact)) {
+            classHashes.add(artifact);
             nodes.push({
               id: artifact,
               group: 4,
@@ -156,6 +163,17 @@ angular
           });
         }
       }
+      for (const lib of $scope.libraries) {
+        for (const alternative of lib.alternatives) {
+          if (libIds.has(alternative)) {
+            links.push({
+              source: lib.id,
+              target: alternative,
+              class: "alternative",
+            });
+          }
+        }
+      }
       simulation = d3
         .forceSimulation(nodes)
         .force("x", d3.forceX(width / 2).strength(0.6))
@@ -171,11 +189,12 @@ angular
         simulation.stop();
       }, 30000);
 
-      let link = svg.selectAll(".link").data(links).lower();
-
       function higlight(d) {
         if (d.lib) {
           $scope.hoverLib(d.lib);
+          return;
+        }
+        if (links.length > 30000) {
           return;
         }
         const libs = new Set();
@@ -216,7 +235,10 @@ angular
         })
         .attr("class", (d) => "node " + d.cluster)
         .attr("r", (d) => Math.log(d.group || 1) * 2)
-        .attr("id", (d) => d.id);
+        .attr("id", (d) => d.id)
+        .lower();
+
+      let link = svg.selectAll(".link").data(links).lower();
 
       node.append("title").text((d) => d.id);
 
