@@ -38,9 +38,9 @@ public class JarSignatureMapper {
 
     // Create a thread pool with a fixed number of threads
     int numThreads = Runtime.getRuntime().availableProcessors();
-    ExecutorService executor = Executors.newFixedThreadPool(numThreads);
 
     public List<LibraryCandidate> inferJarFileMultiproccess(Path jarFilePath) {
+        ExecutorService executor = Executors.newFixedThreadPool(numThreads);
         totalClassCount = 0;
         logger.info("Proccess the signatures of " + jarFilePath);
         AtomicInteger counter = new AtomicInteger(0);

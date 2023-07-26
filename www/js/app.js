@@ -248,7 +248,9 @@ angular
           return;
         }
         // class
-        $scope.hoverLinks(links.filter((l) => l.target.id === d.id));
+        $scope.hoverLinks(
+          links.filter((l) => l.source.id != "main" && l.target.id === d.id)
+        );
       }
       const node = svg
         .selectAll(".node")

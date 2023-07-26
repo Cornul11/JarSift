@@ -354,6 +354,19 @@ public class SignatureDAOImpl implements SignatureDAO {
                 }
             }
             sb.append("],");
+            sb.append("\"packages\": [");
+            if (this.paths != null) {
+                boolean isFirst = true;
+                for (String name : this.paths) {
+                    if (!isFirst) {
+                        sb.append(",");
+                    } else {
+                        isFirst = false;
+                    }
+                    sb.append("\"" + name + "\"");
+                }
+            }
+            sb.append("],");
             sb.append("\"includedIn\": [");
             if (this.includedIn != null) {
                 boolean isFirst = true;
@@ -437,6 +450,7 @@ public class SignatureDAOImpl implements SignatureDAO {
             int nbUniqueHashes = hashes.size();
             Map<Long, Set<Integer>> hashToLib = new HashMap<>(nbUniqueHashes);
             Map<Integer, Set<Long>> libToHash = new HashMap<>(100);
+            Map<Integer, Set<String>> libToPackages = new HashMap<>(100);
 
             try (PreparedStatement statement = connection.prepareStatement(mainQuery)) {
                 ResultSet resultSet = statement.executeQuery();
@@ -450,16 +464,17 @@ public class SignatureDAOImpl implements SignatureDAO {
 
                     if (!libToHash.containsKey(libraryId)) {
                         libToHash.put(libraryId, new HashSet<>());
+                        libToPackages.put(libraryId, new HashSet<>());
                     }
                     libToHash.get(libraryId).add(classHash);
+                    libToPackages.get(libraryId).addAll(hashToPackage.get(classHash));
                 }
+            }
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(dropTempTable);
             }
             logger.info("# file not found in DB: " + (nbUniqueHashes - hashToLib.size()) + " "
                     + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds.");
-
-            List<String> sortedPath = pathes.stream().sorted((p1, p2) -> {
-                return packagesToHashes.get(p1).size() - packagesToHashes.get(p2).size();
-            }).collect(Collectors.toList());
 
             lib: for (Integer lib : libToHash.keySet()) {
                 Set<Long> hashesInLib = libToHash.get(lib);
@@ -473,7 +488,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                             .setHashes(hashesInLib));
                     continue;
                 }
-                for (String path : sortedPath) {
+                for (String path : libToPackages.get(lib)) {
                     Set<Long> hashInPackage = packagesToHashes.get(path);
                     if (hashInPackage.size() == 1) {
                         continue;
@@ -492,12 +507,12 @@ public class SignatureDAOImpl implements SignatureDAO {
 
             candidates.sort((data1, data2) -> data2.getLibraryId() - data1.getLibraryId());
 
-            List<String> libIds = candidates.stream().map(mapper -> mapper.getLibraryId() + "")
+            List<String> libIds = candidates.stream().map(mapper -> "" + mapper.getLibraryId())
                     .collect(Collectors.toList());
             try (PreparedStatement statement = connection
                     .prepareStatement(
-                            "SELECT id, group_id, artifact_id, version, unique_signatures FROM libraries where id IN ("
-                                    + String.join(",", libIds) + ") ORDER BY id DESC")) {
+                            "SELECT id, group_id, artifact_id, version, unique_signatures FROM libraries where id in ("
+                                    + String.join(", ", libIds) + ") ORDER BY id DESC")) {
                 statement.execute();
                 ResultSet result = statement.getResultSet();
                 int index = 0;
@@ -519,31 +534,35 @@ public class SignatureDAOImpl implements SignatureDAO {
                     index++;
                 }
             }
+            logger.info("# Query for lib info: " + libIds.size() + " "
+                    + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds.");
 
-            candidates.sort((data1, data2) -> data1.getArtifactId().compareTo(data2.getArtifactId()));
+            int nbAlternative = 0;
 
-            for (LibraryCandidate lib : candidates) {
+            int nbCandidates = candidates.size();
+            for (int i = 0; i < nbCandidates; i++) {
+                LibraryCandidate lib = candidates.get(i);
                 if (lib.getHashes() == null) {
                     continue;
                 }
-                for (LibraryCandidate lib2 : candidates) {
+                int libHashSize = lib.getHashes().size();
+                for (int j = i; j < nbCandidates; j++) {
+                    LibraryCandidate lib2 = candidates.get(j);
                     if (lib.equals(lib2) || lib2.getHashes() == null) {
                         continue;
                     }
-                    if (lib.expectedNumberOfClasses >= lib2.expectedNumberOfClasses && lib.contains(lib2)) {
-                        if (lib.expectedNumberOfClasses == lib2.expectedNumberOfClasses
-                                && lib.getHashes().size() == lib2.getHashes().size()) {
-                            lib.addAlternative(lib2);
-                        } else if (lib.expectedNumberOfClasses > lib2.expectedNumberOfClasses) {
-                            lib.addIncludes(lib2);
-                        }
+                    int lib2HashSize = lib2.getHashes().size();
+                    if (lib.expectedNumberOfClasses == lib2.expectedNumberOfClasses
+                            && libHashSize == lib2HashSize
+                            && lib.contains(lib2)) {
+                        lib.addAlternative(lib2);
+                        nbAlternative++;
                     }
                 }
             }
+            logger.info("# Identify alternative: " + nbAlternative + " "
+                    + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds.");
 
-            try (Statement statement = connection.createStatement()) {
-                statement.execute(dropTempTable);
-            }
         } catch (SQLException e) {
             e.printStackTrace();
         }

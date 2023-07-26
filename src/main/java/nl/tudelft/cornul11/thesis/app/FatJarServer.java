@@ -25,6 +25,7 @@ import org.eclipse.jetty.util.resource.Resource;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
@@ -66,8 +67,17 @@ public class FatJarServer extends AbstractHandler {
             String filename = part.getSubmittedFileName();
             if (StringUtil.isNotBlank(filename) && filename.endsWith(".jar")) {
                 try (InputStream inputStream = part.getInputStream()) {
-                    // String fileName = part.getSubmittedFileName();
-                    List<LibraryCandidate> inferJarFile = jarSignatureMapper.inferJarFile(inputStream);
+                    List<LibraryCandidate> inferJarFile;
+                    if (part.getSize() > 1024 * 1024) {
+                        String fileName = part.getSubmittedFileName();
+                        Path uploadPath = outputDir.resolve(fileName);
+                        Files.copy(inputStream, uploadPath,
+                                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                        inferJarFile = jarSignatureMapper.inferJarFileMultiproccess(uploadPath);
+                        uploadPath.toFile().delete();
+                    } else {
+                        inferJarFile = jarSignatureMapper.inferJarFile(inputStream);
+                    }
 
                     // Sort in decreasing order of count
                     inferJarFile.sort((data1, data2) -> {
