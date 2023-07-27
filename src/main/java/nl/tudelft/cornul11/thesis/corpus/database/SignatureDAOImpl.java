@@ -714,6 +714,9 @@ public class SignatureDAOImpl implements SignatureDAO {
                     if (lib.getHashes() == null || lib.isSelf() || lib.isPerfectMatch()) {
                         continue;
                     }
+                    if (lib.paths != null && !lib.paths.contains(pack)) {
+                        continue;
+                    }
                     Set<Integer> libAndAlternativeIds = new HashSet<>();
                     libAndAlternativeIds.add(lib.getLibraryId());
                     for (LibraryCandidate alternative : lib.getAlternatives()) {
