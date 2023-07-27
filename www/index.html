@@ -28,8 +28,12 @@
       .active ul {
         color: #000;
       }
+      .lib-item {
+        cursor: pointer;
+      }
       .lib-item.self {
         color: #ddd;
+        cursor: default;
       }
       .lib-item.perfect {
         background-color: gold;
@@ -136,6 +140,40 @@
                 </button>
               </form>
             </div>
+            <section>
+              <h2>Self</h2>
+              <ul class="list-group">
+                <li
+                  class="list-group-item text-left lib-item"
+                  id="list_{{lib.id}}"
+                  ng-class="{'self': lib.self, 'perfect': lib.perfect}"
+                  ng-repeat="lib in libraries | filter:{self: true} track by $index "
+                >
+                  <div
+                    class="d-flex justify-content-between align-items-center"
+                  >
+                    {{lib.id}}
+                    <div>
+                      <span
+                        class="badge badge-primary badge-pill"
+                        ng-if="lib.alternatives.length"
+                        ># Alternatives {{lib.alternatives.length}}</span
+                      >
+                      <span
+                        class="badge badge-primary badge-pill"
+                        ng-if="lib.includes.length"
+                        ># Includes {{lib.includes.length}}</span
+                      >
+                      <span class="badge badge-primary badge-pill"
+                        >{{lib.count}}/{{lib.total}} ({{lib.ratio * 100 |
+                        number}} %)</span
+                      >
+                    </div>
+                  </div>
+                </li>
+              </ul>
+            </section>
+            <h2>Embeded Candidates</h2>
             <ul class="list-group accordion">
               <li
                 class="list-group-item text-left lib-item"

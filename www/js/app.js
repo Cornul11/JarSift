@@ -98,6 +98,7 @@ angular
     };
 
     $scope.search = function (item) {
+      if (item.self) return false;
       if (!$scope.searchTerm) {
         return true;
       }

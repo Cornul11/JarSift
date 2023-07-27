@@ -543,7 +543,6 @@ public class SignatureDAOImpl implements SignatureDAO {
                     if (nbHashesInLib * 1.0 / nbUniqueHashes > 0.99) {
                         selfCandidates.add(libraryCandidate);
                         libraryCandidate.setSelf(true);
-                        System.out.println("Self: " + libraryCandidate.getAGV());
                     }
                     candidates.add(libraryCandidate);
                     continue;
