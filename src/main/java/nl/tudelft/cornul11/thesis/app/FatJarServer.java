@@ -92,7 +92,7 @@ public class FatJarServer extends AbstractHandler {
                     response.getWriter().append("[");
                     boolean isFirst = true;
                     for (LibraryCandidate lib : inferJarFile) {
-                        if (lib.getIncludedRatio() < threasold) {
+                        if (lib.getIncludedRatio() < threasold && !lib.isPerfectMatch()) {
                             continue;
                         }
                         if (!isFirst) {

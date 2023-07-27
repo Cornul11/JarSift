@@ -90,9 +90,9 @@ angular
       const element = document.getElementById(
         "alternatives_" + id.replace(/[:\.]/g, "_")
       );
-      if (element.classList.contains("show")) {
+      if (element && element.classList.contains("show")) {
         element.classList.remove("show");
-      } else {
+      } else if (element) {
         element.classList.add("show");
       }
     };
@@ -130,9 +130,9 @@ angular
         return;
       }
       const listElement = document.getElementById("list_" + lib.id);
-      listElement.classList.add("active");
+      if (listElement) listElement.classList.add("active");
       const element = document.getElementById(lib.id);
-      element.classList.add("hover");
+      if (element) element.classList.add("hover");
 
       const links = simulation
         .force("link")
@@ -159,6 +159,7 @@ angular
     let refresh = null;
     let isNodeClick = false;
     $scope.generateCluster = function () {
+      isNodeClick = false;
       nodes = [];
       links = [];
       document.getElementById("cluster").innerHTML = "";
@@ -187,11 +188,14 @@ angular
         cluster: "main",
       });
       for (const lib of $scope.libraries) {
+        if (lib.self) {
+          continue;
+        }
         libIds.add(lib.id);
         nodes.push({
           id: lib.id,
           group: lib.count,
-          cluster: "lib",
+          cluster: "lib " + (lib.perfect ? "perfect" : ""),
           lib,
         });
         for (const artifact of lib.hashes) {

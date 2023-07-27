@@ -28,6 +28,12 @@
       .active ul {
         color: #000;
       }
+      .lib-item.self {
+        color: #ddd;
+      }
+      .lib-item.perfect {
+        background-color: gold;
+      }
       .node {
         stroke: #fff;
         stroke-width: 0.5px;
@@ -35,6 +41,9 @@
       }
       .node.lib {
         fill: green;
+      }
+      .node.lib.perfect {
+        fill: gold;
       }
       .node.main {
         fill: blue;
@@ -129,8 +138,9 @@
             </div>
             <ul class="list-group accordion">
               <li
-                class="list-group-item text-left"
+                class="list-group-item text-left lib-item"
                 id="list_{{lib.id}}"
+                ng-class="{'self': lib.self, 'perfect': lib.perfect}"
                 ng-repeat="lib in libraries | filter:search track by $index "
                 ng-click="collapse(lib.id)"
                 ng-mouseenter="hoverLib(lib)"
@@ -146,8 +156,8 @@
                     >
                     <span
                       class="badge badge-primary badge-pill"
-                      ng-if="lib.include.length"
-                      ># Include {{lib.include.length}}</span
+                      ng-if="lib.includes.length"
+                      ># Includes {{lib.includes.length}}</span
                     >
                     <span class="badge badge-primary badge-pill"
                       >{{lib.count}}/{{lib.total}} ({{lib.ratio * 100 | number}}
@@ -173,7 +183,7 @@
                   <ul class="list-group">
                     <li
                       class="list-group-item"
-                      ng-repeat="alt in lib.include track by $index"
+                      ng-repeat="alt in lib.includes track by $index"
                     >
                       {{alt}}
                     </li>

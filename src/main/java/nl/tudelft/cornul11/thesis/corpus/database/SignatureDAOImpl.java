@@ -203,11 +203,14 @@ public class SignatureDAOImpl implements SignatureDAO {
         private String groupId;
         private String artifactId;
         private String version;
+        private boolean self;
 
+        private Set<String> gas;
         private List<LibraryCandidate> alternatives;
         private List<LibraryCandidate> includes;
         private List<LibraryCandidate> includedIn;
         private int expectedNumberOfClasses;
+        private boolean perfectMatch;
 
         public Integer getLibraryId() {
             return libraryId;
@@ -234,17 +237,44 @@ public class SignatureDAOImpl implements SignatureDAO {
             return groupId + ":" + artifactId + ":" + version;
         }
 
+        public boolean isSelf() {
+            return self;
+        }
+
+        public LibraryCandidate setSelf(boolean self) {
+            this.self = self;
+            return this;
+        }
+
+        public boolean isDifferentVersion(LibraryCandidate other) {
+            if (gas == null || other.artifactId == null || other.groupId == null) {
+                return false;
+            }
+            return gas.contains(other.groupId + ":" + other.artifactId);
+        }
+
         public int getExpectedNumberOfClasses() {
             return expectedNumberOfClasses;
         }
 
         public LibraryCandidate setGroupId(String groupId) {
             this.groupId = groupId;
+            setGAS();
             return this;
+        }
+
+        private void setGAS() {
+            if (groupId != null && artifactId != null) {
+                if (gas == null) {
+                    gas = new HashSet<>();
+                }
+                gas.add(groupId + ":" + artifactId);
+            }
         }
 
         public LibraryCandidate setArtifactId(String artifactId) {
             this.artifactId = artifactId;
+            setGAS();
             return this;
         }
 
@@ -268,11 +298,32 @@ public class SignatureDAOImpl implements SignatureDAO {
             return this;
         }
 
+        public LibraryCandidate setPerfectMatch(boolean b) {
+            this.perfectMatch = b;
+            return this;
+        }
+
+        public boolean isPerfectMatch() {
+            return perfectMatch;
+        }
+
+        public List<LibraryCandidate> getAlternatives() {
+            if (this.alternatives != null) {
+                return this.alternatives;
+            }
+            return new ArrayList<>();
+        }
+
         public boolean addAlternative(LibraryCandidate alternative) {
             if (alternatives == null) {
                 alternatives = new ArrayList<>();
             }
             alternatives.add(alternative);
+            alternative.setGAS();
+            setGAS();
+            if (gas != null && alternative.gas != null) {
+                gas.addAll(alternative.gas);
+            }
             alternative.hashes = null;
             alternative.paths = null;
             return true;
@@ -304,7 +355,7 @@ public class SignatureDAOImpl implements SignatureDAO {
 
         public boolean equals(LibraryCandidate other) {
             return this.libraryId.equals(other.libraryId)
-                    || (this.alternatives != null && this.alternatives.stream().anyMatch(other::equals));
+                    || (this.getAlternatives().stream().anyMatch(other::equals));
         }
 
         public Set<Long> getHashes() {
@@ -326,24 +377,23 @@ public class SignatureDAOImpl implements SignatureDAO {
             sb.append("\"ratio\": " + this.getIncludedRatio() + ",");
             sb.append("\"count\": " + this.getHashes().size() + ",");
             sb.append("\"total\": " + this.getExpectedNumberOfClasses() + ",");
+            sb.append("\"self\": " + this.isSelf() + ",");
+            sb.append("\"perfect\": " + this.perfectMatch + ",");
             sb.append("\"alternatives\": [");
-            if (this.alternatives != null) {
-                boolean isFirst = true;
-                this.alternatives.sort((data1, data2) -> data1.getAGV().compareTo(data2.getAGV()));
-                for (LibraryCandidate alternative : this.alternatives) {
-                    if (!isFirst) {
-                        sb.append(",");
-                    } else {
-                        isFirst = false;
-                    }
-                    sb.append("\"" + alternative.getGroupId() + ":" + alternative.getArtifactId() + ":"
-                            + alternative.getVersion() + "\"");
+            boolean isFirst = true;
+            this.getAlternatives().sort((data1, data2) -> data1.getAGV().compareTo(data2.getAGV()));
+            for (LibraryCandidate alternative : this.getAlternatives()) {
+                if (!isFirst) {
+                    sb.append(",");
+                } else {
+                    isFirst = false;
                 }
+                sb.append("\"" + alternative.getAGV() + "\"");
             }
             sb.append("],");
             sb.append("\"hashes\": [");
             if (this.hashes != null) {
-                boolean isFirst = true;
+                isFirst = true;
                 for (Long hash : this.getHashes()) {
                     if (!isFirst) {
                         sb.append(",");
@@ -356,7 +406,7 @@ public class SignatureDAOImpl implements SignatureDAO {
             sb.append("],");
             sb.append("\"packages\": [");
             if (this.paths != null) {
-                boolean isFirst = true;
+                isFirst = true;
                 for (String name : this.paths) {
                     if (!isFirst) {
                         sb.append(",");
@@ -369,7 +419,7 @@ public class SignatureDAOImpl implements SignatureDAO {
             sb.append("],");
             sb.append("\"includedIn\": [");
             if (this.includedIn != null) {
-                boolean isFirst = true;
+                isFirst = true;
                 this.includedIn.sort((data1, data2) -> data1.getAGV().compareTo(data2.getAGV()));
                 for (LibraryCandidate alternative : this.includedIn) {
                     if (!isFirst) {
@@ -381,9 +431,9 @@ public class SignatureDAOImpl implements SignatureDAO {
                 }
             }
             sb.append("],");
-            sb.append("\"include\": [");
+            sb.append("\"includes\": [");
             if (this.includes != null) {
-                boolean isFirst = true;
+                isFirst = true;
                 this.includes.sort((data1, data2) -> data1.getAGV().compareTo(data2.getAGV()));
                 for (LibraryCandidate alternative : this.includes) {
                     if (!isFirst) {
@@ -476,6 +526,7 @@ public class SignatureDAOImpl implements SignatureDAO {
             logger.info("# file not found in DB: " + (nbUniqueHashes - hashToLib.size()) + " "
                     + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds.");
 
+            Set<LibraryCandidate> selfCandidates = new HashSet<>();
             lib: for (Integer lib : libToHash.keySet()) {
                 Set<Long> hashesInLib = libToHash.get(lib);
                 int nbHashesInLib = hashesInLib.size();
@@ -484,8 +535,17 @@ public class SignatureDAOImpl implements SignatureDAO {
                 }
                 if (nbHashesInLib * 1.0 / nbUniqueHashes > 0.5) {
                     // if the lib includes more than 90% of the hashes we do consider it
-                    candidates.add(new LibraryCandidate().setLibraryId(lib)
-                            .setHashes(hashesInLib));
+                    LibraryCandidate libraryCandidate = new LibraryCandidate()
+                            .setLibraryId(lib)
+                            .setHashes(hashesInLib);
+
+                    // check if we matched itself
+                    if (nbHashesInLib * 1.0 / nbUniqueHashes > 0.99) {
+                        selfCandidates.add(libraryCandidate);
+                        libraryCandidate.setSelf(true);
+                        System.out.println("Self: " + libraryCandidate.getAGV());
+                    }
+                    candidates.add(libraryCandidate);
                     continue;
                 }
                 for (String path : libToPackages.get(lib)) {
@@ -539,6 +599,24 @@ public class SignatureDAOImpl implements SignatureDAO {
 
             int nbAlternative = 0;
 
+            ArrayList<LibraryCandidate> selfList = new ArrayList<>(selfCandidates);
+
+            // Sort in decreasing order of count
+            candidates.sort((data1, data2) -> {
+                int compare = Double.compare(data2.getIncludedRatio(),
+                        data1.getIncludedRatio());
+                if (compare == 0) {
+                    compare = data2.getHashes().size() - data1.getHashes().size();
+                    if (compare == 0) {
+                        compare = data1.getExpectedNumberOfClasses() - data2.getExpectedNumberOfClasses();
+                        if (compare == 0) {
+                            compare = data1.getAGV().compareTo(data2.getAGV());
+                        }
+                    }
+                }
+                return compare;
+            });
+
             int nbCandidates = candidates.size();
             for (int i = 0; i < nbCandidates; i++) {
                 LibraryCandidate lib = candidates.get(i);
@@ -546,21 +624,111 @@ public class SignatureDAOImpl implements SignatureDAO {
                     continue;
                 }
                 int libHashSize = lib.getHashes().size();
+                for (LibraryCandidate self : selfList) {
+                    if (lib.equals(self)) {
+                        continue;
+                    }
+                    if (self.isDifferentVersion(lib)) {
+                        lib.setSelf(true);
+                        selfCandidates.add(lib);
+                        continue;
+                    }
+                }
                 for (int j = i; j < nbCandidates; j++) {
                     LibraryCandidate lib2 = candidates.get(j);
                     if (lib.equals(lib2) || lib2.getHashes() == null) {
                         continue;
                     }
                     int lib2HashSize = lib2.getHashes().size();
-                    if (lib.expectedNumberOfClasses == lib2.expectedNumberOfClasses
-                            && libHashSize == lib2HashSize
-                            && lib.contains(lib2)) {
+                    // consider different version of the same lib as alternative
+                    // list is sorted by best matches first
+                    if (lib.isDifferentVersion(lib2) ||
+                    // if the lib is included in another lib, we do consider it as alternative
+                            (lib.expectedNumberOfClasses == lib2.expectedNumberOfClasses
+                                    && libHashSize == lib2HashSize
+                                    && lib.contains(lib2))) {
                         lib.addAlternative(lib2);
                         nbAlternative++;
                     }
                 }
             }
             logger.info("# Identify alternative: " + nbAlternative + " "
+                    + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds.");
+
+            // int nbPerfectMatch = 0;
+            // // look for files that are only in one lib
+            // for (Long hash : hashes) {
+            // Set<Integer> c = hashToLib.get(hash);
+            // if (c == null) {
+            // continue;
+            // }
+            // Set<Integer> libOfHash = new HashSet<>(c);
+            // for (LibraryCandidate self : selfCandidates) {
+            // libOfHash.remove(self.getLibraryId());
+            // for (LibraryCandidate alternative : self.getAlternatives()) {
+            // libOfHash.remove(alternative.getLibraryId());
+            // }
+            // }
+            // if (libOfHash.size() == 0) {
+            // continue;
+            // }
+
+            // for (LibraryCandidate lib : candidates) {
+            // if (lib.getHashes() == null || lib.isSelf() || lib.isPerfectMatch()) {
+            // continue;
+            // }
+            // Set<Integer> libAndAlternativeIds = new HashSet<>();
+            // libAndAlternativeIds.add(lib.getLibraryId());
+            // for (LibraryCandidate alternative : lib.getAlternatives()) {
+            // libAndAlternativeIds.add(alternative.getLibraryId());
+            // }
+            // if (libOfHash.size() <= libAndAlternativeIds.size() &&
+            // libAndAlternativeIds.containsAll(libOfHash)) {
+            // lib.setPerfectMatch(true);
+            // nbPerfectMatch++;
+            // }
+            // }
+            // }
+            int nbPerfectMatch = 0;
+            // look for files that are only in one lib
+            for (String pack : packagesToHashes.keySet()) {
+                // identify all the lib of a package
+                Set<Long> packHashes = packagesToHashes.get(pack);
+                Set<Integer> libOfHash = new HashSet<>();
+                for (Long hash : packHashes) {
+                    Set<Integer> c = hashToLib.get(hash);
+                    if (c != null)
+                        libOfHash.addAll(c);
+                }
+                for (LibraryCandidate self : selfCandidates) {
+                    libOfHash.remove(self.getLibraryId());
+                    for (LibraryCandidate alternative : self.getAlternatives()) {
+                        libOfHash.remove(alternative.getLibraryId());
+                    }
+                }
+                if (libOfHash.size() == 0) {
+                    continue;
+                }
+
+                // check if the package is only in one lib
+                for (LibraryCandidate lib : candidates) {
+                    if (lib.getHashes() == null || lib.isSelf() || lib.isPerfectMatch()) {
+                        continue;
+                    }
+                    Set<Integer> libAndAlternativeIds = new HashSet<>();
+                    libAndAlternativeIds.add(lib.getLibraryId());
+                    for (LibraryCandidate alternative : lib.getAlternatives()) {
+                        libAndAlternativeIds.add(alternative.getLibraryId());
+                    }
+                    if (libOfHash.size() <= libAndAlternativeIds.size() &&
+                            libAndAlternativeIds.containsAll(libOfHash)) {
+                        lib.setPerfectMatch(true);
+                        nbPerfectMatch++;
+                    }
+                }
+            }
+
+            logger.info("# Identify perfect match: " + nbPerfectMatch + " "
                     + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds.");
 
         } catch (SQLException e) {
@@ -571,7 +739,8 @@ public class SignatureDAOImpl implements SignatureDAO {
         List<LibraryCandidate> output = candidates.stream().filter(lib -> lib.getHashes() != null)
                 .collect(Collectors.toList());
 
-        long endTime = System.currentTimeMillis();
+        long endTime = System
+                .currentTimeMillis();
         logger.info("Top matches query took " + (endTime - startTime) / 1000.0 + " seconds.");
         return output;
     }
