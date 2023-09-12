@@ -188,7 +188,7 @@ public class SignatureDAOImpl implements SignatureDAO {
         String dropTempTable = "DROP TABLE temp_hashes";
         String insertIntoTempTable = "INSERT INTO temp_hashes (class_hash) VALUES (?)";
 
-        String mainQuery = "SELECT library_id, group_id, artifact_id, version, total_class_files, COUNT(*) as matched_count " +
+        String mainQuery = "SELECT library_id, group_id, artifact_id, version, total_class_files, COUNT(DISTINCT signatures.class_hash) as matched_count " +
                 "FROM signatures " +
                 "JOIN libraries ON signatures.library_id = libraries.id " +
                 "JOIN temp_hashes ON signatures.class_hash = temp_hashes.class_hash " +
