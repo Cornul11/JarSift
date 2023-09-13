@@ -65,7 +65,7 @@ public class SignatureDAOImpl implements SignatureDAO {
 
     @Override
     public int insertSignatures(List<Signature> signatures, long jarHash, long jarCrc) {
-        String insertLibraryQuery = "INSERT INTO libraries (group_id, artifact_id, version, jar_hash, jar_crc, is_uber_jar, total_class_files) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String insertLibraryQuery = "INSERT INTO libraries (group_id, artifact_id, version, jar_hash, jar_crc, is_uber_jar, total_class_files, disk_size) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         String insertSignatureQuery = "INSERT INTO signatures (library_id, class_hash, class_crc) VALUES (?, ?, ?)"; // library_id
                                                                                                                      // is
                                                                                                                      // added
@@ -84,6 +84,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                 libraryStatement.setLong(5, jarCrc);
                 libraryStatement.setBoolean(6, false);
                 libraryStatement.setInt(7, signatures.size());
+                libraryStatement.setInt(8, 0);
                 libraryStatement.executeUpdate();
 
                 ResultSet generatedKeys = libraryStatement.getGeneratedKeys();
