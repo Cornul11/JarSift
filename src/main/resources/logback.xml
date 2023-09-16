@@ -25,7 +25,7 @@
     <logger name="org.mariadb.jdbc.client.impl.StandardClient" level="WARN" additivity="false"/>
 
 
-    <root level="debug">
+    <root level="info">
         <appender-ref ref="STDOUT"/>
         <appender-ref ref="FILE"/>
     </root>

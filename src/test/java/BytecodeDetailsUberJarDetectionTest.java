@@ -1,5 +1,8 @@
+import nl.tudelft.cornul11.thesis.corpus.database.DatabaseConfig;
+import nl.tudelft.cornul11.thesis.corpus.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.corpus.jarfile.FileAnalyzer;
+import nl.tudelft.cornul11.thesis.corpus.jarfile.JarSignatureMapper;
 import nl.tudelft.cornul11.thesis.corpus.model.Signature;
 import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,13 +28,11 @@ public class BytecodeDetailsUberJarDetectionTest {
     private static final String JAR_WITH_MULTIPLE_CLASSPATH = "jars/aspectjweaver-1.9.19.jar";
     private static final String JAR_WITH_NORMAL_FEATURES = "jars/javaparser-core-3.18.0.jar";
 
-
     @Mock
     private SignatureDAO signatureDao;
 
     @Mock
     private ConfigurationLoader config;
-
 
     private FileAnalyzer fileAnalyzer;
 
@@ -83,6 +84,16 @@ public class BytecodeDetailsUberJarDetectionTest {
         assertEquals(0, totalClassFilesProcessed, "All class files should be processed");
     }
 
+    @Test
+    public void test() throws IOException {
+        ConfigurationLoader config = new ConfigurationLoader();
+        DatabaseConfig databaseConfig = config.getDatabaseConfig();
+        DatabaseManager databaseManager = DatabaseManager.getInstance(databaseConfig);
+        SignatureDAO signatureDao = databaseManager.getSignatureDao();
+        JarSignatureMapper jarSignatureMapper = new JarSignatureMapper(signatureDao);
+        jarSignatureMapper.inferJarFileMultiproccess(Paths.get("/Users/tdurieux/Downloads/uber-jar-6.5.15.jar"));
+
+    }
 
     @Test
     public void testUberJarWithHiddenFolderDetection() throws IOException {
@@ -106,7 +117,8 @@ public class BytecodeDetailsUberJarDetectionTest {
 
     @Test
     public void testUberJarWithManyMavenSubprojectsDetection() throws IOException {
-        // this JAR file contains only one classpath, but many secondary classpaths at deeper levels
+        // this JAR file contains only one classpath, but many secondary classpaths at
+        // deeper levels
         // which in fact, are many Maven subprojects, thus is an uber-JAR
         prepareSignatureDaoMock();
 
@@ -117,10 +129,11 @@ public class BytecodeDetailsUberJarDetectionTest {
     }
 
     private void prepareSignatureDaoMock() {
-        Mockito.when(signatureDao.insertSignatures(Mockito.anyList(), Mockito.anyLong(), Mockito.anyLong())).thenAnswer(invocation -> {
-            List<Signature> signatures = invocation.getArgument(0);
-            return signatures.size();
-        });
+        Mockito.when(signatureDao.insertSignatures(Mockito.anyList(), Mockito.anyLong(), Mockito.anyLong()))
+                .thenAnswer(invocation -> {
+                    List<Signature> signatures = invocation.getArgument(0);
+                    return signatures.size();
+                });
     }
 
     private Path getJarPath(String jarName) {

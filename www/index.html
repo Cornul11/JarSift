@@ -1,13 +1,238 @@
 <!DOCTYPE html>
-<html lang="en-US">
-<head>
-    <title>Upload jar</title>
-</head>
-<body>
-    <h1>Upload Uber-jar</h1>
-    <form action="/api/upload" method="post" enctype="multipart/form-data">
-        <input type="file" name="jar"/></br>
-        <input type="submit" value="Upload jar" name="submit">
-    </form>
-</body>
+<html lang="en" ng-app="jar-website">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="https://d3js.org/d3.v5.js"></script>
+    <link rel="stylesheet" href="style/external/bootstrap.min.css" />
+    <title>JAR Rmbeded Jar Analyzer</title>
+    <script src="js/external/angular.min.js"></script>
+    <script src="js/app.js"></script>
+
+    <style>
+      #wrapper,
+      #page-wrapper,
+      body,
+      html {
+        height: 100%;
+        width: 100%;
+      }
+      .scrollable {
+        position: relative;
+        max-height: 100%;
+        overflow: hidden;
+        overflow-y: scroll;
+        overflow-wrap: break-word;
+        margin: 0;
+        padding: 0;
+      }
+      .active ul {
+        color: #000;
+      }
+      .lib-item {
+        cursor: pointer;
+      }
+      .lib-item.self {
+        color: #ddd;
+        cursor: default;
+      }
+      .lib-item.perfect {
+        background-color: gold;
+      }
+      .node {
+        stroke: #fff;
+        stroke-width: 0.5px;
+        fill: #000;
+      }
+      .node.lib {
+        fill: green;
+      }
+      .node.lib.perfect {
+        fill: gold;
+      }
+      .node.main {
+        fill: blue;
+      }
+      .node.hover {
+        stroke: #000;
+        fill: red !important;
+        z-index: 999;
+      }
+      .node.class.hover {
+        fill: blue;
+      }
+
+      .link,
+      .hover-link {
+        stroke: #999;
+        stroke-opacity: 0.3;
+        stroke-width: 1px;
+      }
+      .hover-link {
+        stroke: red;
+      }
+    </style>
+  </head>
+  <body class="ng-scope" ng-controller="mainController">
+    <div class="container-fluid h-100">
+      <div class="uploadForm" ng-show="!libraries.length && !isLoading">
+        <h1>Upload Uber-jar</h1>
+        <form>
+          <div class="form-group">
+            <label for="jarInput">JAR file</label>
+            <input
+              type="file"
+              class="form-control-file"
+              id="jarInput"
+              name="jar"
+              file-model="jarFile"
+            />
+          </div>
+          <div class="form-group">
+            <label for="threshold">Threshold {{threshold|number}}%</label>
+            <input
+              type="range"
+              class="form-control-range"
+              id="threshold"
+              name="threshold"
+              ng-model="threshold"
+              min="0"
+              max="100"
+            />
+          </div>
+
+          <input
+            class="btn btn-primary mb-2"
+            type="submit"
+            ng-click="analyze();"
+          />
+        </form>
+      </div>
+      <div class="loading h-100" ng-if="isLoading">
+        <div class="container-fluid h-100 row align-items-center text-center">
+          <div class="col-12">
+            <h1>
+              Loading... (<span timer="{{loadingStart.getTime()}}"></span>)
+            </h1>
+          </div>
+        </div>
+      </div>
+      <div class="results h-100" ng-show="libraries.length && !isLoading">
+        <div class="container-fluid h-100 row align-items-stretch">
+          <div class="col-6 scrollable">
+            <h1>{{libraries.length}} Libraries found for {{jarFile.name}}</h1>
+            <div class="d-flex mb-2">
+              <form class="form-inline mb-2">
+                <div class="form-group mr-2">
+                  <label for="inputSearch" class="sr-only">Serach</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="inputSearch"
+                    ng-model="searchTerm"
+                    placeholder="Search..."
+                  />
+                </div>
+                <button class="btn btn-primary mr-2" ng-click="analyze();">
+                  Re-analyze
+                </button>
+                <button class="btn btn-danger" ng-click="clear();">
+                  Clear
+                </button>
+              </form>
+            </div>
+            <section>
+              <h2>Self</h2>
+              <ul class="list-group">
+                <li
+                  class="list-group-item text-left lib-item"
+                  id="list_{{lib.id}}"
+                  ng-class="{'self': lib.self, 'perfect': lib.perfect}"
+                  ng-repeat="lib in libraries | filter:{self: true} track by $index "
+                >
+                  <div
+                    class="d-flex justify-content-between align-items-center"
+                  >
+                    {{lib.id}}
+                    <div>
+                      <span
+                        class="badge badge-primary badge-pill"
+                        ng-if="lib.alternatives.length"
+                        ># Alternatives {{lib.alternatives.length}}</span
+                      >
+                      <span
+                        class="badge badge-primary badge-pill"
+                        ng-if="lib.includes.length"
+                        ># Includes {{lib.includes.length}}</span
+                      >
+                      <span class="badge badge-primary badge-pill"
+                        >{{lib.count}}/{{lib.total}} ({{lib.ratio * 100 |
+                        number}} %)</span
+                      >
+                    </div>
+                  </div>
+                </li>
+              </ul>
+            </section>
+            <h2>Embeded Candidates</h2>
+            <ul class="list-group accordion">
+              <li
+                class="list-group-item text-left lib-item"
+                id="list_{{lib.id}}"
+                ng-class="{'self': lib.self, 'perfect': lib.perfect}"
+                ng-repeat="lib in libraries | filter:search track by $index "
+                ng-click="collapse(lib.id)"
+                ng-mouseenter="hoverLib(lib)"
+                ng-mouseleave="leaveLib(lib)"
+              >
+                <div class="d-flex justify-content-between align-items-center">
+                  {{lib.id}}
+                  <div>
+                    <span
+                      class="badge badge-primary badge-pill"
+                      ng-if="lib.alternatives.length"
+                      ># Alternatives {{lib.alternatives.length}}</span
+                    >
+                    <span
+                      class="badge badge-primary badge-pill"
+                      ng-if="lib.includes.length"
+                      ># Includes {{lib.includes.length}}</span
+                    >
+                    <span class="badge badge-primary badge-pill"
+                      >{{lib.count}}/{{lib.total}} ({{lib.ratio * 100 | number}}
+                      %)</span
+                    >
+                  </div>
+                </div>
+                <div
+                  id="alternatives_{{lib.id | replace:'[:\.]':'_'}}"
+                  class="alternatives collapse"
+                  ng-if="lib.alternatives.length || lib.include.length"
+                >
+                  Alternatives
+                  <ul class="list-group">
+                    <li
+                      class="list-group-item"
+                      ng-repeat="alt in lib.alternatives track by $index"
+                    >
+                      {{alt}}
+                    </li>
+                  </ul>
+                  Includes
+                  <ul class="list-group">
+                    <li
+                      class="list-group-item"
+                      ng-repeat="alt in lib.includes track by $index"
+                    >
+                      {{alt}}
+                    </li>
+                  </ul>
+                </div>
+              </li>
+            </ul>
+          </div>
+          <div class="col-6" id="cluster"></div>
+        </div>
+      </div>
+    </div>
+  </body>
 </html>

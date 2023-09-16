@@ -11,17 +11,24 @@ public class ConfigurationLoader {
     private static final String CONFIG_FILE_NAME = "config.properties";
     private Properties config;
 
+    public ConfigurationLoader(String path) {
+        loadConfig(path);
+    }
+    
     public ConfigurationLoader() {
-        loadConfig();
+        this(CONFIG_FILE_NAME);
     }
 
-    public void loadConfig() {
+    public void loadConfig(String path) {
         config = new Properties();
-        try (InputStream input = new FileInputStream(CONFIG_FILE_NAME)) {
+        try (InputStream input = new FileInputStream(path)) {
             config.load(input);
         } catch (IOException e) {
             throw new RuntimeException("Error while loading config file: " + CONFIG_FILE_NAME, e);
         }
+    }
+    public void loadConfig() {
+        loadConfig(CONFIG_FILE_NAME);
     }
 
     public boolean ignoreUberJarSignatures() {

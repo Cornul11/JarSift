@@ -1,5 +1,7 @@
 package nl.tudelft.cornul11.thesis.corpus.database;
 
+import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAOImpl.LibraryCandidate;
+import nl.tudelft.cornul11.thesis.corpus.file.ClassFileInfo;
 import nl.tudelft.cornul11.thesis.corpus.file.JarAndPomInfoExtractor;
 import nl.tudelft.cornul11.thesis.corpus.file.LibraryMatchInfo;
 import nl.tudelft.cornul11.thesis.corpus.model.Signature;
@@ -20,7 +22,7 @@ public interface SignatureDAO {
 
     List<SignatureDAOImpl.OracleLibrary> getOracleLibraries();
 
-    List<LibraryMatchInfo> returnTopLibraryMatches(List<Long> hashes);
+    List<LibraryCandidate> returnTopLibraryMatches(List<ClassFileInfo> signatures);
 
     void closeConnection();
 
