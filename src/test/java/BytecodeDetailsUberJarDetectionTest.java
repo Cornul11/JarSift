@@ -6,6 +6,7 @@ import nl.tudelft.cornul11.thesis.corpus.jarfile.JarSignatureMapper;
 import nl.tudelft.cornul11.thesis.corpus.model.Signature;
 import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -84,6 +85,8 @@ public class BytecodeDetailsUberJarDetectionTest {
         assertEquals(0, totalClassFilesProcessed, "All class files should be processed");
     }
 
+    // TODO: this needs to be refactored
+    @Disabled
     @Test
     public void test() throws IOException {
         ConfigurationLoader config = new ConfigurationLoader();
@@ -91,8 +94,7 @@ public class BytecodeDetailsUberJarDetectionTest {
         DatabaseManager databaseManager = DatabaseManager.getInstance(databaseConfig);
         SignatureDAO signatureDao = databaseManager.getSignatureDao();
         JarSignatureMapper jarSignatureMapper = new JarSignatureMapper(signatureDao);
-        jarSignatureMapper.inferJarFileMultiproccess(Paths.get("/Users/tdurieux/Downloads/uber-jar-6.5.15.jar"));
-
+        jarSignatureMapper.inferJarFileMultithreadedProcess(Paths.get("/Users/tdurieux/Downloads/uber-jar-6.5.15.jar"));
     }
 
     @Test

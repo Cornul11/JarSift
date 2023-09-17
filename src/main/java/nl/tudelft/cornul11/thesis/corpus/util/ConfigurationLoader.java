@@ -1,5 +1,4 @@
 package nl.tudelft.cornul11.thesis.corpus.util;
-
 import nl.tudelft.cornul11.thesis.corpus.database.DatabaseConfig;
 
 import java.io.FileInputStream;

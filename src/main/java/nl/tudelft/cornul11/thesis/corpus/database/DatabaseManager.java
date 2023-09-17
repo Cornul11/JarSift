@@ -106,7 +106,7 @@ public class DatabaseManager {
                 "FOREIGN KEY (library_id) REFERENCES oracle_libraries(id))";
 
         try (Connection connection = ds.getConnection();
-                Statement statement = connection.createStatement()) {
+             Statement statement = connection.createStatement()) {
             statement.executeUpdate(createTableQuery);
             logger.info("Dependencies table created or already exists.");
         } catch (SQLException e) {
@@ -124,7 +124,7 @@ public class DatabaseManager {
                 "FOREIGN KEY (library_id) REFERENCES oracle_libraries(id))";
 
         try (Connection connection = ds.getConnection();
-                Statement statement = connection.createStatement()) {
+             Statement statement = connection.createStatement()) {
             statement.executeUpdate(createTableQuery);
             logger.info("Plugins table created or already exists.");
         } catch (SQLException e) {
@@ -142,7 +142,7 @@ public class DatabaseManager {
                 "FOREIGN KEY (plugin_id) REFERENCES plugins(id))";
 
         try (Connection connection = ds.getConnection();
-                Statement statement = connection.createStatement()) {
+             Statement statement = connection.createStatement()) {
             statement.executeUpdate(createTableQuery);
             logger.info("Plugin config table created or already exists.");
         } catch (SQLException e) {
@@ -156,7 +156,7 @@ public class DatabaseManager {
         String createSignatureHashIndexQuery = "CREATE INDEX idx_signature_class_hash ON signatures (class_hash)";
 
         try (Connection connection = ds.getConnection();
-                Statement statement = connection.createStatement()) {
+             Statement statement = connection.createStatement()) {
             statement.executeUpdate(createLibraryIdIndexQuery);
             statement.executeUpdate(createSignatureIdIndexQuery);
             statement.executeUpdate(createSignatureHashIndexQuery);
@@ -176,7 +176,7 @@ public class DatabaseManager {
                 + "is_an_uber_jar BOOLEAN NOT NULL)";
 
         try (Connection connection = ds.getConnection();
-                Statement statement = connection.createStatement()) {
+             Statement statement = connection.createStatement()) {
             statement.executeUpdate(createTableQuery);
             logger.info("Oracle libraries table created or already exists.");
         } catch (SQLException e) {
@@ -197,7 +197,7 @@ public class DatabaseManager {
                 + "total_class_files INT NOT NULL)";
 
         try (Connection connection = ds.getConnection();
-                Statement statement = connection.createStatement()) {
+             Statement statement = connection.createStatement()) {
             statement.executeUpdate(createTableQuery);
             logger.info("Libraries table created or already exists.");
         } catch (SQLException e) {
@@ -213,7 +213,7 @@ public class DatabaseManager {
                 "class_crc BIGINT NOT NULL)";
 
         try (Connection connection = ds.getConnection();
-                Statement statement = connection.createStatement()) {
+             Statement statement = connection.createStatement()) {
             statement.executeUpdate(createTableQuery);
             logger.info("Signatures table created or already exists.");
         } catch (SQLException e) {
@@ -254,7 +254,7 @@ public class DatabaseManager {
                 "PARTITION p25 VALUES LESS THAN MAXVALUE)";
 
         try (Connection connection = ds.getConnection();
-                Statement statement = connection.createStatement()) {
+             Statement statement = connection.createStatement()) {
             statement.executeUpdate(createTableQuery);
             logger.info("Library-Signature table created or already exists.");
         } catch (SQLException e) {

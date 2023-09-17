@@ -4,7 +4,6 @@ import com.zaxxer.hikari.HikariDataSource;
 
 import nl.tudelft.cornul11.thesis.corpus.file.ClassFileInfo;
 import nl.tudelft.cornul11.thesis.corpus.file.JarAndPomInfoExtractor;
-import nl.tudelft.cornul11.thesis.corpus.file.LibraryMatchInfo;
 import nl.tudelft.cornul11.thesis.corpus.model.Signature;
 import nl.tudelft.cornul11.thesis.oracle.PomProcessor;
 import org.apache.maven.model.*;
@@ -15,13 +14,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.StringReader;
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -36,8 +29,7 @@ public class SignatureDAOImpl implements SignatureDAO {
     }
 
     @Override
-    public int insertLibrary(JarAndPomInfoExtractor jarAndPomInfoExtractor, long jarHash, long jarCrc,
-            boolean isBrokenJar) {
+    public int insertLibrary(JarAndPomInfoExtractor jarAndPomInfoExtractor, long jarHash, long jarCrc, boolean isBrokenJar) {
         String insertLibraryQuery = "INSERT INTO libraries (group_id, artifact_id, version, jar_hash, jar_crc, is_uber_jar, total_class_files) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         executeWithDeadlockRetry(connection -> {
@@ -66,10 +58,7 @@ public class SignatureDAOImpl implements SignatureDAO {
     @Override
     public int insertSignatures(List<Signature> signatures, long jarHash, long jarCrc) {
         String insertLibraryQuery = "INSERT INTO libraries (group_id, artifact_id, version, jar_hash, jar_crc, is_uber_jar, total_class_files, disk_size) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-        String insertSignatureQuery = "INSERT INTO signatures (library_id, class_hash, class_crc) VALUES (?, ?, ?)"; // library_id
-                                                                                                                     // is
-                                                                                                                     // added
-                                                                                                                     // here.
+        String insertSignatureQuery = "INSERT INTO signatures (library_id, class_hash, class_crc) VALUES (?, ?, ?)"; // library_id is added here.
 
         AtomicInteger totalRowsInserted = new AtomicInteger();
         executeWithDeadlockRetry(connection -> {
@@ -132,15 +121,12 @@ public class SignatureDAOImpl implements SignatureDAO {
         public String getGroupId() {
             return groupId;
         }
-
         public String getArtifactId() {
             return artifactId;
         }
-
         public String getVersion() {
             return version;
         }
-
         public boolean isAnUberJar() {
             return isAnUberJar;
         }
@@ -164,8 +150,8 @@ public class SignatureDAOImpl implements SignatureDAO {
 
         List<OracleLibrary> libraries = new ArrayList<>();
         try (Connection connection = ds.getConnection();
-                PreparedStatement statement = connection.prepareStatement(selectLibrariesQuery,
-                        ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
+             PreparedStatement statement = connection.prepareStatement(selectLibrariesQuery,
+                     ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
             statement.setFetchSize(1000); // Fetch 1000 rows at a time
             statement.setFetchDirection(ResultSet.FETCH_FORWARD);
 
@@ -187,7 +173,7 @@ public class SignatureDAOImpl implements SignatureDAO {
     public boolean isLibraryInDB(String library) {
         String selectLibraryQuery = "SELECT 1 FROM libraries WHERE CONCAT(group_id, ':', artifact_id, ':', version) = ?";
         try (Connection connection = ds.getConnection();
-                PreparedStatement statement = connection.prepareStatement(selectLibraryQuery)) {
+             PreparedStatement statement = connection.prepareStatement(selectLibraryQuery)) {
             statement.setString(1, library);
             try (ResultSet resultSet = statement.executeQuery()) {
                 return resultSet.next();
@@ -231,8 +217,7 @@ public class SignatureDAOImpl implements SignatureDAO {
 
         /**
          * Returns the AGV of the library.
-         * 
-         * @return
+         *
          */
         public String getAGV() {
             return groupId + ":" + artifactId + ":" + version;
@@ -309,10 +294,7 @@ public class SignatureDAOImpl implements SignatureDAO {
         }
 
         public List<LibraryCandidate> getAlternatives() {
-            if (this.alternatives != null) {
-                return this.alternatives;
-            }
-            return new ArrayList<>();
+            return Objects.requireNonNullElseGet(this.alternatives, ArrayList::new);
         }
 
         public boolean addAlternative(LibraryCandidate alternative) {
@@ -421,7 +403,7 @@ public class SignatureDAOImpl implements SignatureDAO {
             sb.append("\"includedIn\": [");
             if (this.includedIn != null) {
                 isFirst = true;
-                this.includedIn.sort((data1, data2) -> data1.getAGV().compareTo(data2.getAGV()));
+                this.includedIn.sort(Comparator.comparing(LibraryCandidate::getAGV));
                 for (LibraryCandidate alternative : this.includedIn) {
                     if (!isFirst) {
                         sb.append(",");
@@ -435,7 +417,7 @@ public class SignatureDAOImpl implements SignatureDAO {
             sb.append("\"includes\": [");
             if (this.includes != null) {
                 isFirst = true;
-                this.includes.sort((data1, data2) -> data1.getAGV().compareTo(data2.getAGV()));
+                this.includes.sort(Comparator.comparing(LibraryCandidate::getAGV));
                 for (LibraryCandidate alternative : this.includes) {
                     if (!isFirst) {
                         sb.append(",");
@@ -528,7 +510,8 @@ public class SignatureDAOImpl implements SignatureDAO {
                     + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds.");
 
             Set<LibraryCandidate> selfCandidates = new HashSet<>();
-            lib: for (Integer lib : libToHash.keySet()) {
+            lib:
+            for (Integer lib : libToHash.keySet()) {
                 Set<Long> hashesInLib = libToHash.get(lib);
                 int nbHashesInLib = hashesInLib.size();
                 if (nbHashesInLib < 2) {
@@ -643,7 +626,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                     // consider different version of the same lib as alternative
                     // list is sorted by best matches first
                     if (lib.isDifferentVersion(lib2) ||
-                    // if the lib is included in another lib, we do consider it as alternative
+                            // if the lib is included in another lib, we do consider it as alternative
                             (lib.expectedNumberOfClasses == lib2.expectedNumberOfClasses
                                     && libHashSize == lib2HashSize
                                     && lib.contains(lib2))) {
@@ -706,7 +689,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                         libOfHash.remove(alternative.getLibraryId());
                     }
                 }
-                if (libOfHash.size() == 0) {
+                if (libOfHash.isEmpty()) {
                     continue;
                 }
 
@@ -749,8 +732,7 @@ public class SignatureDAOImpl implements SignatureDAO {
     }
 
     @Override
-    public void insertPluginInfo(Model model, Plugin shadePlugin, boolean minimizeJar, boolean usingMavenShade,
-            boolean isUberJar) {
+    public void insertPluginInfo(Model model, Plugin shadePlugin, boolean minimizeJar, boolean usingMavenShade, boolean isUberJar) {
         long startTime = System.currentTimeMillis();
 
         String insertLibraryQuery = "INSERT INTO oracle_libraries (group_id, artifact_id, version, using_maven_shade_plugin, is_an_uber_jar) VALUES (?, ?, ?, ?, ?)";
@@ -991,7 +973,7 @@ public class SignatureDAOImpl implements SignatureDAO {
         List<Long> libraryHashes = new ArrayList<>();
 
         try (Connection connection = ds.getConnection();
-                PreparedStatement statement = connection.prepareStatement(mainQuery)) {
+             PreparedStatement statement = connection.prepareStatement(mainQuery)) {
 
             ResultSet resultSet = statement.executeQuery();
             while (resultSet.next()) {
@@ -1009,8 +991,7 @@ public class SignatureDAOImpl implements SignatureDAO {
     public void closeConnection() {
         if (ds != null) {
             ds.close();
-            logger.info(
-                    "Total time spent in database: " + (System.currentTimeMillis() - startTime) / 1000 + " seconds.");
+            logger.info("Total time spent in database: " + (System.currentTimeMillis() - startTime) / 1000 + " seconds.");
             logger.info("Database connection closed.");
         }
     }

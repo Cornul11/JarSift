@@ -20,10 +20,9 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.zip.CRC32;
 
+
 public class JarHandler {
     private static final int MAX_SUBMODULES = 1;
-    private static final Set<String> PREFIX_EXCEPTIONS = Set.of("META-INF/", "META-INF/versions/", "test/");
-    private static final Set<String> FILENAME_EXCEPTIONS = Set.of("module-info.class", "package-info.class");
 
     private final Path jarFilePath;
     private final ConcurrentLinkedDeque<String> ignoredUberJars;
@@ -76,6 +75,7 @@ public class JarHandler {
             logger.info("Processing " + jarFilePath + " with " + jarFile.size() + " entries");
             while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
+                String entryName = entry.getName();
 
                 if (isMavenSubmodule(entry) && shouldSkipDueToSubmoduleCount()) {
                     if (ignoreUberJarSignatures) {
@@ -84,11 +84,11 @@ public class JarHandler {
                     }
                 }
 
-                if (shouldSkip(entry)) {
+                if (JarProcessingUtils.shouldSkip(entry)) {
                     continue;
                 }
 
-                if (isJarFile(entry)) {
+                if (JarProcessingUtils.isJarFile(entry, entryName)) {
                     if (ignoreUberJarSignatures) {
                         logger.warn("Found nested JAR file in " + jarFilePath + ", skipping");
                         ignoredUberJars.add(jarFilePath.toString());
@@ -96,8 +96,8 @@ public class JarHandler {
                     }
                 }
 
-                if (isClassFile(entry)) {
-                    ClassFileInfo classFileInfo = processClassFile(entry, jarFile);
+                if (JarProcessingUtils.isClassFile(entry, entryName)) {
+                    ClassFileInfo classFileInfo = JarProcessingUtils.processClassFile(entry, jarFile.getInputStream(entry));
 
                     if (classFileInfo != null) {
                         classFileInfos.add(classFileInfo);
@@ -138,28 +138,6 @@ public class JarHandler {
         return false;
     }
 
-    private static boolean shouldSkip(JarEntry entry) {
-        return matchesPrefixExceptions(entry) || matchesFilenameExceptions(entry);
-    }
-
-    private static boolean matchesPrefixExceptions(JarEntry entry) {
-        return PREFIX_EXCEPTIONS.stream()
-                .anyMatch(prefix -> entry.getName().startsWith(prefix));
-    }
-
-    private static boolean matchesFilenameExceptions(JarEntry entry) {
-        return FILENAME_EXCEPTIONS.stream()
-                .anyMatch(filename -> entry.getName().contains(filename));
-    }
-
-    private boolean isJarFile(JarEntry entry) {
-        return !entry.isDirectory() && entry.getName().endsWith(".jar");
-    }
-
-    private boolean isClassFile(JarEntry entry) {
-        return !entry.isDirectory() && entry.getName().endsWith(".class");
-    }
-
     private String getClassPrefix(JarEntry entry) {
         return entry.getName().substring(0, entry.getName().indexOf('/') + 1);
     }
@@ -179,18 +157,6 @@ public class JarHandler {
             return true;
         }
         return false;
-    }
-
-    private ClassFileInfo processClassFile(JarEntry entry, JarFile jarFile) {
-        try (InputStream classFileInputStream = jarFile.getInputStream(entry)) {
-            byte[] bytecode = BytecodeUtils.readBytecodeAndCalculateCRCWhenNotAvailable(entry, classFileInputStream);
-
-            BytecodeDetails bytecodeDetails = BytecodeParser.extractSignature(bytecode);
-            return new ClassFileInfo(entry.getName(), BytecodeUtils.getSignatureHash(bytecodeDetails), entry.getCrc());
-        } catch (Exception e) {
-            logger.error("Error while processing class file: " + entry.getName(), e);
-            return null;
-        }
     }
 
     public long getJarCrc() {

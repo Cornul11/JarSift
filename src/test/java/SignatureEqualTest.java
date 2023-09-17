@@ -1,68 +1,52 @@
-import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.corpus.file.ClassFileInfo;
-import nl.tudelft.cornul11.thesis.corpus.file.JarAndPomInfoExtractor;
+import nl.tudelft.cornul11.thesis.corpus.jarfile.JarHandler;
 import nl.tudelft.cornul11.thesis.corpus.jarfile.JarSignatureMapper;
-import nl.tudelft.cornul11.thesis.corpus.jarfile.FileAnalyzer;
 import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 public class SignatureEqualTest {
     private static final String JAR_FILE_PATH = "jars/jsr305-2.0.1.jar";
 
     /**
-     * Test that the signatures are equal when using the JarFileProcessor and the JarFileInferenceProcessor
+     * Test that the signatures are equal when using the JarSignatureMapper and the JarHandler
      * In other words, the signatures are equal both when the corpus is being created, and when we extract the signatures
      */
     @Test
     public void testSignatureEqual() {
-        SignatureDAO mockDao = mock(SignatureDAO.class);
-        ConfigurationLoader mockConfig = mock(ConfigurationLoader.class);
-        Mockito.when(mockConfig.ignoreUberJarSignatures()).thenReturn(true);
+        Path jarFilePath = getJarPath();
+        List<ClassFileInfo> signatureMapperSignatures = JarSignatureMapper.inferStandaloneJar(jarFilePath);
 
-        FileAnalyzer realProcessor = new FileAnalyzer(mockDao, mockConfig);
-        FileAnalyzer processor = spy(realProcessor);
-        JarSignatureMapper realInferenceProcessor = new JarSignatureMapper(mockDao);
-        JarSignatureMapper inferenceProcessor = spy(realInferenceProcessor);
-
-        Path testPath = getJarPath(JAR_FILE_PATH);
-
-        // process the jar file with both processors
-        processor.processJarFile(testPath);
-        inferenceProcessor.inferJarFile(testPath);
-
-        // capture the signatures passed to commitSignatures
-        ArgumentCaptor<List<ClassFileInfo>> argumentCaptor = ArgumentCaptor.forClass(List.class);
-        verify(processor).commitSignatures(argumentCaptor.capture(), any(JarAndPomInfoExtractor.class), anyLong(), anyLong());
-
-        List<ClassFileInfo> capturedClassFileInfosFromProcessor = argumentCaptor.getValue();
-
-        // capture the method call to checkSignatures
-        ArgumentCaptor<List<ClassFileInfo>> checkSignaturesCaptor = ArgumentCaptor.forClass(List.class);
-        // verify(inferenceProcessor).getTopMatches(checkSignaturesCaptor.capture(), any(SignatureDAO.class));
-
-        List<ClassFileInfo> checkedClassFileInfoFromInference = checkSignaturesCaptor.getValue();
+        JarHandler jarHandler = new JarHandler(jarFilePath,
+                new ConcurrentLinkedDeque<>(),
+                new ConcurrentLinkedDeque<>(),
+                new ConfigurationLoader());
+        List<ClassFileInfo> handlerSignatures = jarHandler.extractSignatures();
 
         // assert that both lists have the same size
-        assertEquals(capturedClassFileInfosFromProcessor.size(), checkedClassFileInfoFromInference.size());
+        assertNotEquals(signatureMapperSignatures, null);
+        assertEquals(handlerSignatures.size(), signatureMapperSignatures.size());
+
+        // sort handlerSignatures and signatureMapperSignatures based on the class name
+        handlerSignatures.sort(Comparator.comparing(ClassFileInfo::getClassName));
+        signatureMapperSignatures.sort(Comparator.comparing(ClassFileInfo::getClassName));
 
         // Assert that the signatures are equal
-        for (int i = 0; i < capturedClassFileInfosFromProcessor.size(); i++) {
-            assertEquals(capturedClassFileInfosFromProcessor.get(i).getClassName(), checkedClassFileInfoFromInference.get(i).getClassName());
-            assertEquals(capturedClassFileInfosFromProcessor.get(i).getHashCode(), checkedClassFileInfoFromInference.get(i).getHashCode());
+        for (int i = 0; i < handlerSignatures.size(); i++) {
+            assertEquals(handlerSignatures.get(i).getClassName(), signatureMapperSignatures.get(i).getClassName());
+            assertEquals(handlerSignatures.get(i).getHashCode(), signatureMapperSignatures.get(i).getHashCode());
         }
     }
 
-    private Path getJarPath(String jarName) {
-        return Paths.get(getClass().getClassLoader().getResource(jarName).getPath());
+    private Path getJarPath() {
+        return Paths.get(getClass().getClassLoader().getResource(SignatureEqualTest.JAR_FILE_PATH).getPath());
     }
 }

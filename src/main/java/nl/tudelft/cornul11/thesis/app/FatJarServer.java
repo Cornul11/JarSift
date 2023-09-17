@@ -36,8 +36,8 @@ import java.util.List;
 public class FatJarServer extends AbstractHandler {
     Path multipartTmpDir = Paths.get("target", "multipart-tmp");
     String location = multipartTmpDir.toString();
-    long maxFileSize = 100000 * 1024 * 1024; // 1 GB
-    long maxRequestSize = 100000 * 1024 * 1024; // 10 MB
+    long maxFileSize = 100000L * 1024 * 1024; // 1 GB
+    long maxRequestSize = 100000L * 1024 * 1024; // 10 MB
     int fileSizeThreshold = 64 * 1024; // 64 KB
 
     ConfigurationLoader config = new ConfigurationLoader();
@@ -46,15 +46,13 @@ public class FatJarServer extends AbstractHandler {
     SignatureDAO signatureDao = databaseManager.getSignatureDao();
     JarSignatureMapper jarSignatureMapper = new JarSignatureMapper(signatureDao);
 
-    MultipartConfigElement multipartConfig = new MultipartConfigElement(location, maxFileSize, maxRequestSize,
-            fileSizeThreshold);
+    MultipartConfigElement multipartConfig = new MultipartConfigElement(location, maxFileSize, maxRequestSize, fileSizeThreshold);
 
     public FatJarServer() {
         super();
     }
 
-    private void handleUpload(HttpServletRequest request, HttpServletResponse response, Path outputDir)
-            throws ServletException, IOException {
+    private void handleUpload(HttpServletRequest request, HttpServletResponse response, Path outputDir) throws ServletException, IOException {
         response.setCharacterEncoding("utf-8");
         response.setContentType("application/json");
 
@@ -71,9 +69,8 @@ public class FatJarServer extends AbstractHandler {
                     if (part.getSize() > 1024 * 1024) {
                         String fileName = part.getSubmittedFileName();
                         Path uploadPath = outputDir.resolve(fileName);
-                        Files.copy(inputStream, uploadPath,
-                                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                        inferJarFile = jarSignatureMapper.inferJarFileMultiproccess(uploadPath);
+                        Files.copy(inputStream, uploadPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                        inferJarFile = jarSignatureMapper.inferJarFileMultithreadedProcess(uploadPath);
                         uploadPath.toFile().delete();
                     } else {
                         inferJarFile = jarSignatureMapper.inferJarFile(inputStream);
@@ -81,8 +78,7 @@ public class FatJarServer extends AbstractHandler {
 
                     // Sort in decreasing order of count
                     inferJarFile.sort((data1, data2) -> {
-                        int compare = Double.compare(data2.getIncludedRatio(),
-                                data1.getIncludedRatio());
+                        int compare = Double.compare(data2.getIncludedRatio(), data1.getIncludedRatio());
                         if (compare == 0) {
                             return data2.getHashes().size() - data1.getHashes().size();
                         }
@@ -111,8 +107,7 @@ public class FatJarServer extends AbstractHandler {
     }
 
     @Override
-    public void handle(String target, Request jettyRequest, HttpServletRequest request,
-            HttpServletResponse response) {
+    public void handle(String target, Request jettyRequest, HttpServletRequest request, HttpServletResponse response) {
         // get file upload from request
         if (target.equals("/upload")) {
             jettyRequest.setAttribute(Request.__MULTIPART_CONFIG_ELEMENT, multipartConfig);
@@ -141,15 +136,15 @@ public class FatJarServer extends AbstractHandler {
         server.setHandler(contextCollection);
 
         // Create and configure a ResourceHandler.
-        ResourceHandler ressourceHandler = new ResourceHandler();
+        ResourceHandler resourceHandler = new ResourceHandler();
         // Configure the directory where static resources are located.
-        ressourceHandler.setBaseResource(Resource.newResource("www/"));
+        resourceHandler.setBaseResource(Resource.newResource("www/"));
         // Configure directory listing.
-        ressourceHandler.setDirectoriesListed(true);
+        resourceHandler.setDirectoriesListed(true);
         // Configure welcome files.
-        ressourceHandler.setWelcomeFiles(new String[] { "index.html" });
+        resourceHandler.setWelcomeFiles(new String[]{"index.html"});
         // Configure whether to accept range requests.
-        ressourceHandler.setAcceptRanges(true);
+        resourceHandler.setAcceptRanges(true);
 
         ContextHandler apiContext = new ContextHandler();
         apiContext.setContextPath("/api");
@@ -158,12 +153,11 @@ public class FatJarServer extends AbstractHandler {
 
         ContextHandler publicContext = new ContextHandler();
         publicContext.setContextPath("/");
-        publicContext.setHandler(ressourceHandler);
+        publicContext.setHandler(resourceHandler);
         contextCollection.addHandler(publicContext);
 
-        // Start the Server so it starts accepting connections from clients.
+        // Start the Server, so it starts accepting connections from clients.
         server.start();
         server.join();
     }
-
 }
