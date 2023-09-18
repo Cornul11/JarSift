@@ -21,8 +21,8 @@ services:
       dockerfile: Dockerfile-script
     volumes:
       - ${JARS_DIRECTORY}:/usr/.m2/repository
-    profiles: ["script"]
-    command: ["node", "build/collect_file_size.js", "/usr/.m2/repository"]
+    profiles: [ "script" ]
+    command: [ "node", "build/collect_file_size.js", "/usr/.m2/repository" ]
     env_file:
       - ./.env
     environment:
@@ -30,6 +30,13 @@ services:
       - MYSQL_HOST=db
     depends_on:
       - db
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - ${MONGODB_DATA_LOCATION}:/data/db
 
   db:
     build:
@@ -55,3 +62,4 @@ services:
       - PMA_HOST=db
     depends_on:
       - db
+
