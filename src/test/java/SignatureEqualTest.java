@@ -12,6 +12,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.mockito.Mockito.mock;
 
 public class SignatureEqualTest {
     private static final String JAR_FILE_PATH = "jars/jsr305-2.0.1.jar";
@@ -25,10 +26,12 @@ public class SignatureEqualTest {
         Path jarFilePath = getJarPath();
         List<ClassFileInfo> signatureMapperSignatures = JarSignatureMapper.inferStandaloneJar(jarFilePath);
 
+
+        ConfigurationLoader mockConfigLoader = mock(ConfigurationLoader.class);
         JarHandler jarHandler = new JarHandler(jarFilePath,
                 new ConcurrentLinkedDeque<>(),
                 new ConcurrentLinkedDeque<>(),
-                new ConfigurationLoader());
+                mockConfigLoader);
         List<ClassFileInfo> handlerSignatures = jarHandler.extractSignatures();
 
         // assert that both lists have the same size

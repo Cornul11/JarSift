@@ -88,7 +88,7 @@ public class BytecodeDetailsUberJarDetectionTest {
     // TODO: this needs to be refactored
     @Disabled
     @Test
-    public void test() throws IOException {
+    public void test() {
         ConfigurationLoader config = new ConfigurationLoader();
         DatabaseConfig databaseConfig = config.getDatabaseConfig();
         DatabaseManager databaseManager = DatabaseManager.getInstance(databaseConfig);
