@@ -4,11 +4,13 @@ import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAOImpl;
 import nl.tudelft.cornul11.thesis.corpus.file.JarAndPomInfoExtractor;
 import nl.tudelft.cornul11.thesis.corpus.jarfile.JarFrequencyAnalyzer;
+import nl.tudelft.cornul11.thesis.corpus.model.LibraryInfo;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.model.PluginExecution;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,7 +69,7 @@ public class OracleInformationComparator {
                 .collect(Collectors.toList());
 
 
-        Iterator<String> allPossibleLibraries = signatureDAO.getAllPossibleLibraries();
+        Iterator<String> allPossibleLibraries = getStringIterator();
 
         for (String dbLibrary : dbLibraries) {
             if (inferredLibraries.contains(dbLibrary)) {
@@ -99,6 +101,24 @@ public class OracleInformationComparator {
 
         long endTime = System.currentTimeMillis();
         logger.info("Validation of {} took {} s", uberJarPath, (double) (endTime - startTime) / 1000);
+    }
+
+    @NotNull
+    private Iterator<String> getStringIterator() {
+        Iterator<LibraryInfo> libraryInfoIterator = signatureDAO.getAllPossibleLibraries();
+
+        return new Iterator<>() {
+            @Override
+            public boolean hasNext() {
+                return libraryInfoIterator.hasNext();
+            }
+
+            @Override
+            public String next() {
+                LibraryInfo libraryInfo = libraryInfoIterator.next();
+                return libraryInfo.getGroupId() + ":" + libraryInfo.getArtifactId() + ":" + libraryInfo.getVersion();
+            }
+        };
     }
 
     private boolean shouldIncludeDependency(Dependency dep, Map<String, List<String>> shadePluginConfigParameters) {
@@ -348,7 +368,7 @@ public class OracleInformationComparator {
                     continue;
                 }
 
-                Iterator<String> allPossibleLibraries = signatureDAO.getAllPossibleLibraries();
+                Iterator<String> allPossibleLibraries = getStringIterator();
 
                 for (String dbLibrary : dbLibraries) {
                     if (inferredLibraries.contains(dbLibrary)) {

@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariDataSource;
 
 import nl.tudelft.cornul11.thesis.corpus.file.ClassFileInfo;
 import nl.tudelft.cornul11.thesis.corpus.file.JarAndPomInfoExtractor;
+import nl.tudelft.cornul11.thesis.corpus.model.LibraryInfo;
 import nl.tudelft.cornul11.thesis.corpus.model.Signature;
 import nl.tudelft.cornul11.thesis.oracle.PomProcessor;
 import org.apache.maven.model.*;
@@ -113,7 +114,7 @@ public class SignatureDAOImpl implements SignatureDAO {
     }
 
     @Override
-    public Iterator<String> getAllPossibleLibraries() {
+    public Iterator<LibraryInfo> getAllPossibleLibraries() {
         return new LibraryIterator(ds);
     }
 
@@ -345,7 +346,7 @@ public class SignatureDAOImpl implements SignatureDAO {
             return this.hashes;
         }
 
-        public LibraryCandidate setExpectedNumberOfClasses(int nbUniqueLibClass) {
+        public LibraryCandidate setExpectedNumberOfTotalClasses(int nbUniqueLibClass) {
             this.expectedNumberOfClasses = nbUniqueLibClass;
             return this;
         }
@@ -448,22 +449,29 @@ public class SignatureDAOImpl implements SignatureDAO {
         Map<String, Set<Long>> packagesToHashes = new HashMap<>();
         Map<Long, Set<String>> hashToPackage = new HashMap<>();
         Set<Long> hashes = new HashSet<>();
-        Set<String> pathes = new HashSet<>();
+        Set<String> paths = new HashSet<>();
 
         for (ClassFileInfo s : signatures) {
             hashes.add(s.getHashCode());
             String path = s.getClassName();
             String folder = path.substring(0, path.lastIndexOf("/"));
-            pathes.add(folder);
+            // paths are unused for now
+            paths.add(folder);
 
+            // we want to also keep track of the packages that contain the same hash
             if (!packagesToHashes.containsKey(folder)) {
                 packagesToHashes.put(folder, new HashSet<>());
             }
+
+            // class hashes per package
             packagesToHashes.get(folder).add(s.getHashCode());
 
+            // we want to keep track of the packages that contain the same hash
             if (!hashToPackage.containsKey(s.getHashCode())) {
                 hashToPackage.put(s.getHashCode(), new HashSet<>());
             }
+
+            // packages per class hash
             hashToPackage.get(s.getHashCode()).add(folder);
         }
 
@@ -480,8 +488,8 @@ public class SignatureDAOImpl implements SignatureDAO {
                 statement.executeBatch();
             }
 
-            int nbUniqueHashes = hashes.size();
-            Map<Long, Set<Integer>> hashToLib = new HashMap<>(nbUniqueHashes);
+            int numUniqueHashes = hashes.size();
+            Map<Long, Set<Integer>> hashToLib = new HashMap<>(numUniqueHashes);
             Map<Integer, Set<Long>> libToHash = new HashMap<>(100);
             Map<Integer, Set<String>> libToPackages = new HashMap<>(100);
 
@@ -490,11 +498,14 @@ public class SignatureDAOImpl implements SignatureDAO {
                 while (resultSet.next()) {
                     Long classHash = resultSet.getLong("temp_hashes.class_hash");
                     int libraryId = resultSet.getInt("library_id");
+
+                    // keep track of the hashes that are in many libraries
                     if (!hashToLib.containsKey(classHash)) {
                         hashToLib.put(classHash, new HashSet<>());
                     }
                     hashToLib.get(classHash).add(libraryId);
 
+                    // keep track of the hashes contained in each library
                     if (!libToHash.containsKey(libraryId)) {
                         libToHash.put(libraryId, new HashSet<>());
                         libToPackages.put(libraryId, new HashSet<>());
@@ -506,25 +517,29 @@ public class SignatureDAOImpl implements SignatureDAO {
             try (Statement statement = connection.createStatement()) {
                 statement.execute(dropTempTable);
             }
-            logger.info("# file not found in DB: " + (nbUniqueHashes - hashToLib.size()) + " "
+            logger.info("# file not found in DB: " + (numUniqueHashes - hashToLib.size()) + " "
                     + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds.");
 
             Set<LibraryCandidate> selfCandidates = new HashSet<>();
             lib:
+
+            // for each detected library
             for (Integer lib : libToHash.keySet()) {
-                Set<Long> hashesInLib = libToHash.get(lib);
-                int nbHashesInLib = hashesInLib.size();
-                if (nbHashesInLib < 2) {
+                Set<Long> hashesInLib = libToHash.get(lib); // get all of its hashes
+                int numHashesInLib = hashesInLib.size();
+
+                if (numHashesInLib < 2) { // if a lib has only one hash, we don't consider it
                     continue;
                 }
-                if (nbHashesInLib * 1.0 / nbUniqueHashes > 0.5) {
-                    // if the lib includes more than 90% of the hashes we do consider it
+
+                if (numHashesInLib * 1.0 / numUniqueHashes > 0.5) {
+                    // if the lib includes more than 50% of the hashes in the input jar we consider it as a candidate
                     LibraryCandidate libraryCandidate = new LibraryCandidate()
                             .setLibraryId(lib)
                             .setHashes(hashesInLib);
 
                     // check if we matched itself
-                    if (nbHashesInLib * 1.0 / nbUniqueHashes > 0.99) {
+                    if (numHashesInLib * 1.0 / numUniqueHashes > 0.99) {
                         selfCandidates.add(libraryCandidate);
                         libraryCandidate.setSelf(true);
                     }
@@ -537,7 +552,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                         continue;
                     }
                     // if the lib includes all the hashes of a package we do consider it
-                    if (nbHashesInLib >= hashInPackage.size() && hashesInLib.containsAll(hashInPackage)) {
+                    if (numHashesInLib >= hashInPackage.size() && hashesInLib.containsAll(hashInPackage)) {
                         candidates.add(new LibraryCandidate().setLibraryId(lib)
                                 .setHashes(hashesInLib));
                         continue lib;
@@ -550,11 +565,10 @@ public class SignatureDAOImpl implements SignatureDAO {
 
             candidates.sort((data1, data2) -> data2.getLibraryId() - data1.getLibraryId());
 
-            List<String> libIds = candidates.stream().map(mapper -> "" + mapper.getLibraryId())
+            List<String> libIds = candidates.stream().map(entry -> "" + entry.getLibraryId())
                     .collect(Collectors.toList());
             try (PreparedStatement statement = connection
-                    .prepareStatement(
-                            "SELECT id, group_id, artifact_id, version, unique_signatures FROM libraries where id in ("
+                    .prepareStatement("SELECT id, group_id, artifact_id, version, unique_signatures FROM libraries where id in ("
                                     + String.join(", ", libIds) + ") ORDER BY id DESC")) {
                 statement.execute();
                 ResultSet result = statement.getResultSet();
@@ -564,8 +578,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                     String resultGroupId = result.getString("group_id");
                     String resultArtifactId = result.getString("artifact_id");
                     String resultVersion = result.getString("version");
-                    int nbUniqueLibClass = result.getInt("unique_signatures");
-                    // int resultTotalCount = result.getInt("total_class_files");
+                    int numUniqueClasses = result.getInt("unique_signatures");
 
                     if (candidates.get(index).getLibraryId() != libraryId) {
                         throw new RuntimeException("The library id does not match.");
@@ -573,7 +586,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                     candidates.get(index).setGroupId(resultGroupId)
                             .setArtifactId(resultArtifactId)
                             .setVersion(resultVersion)
-                            .setExpectedNumberOfClasses(nbUniqueLibClass);
+                            .setExpectedNumberOfTotalClasses(numUniqueClasses);
                     index++;
                 }
             }
@@ -586,8 +599,7 @@ public class SignatureDAOImpl implements SignatureDAO {
 
             // Sort in decreasing order of count
             candidates.sort((data1, data2) -> {
-                int compare = Double.compare(data2.getIncludedRatio(),
-                        data1.getIncludedRatio());
+                int compare = Double.compare(data2.getIncludedRatio(), data1.getIncludedRatio());
                 if (compare == 0) {
                     compare = data2.getHashes().size() - data1.getHashes().size();
                     if (compare == 0) {
@@ -600,8 +612,8 @@ public class SignatureDAOImpl implements SignatureDAO {
                 return compare;
             });
 
-            int nbCandidates = candidates.size();
-            for (int i = 0; i < nbCandidates; i++) {
+            int numTopCandidates = candidates.size();
+            for (int i = 0; i < numTopCandidates; i++) {
                 LibraryCandidate lib = candidates.get(i);
                 if (lib.getHashes() == null) {
                     continue;
@@ -614,10 +626,9 @@ public class SignatureDAOImpl implements SignatureDAO {
                     if (self.isDifferentVersion(lib)) {
                         lib.setSelf(true);
                         selfCandidates.add(lib);
-                        continue;
                     }
                 }
-                for (int j = i; j < nbCandidates; j++) {
+                for (int j = i; j < numTopCandidates; j++) {
                     LibraryCandidate lib2 = candidates.get(j);
                     if (lib.equals(lib2) || lib2.getHashes() == null) {
                         continue;
@@ -638,41 +649,7 @@ public class SignatureDAOImpl implements SignatureDAO {
             logger.info("# Identify alternative: " + nbAlternative + " "
                     + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds.");
 
-            // int nbPerfectMatch = 0;
-            // // look for files that are only in one lib
-            // for (Long hash : hashes) {
-            // Set<Integer> c = hashToLib.get(hash);
-            // if (c == null) {
-            // continue;
-            // }
-            // Set<Integer> libOfHash = new HashSet<>(c);
-            // for (LibraryCandidate self : selfCandidates) {
-            // libOfHash.remove(self.getLibraryId());
-            // for (LibraryCandidate alternative : self.getAlternatives()) {
-            // libOfHash.remove(alternative.getLibraryId());
-            // }
-            // }
-            // if (libOfHash.size() == 0) {
-            // continue;
-            // }
-
-            // for (LibraryCandidate lib : candidates) {
-            // if (lib.getHashes() == null || lib.isSelf() || lib.isPerfectMatch()) {
-            // continue;
-            // }
-            // Set<Integer> libAndAlternativeIds = new HashSet<>();
-            // libAndAlternativeIds.add(lib.getLibraryId());
-            // for (LibraryCandidate alternative : lib.getAlternatives()) {
-            // libAndAlternativeIds.add(alternative.getLibraryId());
-            // }
-            // if (libOfHash.size() <= libAndAlternativeIds.size() &&
-            // libAndAlternativeIds.containsAll(libOfHash)) {
-            // lib.setPerfectMatch(true);
-            // nbPerfectMatch++;
-            // }
-            // }
-            // }
-            int nbPerfectMatch = 0;
+            int numPerfectMatch = 0;
             // look for files that are only in one lib
             for (String pack : packagesToHashes.keySet()) {
                 // identify all the lib of a package
@@ -709,12 +686,12 @@ public class SignatureDAOImpl implements SignatureDAO {
                     if (libOfHash.size() <= libAndAlternativeIds.size() &&
                             libAndAlternativeIds.containsAll(libOfHash)) {
                         lib.setPerfectMatch(true);
-                        nbPerfectMatch++;
+                        numPerfectMatch++;
                     }
                 }
             }
 
-            logger.info("# Identify perfect match: " + nbPerfectMatch + " "
+            logger.info("# Identify perfect match: " + numPerfectMatch + " "
                     + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds.");
 
         } catch (SQLException e) {
@@ -725,8 +702,7 @@ public class SignatureDAOImpl implements SignatureDAO {
         List<LibraryCandidate> output = candidates.stream().filter(lib -> lib.getHashes() != null)
                 .collect(Collectors.toList());
 
-        long endTime = System
-                .currentTimeMillis();
+        long endTime = System.currentTimeMillis();
         logger.info("Top matches query took " + (endTime - startTime) / 1000.0 + " seconds.");
         return output;
     }

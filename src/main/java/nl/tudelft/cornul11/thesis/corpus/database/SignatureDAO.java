@@ -4,6 +4,7 @@ import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAOImpl.LibraryCandid
 import nl.tudelft.cornul11.thesis.corpus.file.ClassFileInfo;
 import nl.tudelft.cornul11.thesis.corpus.file.JarAndPomInfoExtractor;
 import nl.tudelft.cornul11.thesis.corpus.file.LibraryMatchInfo;
+import nl.tudelft.cornul11.thesis.corpus.model.LibraryInfo;
 import nl.tudelft.cornul11.thesis.corpus.model.Signature;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Plugin;
@@ -28,5 +29,5 @@ public interface SignatureDAO {
 
     boolean isLibraryInDB(String library);
 
-    Iterator<String> getAllPossibleLibraries();
+    Iterator<LibraryInfo> getAllPossibleLibraries();
 }

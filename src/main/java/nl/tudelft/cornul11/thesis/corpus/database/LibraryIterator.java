@@ -1,6 +1,7 @@
 package nl.tudelft.cornul11.thesis.corpus.database;
 
 import com.zaxxer.hikari.HikariDataSource;
+import nl.tudelft.cornul11.thesis.corpus.model.LibraryInfo;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -8,7 +9,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Iterator;
 
-public class LibraryIterator implements Iterator<String> {
+public class LibraryIterator implements Iterator<LibraryInfo> {
     private final Connection connection;
     private final PreparedStatement statement;
     private final ResultSet resultSet;
@@ -44,9 +45,9 @@ public class LibraryIterator implements Iterator<String> {
     }
 
     @Override
-    public String next() {
+    public LibraryInfo next() {
         try {
-            return resultSet.getString("group_id") + ":" + resultSet.getString("artifact_id") + ":" + resultSet.getString("version");
+            return new LibraryInfo(resultSet.getString("group_id"), resultSet.getString("artifact_id"), resultSet.getString("version"));
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
