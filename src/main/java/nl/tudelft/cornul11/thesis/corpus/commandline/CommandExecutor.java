@@ -1,6 +1,5 @@
 package nl.tudelft.cornul11.thesis.corpus.commandline;
 
-import nl.tudelft.cornul11.thesis.corpus.api.PostRequestClient;
 import nl.tudelft.cornul11.thesis.corpus.database.DatabaseConfig;
 import nl.tudelft.cornul11.thesis.corpus.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
@@ -16,12 +15,10 @@ import java.util.Map;
 public class CommandExecutor {
     private static final Logger logger = LoggerFactory.getLogger(CommandExecutor.class);
     private final OptionsBuilder options;
-    private final PostRequestClient postRequestClient;
     private final ConfigurationLoader config;
 
-    public CommandExecutor(OptionsBuilder options, PostRequestClient postRequestClient, ConfigurationLoader config) {
+    public CommandExecutor(OptionsBuilder options, ConfigurationLoader config) {
         this.options = options;
-        this.postRequestClient = postRequestClient;
         this.config = config;
     }
 
@@ -67,7 +64,7 @@ public class CommandExecutor {
                     }
                     int totalClassCount = jarFrequencyAnalyzer.getTotalClassCount();
 
-                    VulnerabilityAnalyzer vulnerabilityAnalyzer = new VulnerabilityAnalyzer(postRequestClient, totalClassCount);
+                    VulnerabilityAnalyzer vulnerabilityAnalyzer = new VulnerabilityAnalyzer(totalClassCount, config);
 
                     vulnerabilityAnalyzer.checkForVulnerability(frequencyMap);
                 } else {

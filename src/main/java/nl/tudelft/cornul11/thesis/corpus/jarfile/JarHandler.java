@@ -1,8 +1,5 @@
 package nl.tudelft.cornul11.thesis.corpus.jarfile;
 
-import nl.tudelft.cornul11.thesis.corpus.extractor.bytecode.BytecodeDetails;
-import nl.tudelft.cornul11.thesis.corpus.extractor.bytecode.BytecodeParser;
-import nl.tudelft.cornul11.thesis.corpus.extractor.bytecode.BytecodeUtils;
 import nl.tudelft.cornul11.thesis.corpus.file.ClassFileInfo;
 import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
 import org.slf4j.Logger;
@@ -10,7 +7,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;

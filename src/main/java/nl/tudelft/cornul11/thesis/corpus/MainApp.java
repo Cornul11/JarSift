@@ -1,6 +1,5 @@
 package nl.tudelft.cornul11.thesis.corpus;
 
-import nl.tudelft.cornul11.thesis.corpus.api.PostRequestClient;
 import nl.tudelft.cornul11.thesis.corpus.commandline.CommandExecutor;
 import nl.tudelft.cornul11.thesis.corpus.commandline.OptionsBuilder;
 import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
@@ -21,9 +20,8 @@ public class MainApp {
         }
 
         ConfigurationLoader config = new ConfigurationLoader();
-        PostRequestClient postRequestClient = new PostRequestClient();
 
-        CommandExecutor commandExecutor = new CommandExecutor(optionsParser, postRequestClient, config);
+        CommandExecutor commandExecutor = new CommandExecutor(optionsParser, config);
         commandExecutor.run();
     }
 }

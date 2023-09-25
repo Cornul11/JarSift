@@ -62,4 +62,16 @@ public class ConfigurationLoader {
     public int getTotalJars() {
         return config.getProperty("totalJars") == null ? -1 : Integer.parseInt(config.getProperty("totalJars"));
     }
+
+    public String getMongoDbDatabase() {
+        return config.getProperty("mongoDbDatabase");
+    }
+
+    public String getMongoDbCollection() {
+        return config.getProperty("mongoDbCollection");
+    }
+
+    public String getMongoDbConnectionString() {
+        return config.getProperty("mongoDbConnectionString");
+    }
 }
