@@ -11,11 +11,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -41,7 +37,7 @@ public class JarSignatureMapper {
 
         List<ClassFileInfo> classFileInfos = inferStandaloneJar(jarFilePath);
 
-        if (classFileInfos == null) {
+        if (classFileInfos == null || classFileInfos.isEmpty()) {
             return null;
         }
         totalClassCount = classFileInfos.size();
@@ -68,12 +64,26 @@ public class JarSignatureMapper {
                 }
 
                 if (JarProcessingUtils.isClassFile(entry, entryName)) {
-                    Callable<List<ClassFileInfo>> task = () -> processEntry(jarFile.getInputStream(entry), entry);
+                    Callable<List<ClassFileInfo>> task = () -> {
+                        try {
+                            return processEntry(jarFile.getInputStream(entry), entry);
+                        } catch (IOException e) {
+                            logger.error("Error while processing entry: " + entry.getName(), e);
+                            return Collections.emptyList();
+                        }
+                    };
                     futures.add(executor.submit(task));
                     counter.incrementAndGet();
                 } else if (JarProcessingUtils.isJarFile(entry, entryName)) {
                     logger.info("Processing nested JAR file: " + entryName);
-                    Callable<List<ClassFileInfo>> task = () -> getFileSignatures(jarFile.getInputStream(entry));
+                    Callable<List<ClassFileInfo>> task = () -> {
+                        try {
+                            return getFileSignatures(jarFile.getInputStream(entry));
+                        } catch (IOException | SecurityException e) {
+                            logger.error("Error while processing nested JAR file: " + entry.getName(), e);
+                            return Collections.emptyList();
+                        }
+                    };
                     futures.add(executor.submit(task));
                     counter.incrementAndGet();
                 }
@@ -83,19 +93,28 @@ public class JarSignatureMapper {
             while (counter.get() > 0) {
                 for (Iterator<Future<List<ClassFileInfo>>> iterator = futures.iterator(); iterator.hasNext(); ) {
                     Future<List<ClassFileInfo>> future = iterator.next();
-                    if (future.isDone()) {
-                        // Retrieve the result from the completed future
-                        List<ClassFileInfo> classFileInfo = future.get();
+                    try {
+                        if (future.isDone()) {
+                            // Retrieve the result from the completed future
+                            List<ClassFileInfo> classFileInfo = future.get();
+                            iterator.remove();
+                            counter.decrementAndGet();
+
+                            if (classFileInfo != null) {
+                                classFileInfos.addAll(classFileInfo);
+                            }
+                        }
+                    } catch (ExecutionException e) {
+                        logger.error("Error while processing JAR file: " + jarFilePath, e);
                         iterator.remove();
                         counter.decrementAndGet();
-
-                        if (classFileInfo != null) {
-                            classFileInfos.addAll(classFileInfo);
-                        }
+                    } catch (InterruptedException e) {
+                        logger.error("Error while processing JAR file: " + jarFilePath, e);
+                        Thread.currentThread().interrupt();
                     }
                 }
             }
-        } catch (IOException | InterruptedException | ExecutionException e) {
+        } catch (IOException e) {
             logger.error("Error while processing JAR file: " + jarFilePath, e);
             return null;
         }
@@ -110,7 +129,7 @@ public class JarSignatureMapper {
         return signatureDao.returnTopLibraryMatches(signatures);
     }
 
-    public static List<ClassFileInfo> getFileSignatures(InputStream jarInputStream) throws IOException {
+    public static List<ClassFileInfo> getFileSignatures(InputStream jarInputStream) {
         List<ClassFileInfo> classFileInfos = new ArrayList<>();
         try (JarInputStream s = new JarInputStream(jarInputStream)) {
             JarEntry entry;
@@ -118,9 +137,15 @@ public class JarSignatureMapper {
                 if (JarProcessingUtils.shouldSkip(entry)) {
                     continue;
                 }
-                classFileInfos.addAll(processEntry(s, entry));
+                try {
+                    classFileInfos.addAll(processEntry(s, entry));
+                } catch (IOException | SecurityException e) {
+                    logger.error("Error while processing entry: " + entry.getName(), e);
+                }
             }
             logger.info("Processed the signatures of " + classFileInfos.size() + " class files");
+        } catch (IOException e) {
+            logger.error("Error while processing JAR file", e);
         }
         return classFileInfos;
     }

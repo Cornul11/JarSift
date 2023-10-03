@@ -45,14 +45,21 @@ public class JarEvaluator {
                 String jarPath = Paths.get(projectFolder.getAbsolutePath(), "target", projectName + "-1.0-SNAPSHOT.jar").toString();
                 String metadataFilePath = Paths.get(evaluationDirectory, "projects_metadata", projectName + ".json").toString();
 
-                if (!Paths.get(jarPath).toFile().exists()) {
+                Path jarFilePath = Path.of(jarPath);
+
+                if (!jarFilePath.toFile().exists()) {
                     System.out.println("Skipping " + jarPath + " because it does not exist");
                     continue;
                 }
 
                 try {
                     ProjectMetadata groundTruth = fetchGroundTruth(metadataFilePath);
-                    List<SignatureDAOImpl.LibraryCandidate> inferredLibraries = jarSignatureMapper.inferJarFile(new FileInputStream(jarPath));
+                    List<SignatureDAOImpl.LibraryCandidate> inferredLibraries = jarSignatureMapper.inferJarFileMultithreadedProcess(jarFilePath);
+
+                    if (inferredLibraries == null || inferredLibraries.isEmpty()) {
+                        System.out.println("Skipping " + jarPath + " because it could not be processed");
+                        continue;
+                    }
 
                     Set<String> groundTruthLibrariesSet = new HashSet<>(groundTruth.getDependencies().stream().map(Dependency::getGAV).toList());
                     double f1Score = calculateF1Score(inferredLibraries, groundTruthLibrariesSet);
@@ -123,6 +130,9 @@ public class JarEvaluator {
         double precision = (double) tp / (tp + fp);
         double recall = (double) tp / (tp + fn);
 
+        if (precision == 0 && recall == 0) {
+            return 0;
+        }
         // f1 score
         return 2 * precision * recall / (precision + recall);
     }

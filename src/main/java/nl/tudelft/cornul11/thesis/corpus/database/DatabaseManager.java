@@ -40,7 +40,6 @@ public class DatabaseManager {
         hikariConfig.addDataSourceProperty("maintainTimeStats", config.getMaintainTimeStats());
         hikariConfig.setMaximumPoolSize(Integer.parseInt(config.getMaximumPoolSize()));
         hikariConfig.setConnectionTimeout(Long.parseLong(config.getConnectionTimeout()));
-        hikariConfig.setLeakDetectionThreshold(Long.parseLong(config.getLeakDetectionThreshold()));
         hikariConfig.setIdleTimeout(60000);
         hikariConfig.setMaxLifetime(6000000);
         return hikariConfig;
@@ -91,7 +90,6 @@ public class DatabaseManager {
         createPluginsTable();
         createPluginConfigTable();
         createTmpDependenciesTable();
-//        createLibrarySignatureTable();
 //        addIndexes();
     }
 
