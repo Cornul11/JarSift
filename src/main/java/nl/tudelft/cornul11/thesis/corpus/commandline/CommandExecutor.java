@@ -3,6 +3,7 @@ package nl.tudelft.cornul11.thesis.corpus.commandline;
 import nl.tudelft.cornul11.thesis.corpus.database.DatabaseConfig;
 import nl.tudelft.cornul11.thesis.corpus.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
+import nl.tudelft.cornul11.thesis.corpus.jarfile.JarEvaluator;
 import nl.tudelft.cornul11.thesis.corpus.jarfile.JarFileExplorer;
 import nl.tudelft.cornul11.thesis.corpus.jarfile.JarFrequencyAnalyzer;
 import nl.tudelft.cornul11.thesis.corpus.service.VulnerabilityAnalyzer;
@@ -69,6 +70,15 @@ public class CommandExecutor {
                     vulnerabilityAnalyzer.checkForVulnerability(frequencyMap);
                 } else {
                     System.out.println("File name is required for DETECTION_MODE");
+                    printHelpMessage();
+                }
+            } else if ("EVALUATION_MODE".equals(mode)) {
+                String evaluationDirectory = options.getEvaluationDirectory();
+                if (evaluationDirectory != null) {
+                    JarEvaluator jarEvaluator = new JarEvaluator(signatureDao, evaluationDirectory);
+                    jarEvaluator.evaluate();
+                } else {
+                    System.out.println("Evaluation directory is required for EVALUATION_MODE");
                     printHelpMessage();
                 }
             } else {

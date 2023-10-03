@@ -1,8 +1,8 @@
 package nl.tudelft.cornul11.thesis.corpus.file;
 
-import nl.tudelft.cornul11.thesis.corpus.model.LibraryInfo;
+import nl.tudelft.cornul11.thesis.corpus.model.Dependency;
 
-public class LibraryMatchInfo extends LibraryInfo {
+public class LibraryMatchInfo extends Dependency {
     private final int classFileCount;
 
     private final int totalClassFileCount;

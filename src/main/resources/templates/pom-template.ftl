@@ -9,11 +9,13 @@
     <version>1.0-SNAPSHOT</version>
 
     <dependencies>
+        <#list libraries as dependency>
             <dependency>
-                <groupId>${library.groupId}</groupId>
-                <artifactId>${library.artifactId}</artifactId>
-                <version>${library.version}</version>
+                <groupId>${dependency.groupId}</groupId>
+                <artifactId>${dependency.artifactId}</artifactId>
+                <version>${dependency.version}</version>
             </dependency>
+        </#list>
     </dependencies>
 
     <build>
@@ -28,17 +30,26 @@
                         <goals>
                             <goal>shade</goal>
                         </goals>
-<#--                        TODO: disabled for now -->
-<#--                        <configuration>-->
-<#--                            <relocations>-->
-<#--                                <relocation>-->
-<#--                                    <pattern>com.example</pattern>-->
-<#--                                    <shadedPattern>com.shaded.${relocationParam}</shadedPattern>-->
-<#--                                </relocation>-->
-<#--                            </relocations>-->
-<#--                        </configuration>-->
                     </execution>
                 </executions>
+                <configuration>
+                    <#if shadeConfiguration.relocation && (shadeConfiguration.packagePrefixes?size > 0) >
+                        <relocations>
+                            <#list shadeConfiguration.packagePrefixes as packagePrefix>
+                                <relocation>
+                                    <pattern>${packagePrefix}.</pattern>
+                                    <shadedPattern>shaded.${packagePrefix}.</shadedPattern>
+                                </relocation>
+                            </#list>
+                        </relocations>
+                    </#if>
+                    <#if shadeConfiguration.minimizeJar?? >
+                        <minimizeJar>${shadeConfiguration.minimizeJar?string("true", "false")}</minimizeJar>
+                    </#if>
+                    <#if shadeConfiguration.createDependencyReducedPom?? >
+                        <createDependencyReducedPom>${shadeConfiguration.createDependencyReducedPom?string("true", "false")}</createDependencyReducedPom>
+                    </#if>
+                </configuration>
             </plugin>
         </plugins>
     </build>

@@ -4,7 +4,6 @@ import com.zaxxer.hikari.HikariDataSource;
 
 import nl.tudelft.cornul11.thesis.corpus.file.ClassFileInfo;
 import nl.tudelft.cornul11.thesis.corpus.file.JarAndPomInfoExtractor;
-import nl.tudelft.cornul11.thesis.corpus.model.LibraryInfo;
 import nl.tudelft.cornul11.thesis.corpus.model.Signature;
 import nl.tudelft.cornul11.thesis.oracle.PomProcessor;
 import org.apache.maven.model.*;
@@ -114,7 +113,7 @@ public class SignatureDAOImpl implements SignatureDAO {
     }
 
     @Override
-    public Iterator<LibraryInfo> getAllPossibleLibraries() {
+    public Iterator<nl.tudelft.cornul11.thesis.corpus.model.Dependency> getAllPossibleLibraries() {
         return new LibraryIterator(ds);
     }
 
@@ -220,7 +219,7 @@ public class SignatureDAOImpl implements SignatureDAO {
          * Returns the AGV of the library.
          *
          */
-        public String getAGV() {
+        public String getGAV() {
             return groupId + ":" + artifactId + ":" + version;
         }
 
@@ -357,7 +356,7 @@ public class SignatureDAOImpl implements SignatureDAO {
 
         public String toJSON() {
             StringBuilder sb = new StringBuilder();
-            sb.append("{\"id\": \"" + this.getAGV() + "\",");
+            sb.append("{\"id\": \"" + this.getGAV() + "\",");
             sb.append("\"ratio\": " + this.getIncludedRatio() + ",");
             sb.append("\"count\": " + this.getHashes().size() + ",");
             sb.append("\"total\": " + this.getExpectedNumberOfClasses() + ",");
@@ -365,14 +364,14 @@ public class SignatureDAOImpl implements SignatureDAO {
             sb.append("\"perfect\": " + this.perfectMatch + ",");
             sb.append("\"alternatives\": [");
             boolean isFirst = true;
-            this.getAlternatives().sort((data1, data2) -> data1.getAGV().compareTo(data2.getAGV()));
+            this.getAlternatives().sort((data1, data2) -> data1.getGAV().compareTo(data2.getGAV()));
             for (LibraryCandidate alternative : this.getAlternatives()) {
                 if (!isFirst) {
                     sb.append(",");
                 } else {
                     isFirst = false;
                 }
-                sb.append("\"" + alternative.getAGV() + "\"");
+                sb.append("\"" + alternative.getGAV() + "\"");
             }
             sb.append("],");
             sb.append("\"hashes\": [");
@@ -404,28 +403,28 @@ public class SignatureDAOImpl implements SignatureDAO {
             sb.append("\"includedIn\": [");
             if (this.includedIn != null) {
                 isFirst = true;
-                this.includedIn.sort(Comparator.comparing(LibraryCandidate::getAGV));
+                this.includedIn.sort(Comparator.comparing(LibraryCandidate::getGAV));
                 for (LibraryCandidate alternative : this.includedIn) {
                     if (!isFirst) {
                         sb.append(",");
                     } else {
                         isFirst = false;
                     }
-                    sb.append("\"" + alternative.getAGV() + "\"");
+                    sb.append("\"" + alternative.getGAV() + "\"");
                 }
             }
             sb.append("],");
             sb.append("\"includes\": [");
             if (this.includes != null) {
                 isFirst = true;
-                this.includes.sort(Comparator.comparing(LibraryCandidate::getAGV));
+                this.includes.sort(Comparator.comparing(LibraryCandidate::getGAV));
                 for (LibraryCandidate alternative : this.includes) {
                     if (!isFirst) {
                         sb.append(",");
                     } else {
                         isFirst = false;
                     }
-                    sb.append("\"" + alternative.getAGV() + "\"");
+                    sb.append("\"" + alternative.getGAV() + "\"");
                 }
             }
             sb.append("]}");
@@ -454,6 +453,13 @@ public class SignatureDAOImpl implements SignatureDAO {
         for (ClassFileInfo s : signatures) {
             hashes.add(s.getHashCode());
             String path = s.getClassName();
+
+            boolean rootClass = path.lastIndexOf("/") == -1;
+
+            if (rootClass) {
+                continue;
+            }
+
             String folder = path.substring(0, path.lastIndexOf("/"));
             // paths are unused for now
             paths.add(folder);
@@ -605,7 +611,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                     if (compare == 0) {
                         compare = data1.getExpectedNumberOfClasses() - data2.getExpectedNumberOfClasses();
                         if (compare == 0) {
-                            compare = data1.getAGV().compareTo(data2.getAGV());
+                            compare = data1.getGAV().compareTo(data2.getGAV());
                         }
                     }
                 }

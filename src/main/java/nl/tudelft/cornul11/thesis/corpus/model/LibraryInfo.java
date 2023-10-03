@@ -1,29 +1,16 @@
 package nl.tudelft.cornul11.thesis.corpus.model;
 
+import java.util.List;
+
 public class LibraryInfo {
-    String groupId;
-    String artifactId;
-    String version;
+    private final List<Dependency> dependencies;
 
-    public LibraryInfo(String groupId, String artifactId, String version) {
-        this.groupId = groupId;
-        this.artifactId = artifactId;
-        this.version = version;
+    public LibraryInfo(List<Dependency> dependencies) {
+        this.dependencies = dependencies;
     }
 
-    public String getGroupId() {
-        return groupId;
+    public List<Dependency> getDependencies() {
+        return dependencies;
     }
 
-    public String getArtifactId() {
-        return artifactId;
-    }
-
-    public String getVersion() {
-        return version;
-    }
-
-    public String getGAV() {
-        return groupId + ":" + artifactId + ":" + version;
-    }
 }

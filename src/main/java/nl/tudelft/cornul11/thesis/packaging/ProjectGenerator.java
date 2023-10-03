@@ -2,6 +2,8 @@ package nl.tudelft.cornul11.thesis.packaging;
 
 import freemarker.template.Configuration;
 import freemarker.template.Template;
+import nl.tudelft.cornul11.thesis.corpus.jarfile.JarProcessingUtils;
+import nl.tudelft.cornul11.thesis.corpus.model.Dependency;
 import nl.tudelft.cornul11.thesis.corpus.model.LibraryInfo;
 import org.apache.maven.shared.invoker.*;
 import org.objectweb.asm.ClassReader;
@@ -14,28 +16,19 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
 public class ProjectGenerator {
-    public ProjectMetadata generateProject(LibraryInfo library) throws Exception {
+    public ProjectMetadata generateProject(LibraryInfo dependencies, ShadeConfiguration shadeConfiguration) throws Exception {
         String projectName = "project" + System.currentTimeMillis();
         Path projectDir = createProjectDirectory(projectName);
 
-        generatePomFile(projectDir, library, projectName);
-        generateDummyCode(projectDir, library);
+        generateDummyCode(projectDir, dependencies.getDependencies(), shadeConfiguration);
+        generatePomFile(projectDir, dependencies.getDependencies(), shadeConfiguration, projectName);
 
-        String relocationParameter = generateRelocationParameter(library);
-        return new ProjectMetadata(projectName, library, relocationParameter);
-    }
-
-    private String generateRelocationParameter(LibraryInfo library) {
-        // TODO: for now this will simply do nothing, and maven-shade-plugin will have no parameters
-        return null;
+        return new ProjectMetadata(projectName, dependencies.getDependencies(), shadeConfiguration);
     }
 
     private Path createProjectDirectory(String projectName) throws IOException {
@@ -44,7 +37,7 @@ public class ProjectGenerator {
         return projectDir;
     }
 
-    private void generatePomFile(Path projectDir, LibraryInfo library, String projectName) throws IOException {
+    private void generatePomFile(Path projectDir, List<Dependency> libraries, ShadeConfiguration shadeConfiguration, String projectName) throws IOException {
         Configuration cfg = new Configuration(Configuration.VERSION_2_3_32);
         cfg.setClassLoaderForTemplateLoading(this.getClass().getClassLoader(), "templates");
 
@@ -52,8 +45,8 @@ public class ProjectGenerator {
 
         Map<String, Object> input = new HashMap<>();
         input.put("projectName", projectName);
-        input.put("library", library);
-//        input.put("relocationParam", generateRandomString()); TODO: disabled for now
+        input.put("libraries", libraries);
+        input.put("shadeConfiguration", shadeConfiguration);
 
         try (Writer fileWriter = Files.newBufferedWriter(projectDir.resolve("pom.xml"))) {
             template.process(input, fileWriter);
@@ -67,56 +60,94 @@ public class ProjectGenerator {
         return lastDotIndex != -1 ? fullName.substring(lastDotIndex + 1) : fullName;
     }
 
-    private void generateDummyCode(Path projectDir, LibraryInfo library) throws Exception {
-        String className = getClassName(library);
-        if (className == null || className.isBlank()) {
-            throw new Exception("Could not get class name from library");
-        }
-
-        String dummyClassName = "Dummy" + getSimpleClassName(className);
-
+    private void generateDummyCode(Path projectDir, List<Dependency> dependencies, ShadeConfiguration shadeConfiguration) throws Exception {
         Configuration cfg = new Configuration(Configuration.VERSION_2_3_32);
         cfg.setClassLoaderForTemplateLoading(this.getClass().getClassLoader(), "templates");
 
         Template template = cfg.getTemplate("dummy-class-template.ftl");
 
-        Map<String, Object> input = new HashMap<>();
-        input.put("dummyClassName", dummyClassName);
-        input.put("className", className);
-
-        Path srcDir = projectDir.resolve("src/main/java/com/example");
+        Path srcDir = projectDir.resolve("src/main/java/com/example/dummy");
         Files.createDirectories(srcDir);
 
-        try (Writer fileWriter = Files.newBufferedWriter(srcDir.resolve(dummyClassName + ".java"))) {
-            template.process(input, fileWriter);
+        Set<String> packagePrefixes = new HashSet<>();
+
+        for (Dependency dependency : dependencies) {
+            Result result = getClassName(dependency);
+            String className = result.className;
+            if (className == null || className.isBlank()) {
+                System.err.println("Skipping dependency: " + dependency.getGAV() + " has no valid class found");
+                continue;
+            }
+
+            String dummyClassName = "Dummy" + getSimpleClassName(className);
+
+            Map<String, Object> input = new HashMap<>();
+            input.put("dummyClassName", dummyClassName);
+            input.put("className", className);
+            try (Writer fileWriter = Files.newBufferedWriter(srcDir.resolve(dummyClassName + ".java"))) {
+                template.process(input, fileWriter);
+            }
+
+            packagePrefixes.addAll(result.packagePrefixes);
         }
+
+        shadeConfiguration.setPackagePrefixes(new ArrayList<>(packagePrefixes));
     }
 
-    private String getClassName(LibraryInfo library) {
+    private String getPackagePrefix(String className) {
+        int firstDotIndex = className.indexOf('.');
+        if (firstDotIndex != -1) {
+            return className.substring(0, firstDotIndex);
+        }
+        return null;
+    }
+
+    private Result getClassName(Dependency library) {
         String jarLocation = getJarLocation(library);
         try (JarFile jarFile = new JarFile(jarLocation)) {
-            Enumeration<JarEntry> entries = jarFile.entries();
-            while (entries.hasMoreElements()) {
-                JarEntry entry = entries.nextElement();
-                String name = entry.getName();
-                // TODO: filter out special classes (e.g. module-info.class, package-info.class, META-INF/*)
-                if (name.endsWith(".class") && !name.contains("$")) {
-                    ClassReader classReader = new ClassReader(jarFile.getInputStream(entry));
-                    ClassNode classNode = new ClassNode();
-                    classReader.accept(classNode, 0);
+            return processJarFile(jarFile);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return new Result(null, Collections.emptySet());
+    }
 
-                    if ((classNode.access & Opcodes.ACC_ABSTRACT) == 0 &&
-                    (classNode.access & Opcodes.ACC_PUBLIC) != 0) {
-                        // check if there is an available public default constructor
-                        for (MethodNode method : classNode.methods) {
-                            if ("<init>".equals(method.name) &&
-                            "()V".equals(method.desc) &&
-                                    (method.access & Opcodes.ACC_PUBLIC) != 0) {
-                                return name.replace("/", ".").replace(".class", "");
-                            }
-                        }
+    private Result processJarFile(JarFile jarFile) {
+        Set<String> packagePrefixes = new HashSet<>();
+        String className = null;
+
+        Enumeration<JarEntry> entries = jarFile.entries();
+        while (entries.hasMoreElements()) {
+            JarEntry entry = entries.nextElement();
+            String name = entry.getName();
+            if (!JarProcessingUtils.shouldSkip(entry)) {
+                if (JarProcessingUtils.isClassFile(entry, entry.getName()) &&
+                        !JarProcessingUtils.isInnerClassFile(entry.getName())) {
+                    // add package prefix to set
+                    String classFullName = name.replace("/", ".").replace(".class", "");
+                    String packagePrefix = getPackagePrefix(classFullName);
+                    if (packagePrefix != null) {
+                        packagePrefixes.add(packagePrefix);
+                    }
+
+                    if (className == null) {
+                        className = getValidClassName(jarFile, entry);
                     }
                 }
+            }
+        }
+        return new Result(className, packagePrefixes);
+    }
+
+
+    private String getValidClassName(JarFile jarFile, JarEntry entry) {
+        try {
+            ClassReader classReader = new ClassReader(jarFile.getInputStream(entry));
+            ClassNode classNode = new ClassNode();
+            classReader.accept(classNode, 0);
+
+            if (isPublicNonAbstractClass(classNode) && hasPublicDefaultConstructor(classNode)) {
+                return entry.getName().replace("/", ".").replace(".class", "");
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -124,7 +155,24 @@ public class ProjectGenerator {
         return null;
     }
 
-    private String getJarLocation(LibraryInfo library) {
+    private boolean isPublicNonAbstractClass(ClassNode classNode) {
+        return (classNode.access & Opcodes.ACC_PUBLIC) != 0
+                && (classNode.access & Opcodes.ACC_ABSTRACT) == 0;
+    }
+
+    private boolean hasPublicDefaultConstructor(ClassNode classNode) {
+        for (MethodNode method : classNode.methods) {
+            if ("<init>".equals(method.name) &&
+                    "()V".equals(method.desc) &&
+                    (method.access & Opcodes.ACC_PUBLIC) != 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+    private String getJarLocation(Dependency library) {
         String userHomeDir = System.getProperty("user.home");
         Path m2RepositoryPath = Paths.get(userHomeDir, ".m2", "repository");
 
@@ -143,9 +191,6 @@ public class ProjectGenerator {
     }
 
     public void packageJar(ProjectMetadata projectMetadata) {
-        // Run Maven command to package project into a jar.
-        // maybe use the Java Maven lib instead of running a command in the terminal
-        // "mvn clean package" command can be run programmatically.
         Invoker invoker = new DefaultInvoker();
         InvocationRequest request = new DefaultInvocationRequest();
 
@@ -158,7 +203,7 @@ public class ProjectGenerator {
         request.setGoals(Collections.singletonList("clean package"));
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        invoker.setOutputHandler(new PrintStreamHandler(new PrintStream(baos), true));
+        request.setOutputHandler(new PrintStreamHandler(new PrintStream(baos), true));
 
         try {
             InvocationResult result = invoker.execute(request);
@@ -181,6 +226,16 @@ public class ProjectGenerator {
             } catch (IOException e) {
                 e.printStackTrace();
             }
+        }
+    }
+
+    private static class Result {
+        final String className;
+        final Set<String> packagePrefixes;
+
+        Result(String className, Set<String> packagePrefixes) {
+            this.className = className;
+            this.packagePrefixes = packagePrefixes;
         }
     }
 }

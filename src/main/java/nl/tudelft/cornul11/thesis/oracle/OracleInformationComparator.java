@@ -4,7 +4,6 @@ import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAOImpl;
 import nl.tudelft.cornul11.thesis.corpus.file.JarAndPomInfoExtractor;
 import nl.tudelft.cornul11.thesis.corpus.jarfile.JarFrequencyAnalyzer;
-import nl.tudelft.cornul11.thesis.corpus.model.LibraryInfo;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Plugin;
@@ -105,7 +104,7 @@ public class OracleInformationComparator {
 
     @NotNull
     private Iterator<String> getStringIterator() {
-        Iterator<LibraryInfo> libraryInfoIterator = signatureDAO.getAllPossibleLibraries();
+        Iterator<nl.tudelft.cornul11.thesis.corpus.model.Dependency> libraryInfoIterator = signatureDAO.getAllPossibleLibraries();
 
         return new Iterator<>() {
             @Override
@@ -115,7 +114,7 @@ public class OracleInformationComparator {
 
             @Override
             public String next() {
-                LibraryInfo libraryInfo = libraryInfoIterator.next();
+                nl.tudelft.cornul11.thesis.corpus.model.Dependency libraryInfo = libraryInfoIterator.next();
                 return libraryInfo.getGroupId() + ":" + libraryInfo.getArtifactId() + ":" + libraryInfo.getVersion();
             }
         };

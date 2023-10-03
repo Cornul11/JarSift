@@ -55,9 +55,9 @@ public class FatJarServer extends AbstractHandler {
         response.setCharacterEncoding("utf-8");
         response.setContentType("application/json");
 
-        double threasold = 0.85;
+        double threshold = 0.85;
         if (request.getParameter("threshold") != null) {
-            threasold = Double.parseDouble(request.getParameter("threshold"));
+            threshold = Double.parseDouble(request.getParameter("threshold"));
         }
 
         for (Part part : request.getParts()) {
@@ -87,7 +87,7 @@ public class FatJarServer extends AbstractHandler {
                     response.getWriter().append("[");
                     boolean isFirst = true;
                     for (LibraryCandidate lib : inferJarFile) {
-                        if (lib.getIncludedRatio() < threasold && !lib.isPerfectMatch()) {
+                        if (lib.getIncludedRatio() < threshold && !lib.isPerfectMatch()) {
                             continue;
                         }
                         if (!isFirst) {

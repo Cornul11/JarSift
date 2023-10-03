@@ -34,6 +34,10 @@ public class JarProcessingUtils {
         return !entry.isDirectory() && entryName.endsWith(".class");
     }
 
+    public static boolean isInnerClassFile(String entryName) {
+        return entryName.contains("$");
+    }
+
     public static boolean isJarFile(JarEntry entry, String entryName) {
         return !entry.isDirectory() && entryName.endsWith(".jar");
     }

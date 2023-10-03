@@ -115,6 +115,9 @@ public class JarSignatureMapper {
         try (JarInputStream s = new JarInputStream(jarInputStream)) {
             JarEntry entry;
             while ((entry = s.getNextJarEntry()) != null) {
+                if (JarProcessingUtils.shouldSkip(entry)) {
+                    continue;
+                }
                 classFileInfos.addAll(processEntry(s, entry));
             }
             logger.info("Processed the signatures of " + classFileInfos.size() + " class files");

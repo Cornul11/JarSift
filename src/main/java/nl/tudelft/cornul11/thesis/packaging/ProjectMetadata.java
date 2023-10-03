@@ -1,29 +1,42 @@
 package nl.tudelft.cornul11.thesis.packaging;
 
-import nl.tudelft.cornul11.thesis.corpus.model.LibraryInfo;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import nl.tudelft.cornul11.thesis.corpus.model.Dependency;
 
 import java.util.List;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class ProjectMetadata {
+    @JsonProperty("projectName")
     private final String projectName;
-    private final LibraryInfo library;
-    private final String relocationParameter;
 
-    public ProjectMetadata(String projectName, LibraryInfo library, String relocationParameter) {
+    @JsonProperty("dependencies")
+    private final List<Dependency> dependencies;
+
+    @JsonProperty("shadeConfiguration")
+    private final ShadeConfiguration shadeConfiguration;
+
+    @JsonCreator
+    public ProjectMetadata(
+            @JsonProperty("projectName") String projectName,
+            @JsonProperty("dependencies") List<Dependency> dependencies,
+            @JsonProperty("shadeConfiguration") ShadeConfiguration shadeConfiguration) {
         this.projectName = projectName;
-        this.library = library;
-        this.relocationParameter = relocationParameter;
+        this.dependencies = dependencies;
+        this.shadeConfiguration = shadeConfiguration;
     }
 
     public String getProjectName() {
         return projectName;
     }
 
-    public LibraryInfo getLibrary() {
-        return library;
+    public List<Dependency> getDependencies() {
+        return dependencies;
     }
 
-    public String getRelocationParameter() {
-        return relocationParameter;
+    public ShadeConfiguration getShadeConfiguration() {
+        return shadeConfiguration;
     }
 }

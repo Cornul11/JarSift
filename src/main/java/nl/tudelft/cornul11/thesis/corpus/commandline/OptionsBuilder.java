@@ -31,6 +31,10 @@ public class OptionsBuilder {
         return cmd.getOptionValue("d");
     }
 
+    public String getEvaluationDirectory() {
+        return cmd.getOptionValue("e");
+    }
+
     public String getMode() {
         return cmd.getOptionValue("m");
     }
@@ -89,6 +93,13 @@ public class OptionsBuilder {
                 .hasArg()
                 .argName("file")
                 .desc("Specify the path to a file containing paths for processing")
+                .build());
+
+        options.addOption(Option.builder("e")
+                .longOpt("evaluationDirectory")
+                .hasArg()
+                .argName("directory")
+                .desc("Specify the directory path for evaluation mode")
                 .build());
 
         return options;
