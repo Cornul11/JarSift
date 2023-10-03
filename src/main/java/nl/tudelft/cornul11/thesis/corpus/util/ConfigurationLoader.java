@@ -50,8 +50,7 @@ public class ConfigurationLoader {
                 config.getProperty("dataSource.elideSetAutoCommits"),
                 config.getProperty("dataSource.maintainTimeStats"),
                 config.getProperty("dataSource.maximumPoolSize"),
-                config.getProperty("dataSource.connectionTimeout"),
-                config.getProperty("dataSource.leakDetectionThreshold")
+                config.getProperty("dataSource.connectionTimeout")
         );
     }
 

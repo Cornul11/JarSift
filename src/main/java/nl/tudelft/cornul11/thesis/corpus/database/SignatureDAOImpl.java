@@ -517,7 +517,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                         libToPackages.put(libraryId, new HashSet<>());
                     }
                     libToHash.get(libraryId).add(classHash);
-                    libToPackages.get(libraryId).addAll(hashToPackage.get(classHash));
+                    libToPackages.get(libraryId).addAll(hashToPackage.getOrDefault(classHash, Collections.emptySet()));
                 }
             }
             try (Statement statement = connection.createStatement()) {

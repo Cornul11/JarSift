@@ -9,7 +9,6 @@ import org.apache.maven.model.Model;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.model.PluginExecution;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -102,7 +101,6 @@ public class OracleInformationComparator {
         logger.info("Validation of {} took {} s", uberJarPath, (double) (endTime - startTime) / 1000);
     }
 
-    @NotNull
     private Iterator<String> getStringIterator() {
         Iterator<nl.tudelft.cornul11.thesis.corpus.model.Dependency> libraryInfoIterator = signatureDAO.getAllPossibleLibraries();
 

@@ -16,9 +16,8 @@ public class DatabaseConfig {
     private final String maintainTimeStats;
     private final String maximumPoolSize;
     private final String connectionTimeout;
-    private final String leakDetectionThreshold;
 
-    public DatabaseConfig(String url, String username, String password, String cachePrepStmts, String prepStmtCacheSize, String prepStmtCacheSqlLimit, String useServerPrepStmts, String useLocalSessionState, String rewriteBatchedStatements, String cacheResultSetMetadata, String cacheServerConfiguration, String elideSetAutoCommits, String maintainTimeStats, String maximumPoolSize, String connectionTimeout, String leakDetectionThreshold) {
+    public DatabaseConfig(String url, String username, String password, String cachePrepStmts, String prepStmtCacheSize, String prepStmtCacheSqlLimit, String useServerPrepStmts, String useLocalSessionState, String rewriteBatchedStatements, String cacheResultSetMetadata, String cacheServerConfiguration, String elideSetAutoCommits, String maintainTimeStats, String maximumPoolSize, String connectionTimeout) {
         this.url = url;
         this.username = username;
         this.password = password;
@@ -34,7 +33,6 @@ public class DatabaseConfig {
         this.maintainTimeStats = maintainTimeStats;
         this.maximumPoolSize = maximumPoolSize;
         this.connectionTimeout = connectionTimeout;
-        this.leakDetectionThreshold = leakDetectionThreshold;
     }
 
     public String getCachePrepStmts() {
@@ -83,10 +81,6 @@ public class DatabaseConfig {
 
     public String getConnectionTimeout() {
         return connectionTimeout;
-    }
-
-    public String getLeakDetectionThreshold() {
-        return leakDetectionThreshold;
     }
 
     public String getUrl() {
