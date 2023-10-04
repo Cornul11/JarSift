@@ -30,7 +30,7 @@ public class SignatureDAOImpl implements SignatureDAO {
 
     @Override
     public int insertLibrary(JarAndPomInfoExtractor jarAndPomInfoExtractor, long jarHash, long jarCrc, boolean isBrokenJar) {
-        String insertLibraryQuery = "INSERT INTO libraries (group_id, artifact_id, version, jar_hash, jar_crc, is_uber_jar, total_class_files) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String insertLibraryQuery = "INSERT INTO libraries (group_id, artifact_id, version, jar_hash, jar_crc, is_uber_jar, total_class_files, disk_size, unique_signatures) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         executeWithDeadlockRetry(connection -> {
             try (PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery,
@@ -43,7 +43,9 @@ public class SignatureDAOImpl implements SignatureDAO {
                 libraryStatement.setBoolean(6, !isBrokenJar);
                 // there won't be any matches with this lib because there is no signature in the
                 // db, thus we don't need the total number of class files in it
-                libraryStatement.setInt(7, -1);
+                libraryStatement.setInt(7, -1); // total_class_files
+                libraryStatement.setInt(8, 0); // disk_size
+                libraryStatement.setInt(9, 0); // unique_signatures
                 libraryStatement.executeUpdate();
 
                 logger.info("Library row inserted.");
@@ -57,7 +59,7 @@ public class SignatureDAOImpl implements SignatureDAO {
 
     @Override
     public int insertSignatures(List<Signature> signatures, long jarHash, long jarCrc) {
-        String insertLibraryQuery = "INSERT INTO libraries (group_id, artifact_id, version, jar_hash, jar_crc, is_uber_jar, total_class_files, disk_size) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        String insertLibraryQuery = "INSERT INTO libraries (group_id, artifact_id, version, jar_hash, jar_crc, is_uber_jar, total_class_files, disk_size, unique_signatures) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         String insertSignatureQuery = "INSERT INTO signatures (library_id, class_hash, class_crc) VALUES (?, ?, ?)"; // library_id is added here.
 
         AtomicInteger totalRowsInserted = new AtomicInteger();
@@ -74,6 +76,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                 libraryStatement.setBoolean(6, false);
                 libraryStatement.setInt(7, signatures.size());
                 libraryStatement.setInt(8, 0);
+                libraryStatement.setInt(9, signatures.stream().map(Signature::getHash).collect(Collectors.toSet()).size());
                 libraryStatement.executeUpdate();
 
                 ResultSet generatedKeys = libraryStatement.getGeneratedKeys();
@@ -121,12 +124,15 @@ public class SignatureDAOImpl implements SignatureDAO {
         public String getGroupId() {
             return groupId;
         }
+
         public String getArtifactId() {
             return artifactId;
         }
+
         public String getVersion() {
             return version;
         }
+
         public boolean isAnUberJar() {
             return isAnUberJar;
         }
@@ -217,7 +223,6 @@ public class SignatureDAOImpl implements SignatureDAO {
 
         /**
          * Returns the AGV of the library.
-         *
          */
         public String getGAV() {
             return groupId + ":" + artifactId + ":" + version;
@@ -575,7 +580,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                     .collect(Collectors.toList());
             try (PreparedStatement statement = connection
                     .prepareStatement("SELECT id, group_id, artifact_id, version, unique_signatures FROM libraries where id in ("
-                                    + String.join(", ", libIds) + ") ORDER BY id DESC")) {
+                            + String.join(", ", libIds) + ") ORDER BY id DESC")) {
                 statement.execute();
                 ResultSet result = statement.getResultSet();
                 int index = 0;

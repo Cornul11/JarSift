@@ -192,7 +192,8 @@ public class DatabaseManager {
                 + "jar_crc BIGINT NOT NULL,"
                 + "is_uber_jar BOOLEAN NOT NULL,"
                 + "disk_size INT NOT NULL,"
-                + "total_class_files INT NOT NULL)";
+                + "total_class_files INT NOT NULL,"
+                + "unique_signatures INT NOT NULL)";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {
