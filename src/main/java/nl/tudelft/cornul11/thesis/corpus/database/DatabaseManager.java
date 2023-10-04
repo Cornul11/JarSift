@@ -17,6 +17,18 @@ public class DatabaseManager {
         ds = new HikariDataSource(getHikariConfig(config));
         logger.info("Connected to the database.");
         createSchema();
+        enableTuneParameters();
+    }
+
+    private void enableTuneParameters() {
+        try (Connection connection = ds.getConnection();
+        Statement statement = connection.createStatement()) {
+            statement.execute("PRAGMA journal_mode = WAL");
+            statement.execute("PRAGMA synchronous = OFF");
+            statement.execute("PRAGMA busy_timeout = 10000");
+        } catch (SQLException e) {
+            logger.error("Error while setting SQLite PRAGMAs.", e);
+        }
     }
 
     public HikariDataSource getDataSource() {
@@ -26,8 +38,6 @@ public class DatabaseManager {
     public static HikariConfig getHikariConfig(DatabaseConfig config) {
         HikariConfig hikariConfig = new HikariConfig();
         hikariConfig.setJdbcUrl(config.getUrl());
-        hikariConfig.setUsername(config.getUsername());
-        hikariConfig.setPassword(config.getPassword());
         hikariConfig.addDataSourceProperty("cachePrepStmts", config.getCachePrepStmts());
         hikariConfig.addDataSourceProperty("prepStmtCacheSize", config.getPrepStmtCacheSize());
         hikariConfig.addDataSourceProperty("prepStmtCacheSqlLimit", config.getPrepStmtCacheSqlLimit());
@@ -47,13 +57,13 @@ public class DatabaseManager {
 
     public void createTmpDependenciesTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS tmp_dependencies (" +
-                "id INT PRIMARY KEY AUTO_INCREMENT, " +
-                "parent_library_id INT NOT NULL, " +
-                "library_id INT, " +
-                "group_id VARCHAR(255) NOT NULL, " +
-                "artifact_id VARCHAR(255) NOT NULL," +
-                "version VARCHAR(255) NOT NULL, " +
-                "UNIQUE INDEX uindex (parent_library_id , library_id), " +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "parent_library_id INTEGER NOT NULL, " +
+                "library_id INTEGER, " +
+                "group_id TEXT NOT NULL, " +
+                "artifact_id TEXT NOT NULL," +
+                "version TEXT NOT NULL, " +
+                "UNIQUE (parent_library_id , library_id), " +
                 "FOREIGN KEY (parent_library_id) REFERENCES libraries(id), " +
                 "FOREIGN KEY (library_id) REFERENCES libraries(id))";
 
@@ -85,22 +95,22 @@ public class DatabaseManager {
     private void createSchema() {
         createLibrariesTable();
         createSignaturesTable();
-        createOracleLibrariesTable();
-        createDependenciesTable();
-        createPluginsTable();
-        createPluginConfigTable();
+//        createOracleLibrariesTable();
+//        createDependenciesTable();
+//        createPluginsTable();
+//        createPluginConfigTable();
         createTmpDependenciesTable();
 //        addIndexes();
     }
 
     private void createDependenciesTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS dependencies (" +
-                "id INT PRIMARY KEY AUTO_INCREMENT, " +
-                "library_id INT NOT NULL, " +
-                "group_id VARCHAR(255) NOT NULL, " +
-                "artifact_id VARCHAR(255) NOT NULL," +
-                "version VARCHAR(255) NOT NULL, " +
-                "scope VARCHAR(255)," +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "library_id INTEGER NOT NULL, " +
+                "group_id TEXT NOT NULL, " +
+                "artifact_id TEXT NOT NULL," +
+                "version TEXT NOT NULL, " +
+                "scope TEXT," +
                 "FOREIGN KEY (library_id) REFERENCES oracle_libraries(id))";
 
         try (Connection connection = ds.getConnection();
@@ -114,11 +124,11 @@ public class DatabaseManager {
 
     private void createPluginsTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS plugins (" +
-                "id INT PRIMARY KEY AUTO_INCREMENT, " +
-                "library_id INT NOT NULL, " +
-                "group_id VARCHAR(255), " +
-                "artifact_id VARCHAR(255) NOT NULL, " +
-                "version VARCHAR(255)," +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "library_id INTEGER NOT NULL, " +
+                "group_id TEXT, " +
+                "artifact_id TEXT NOT NULL, " +
+                "version TEXT," +
                 "FOREIGN KEY (library_id) REFERENCES oracle_libraries(id))";
 
         try (Connection connection = ds.getConnection();
@@ -184,16 +194,16 @@ public class DatabaseManager {
 
     private void createLibrariesTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS libraries (" +
-                "id INT PRIMARY KEY AUTO_INCREMENT, "
-                + "group_id VARCHAR(255) NOT NULL, "
-                + "artifact_id VARCHAR(255) NOT NULL, "
-                + "version VARCHAR(255) NOT NULL, "
-                + "jar_hash BIGINT NOT NULL, "
-                + "jar_crc BIGINT NOT NULL,"
-                + "is_uber_jar BOOLEAN NOT NULL,"
-                + "disk_size INT NOT NULL,"
-                + "total_class_files INT NOT NULL,"
-                + "unique_signatures INT NOT NULL)";
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                + "group_id TEXT NOT NULL, "
+                + "artifact_id TEXT NOT NULL, "
+                + "version TEXT NOT NULL, "
+                + "jar_hash INTEGER NOT NULL, "
+                + "jar_crc INTEGER NOT NULL,"
+                + "is_uber_jar INTEGER NOT NULL,"
+                + "disk_size INTEGER NOT NULL,"
+                + "total_class_files INTEGER NOT NULL,"
+                + "unique_signatures INTEGER NOT NULL)";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {
@@ -206,10 +216,10 @@ public class DatabaseManager {
 
     private void createSignaturesTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS signatures (" +
-                "id INT PRIMARY KEY AUTO_INCREMENT, " +
-                "library_id INT NOT NULL," +
-                "class_hash BIGINT NOT NULL," +
-                "class_crc BIGINT NOT NULL)";
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "library_id INTEGER NOT NULL," +
+                "class_hash INTEGER NOT NULL," +
+                "class_crc INTEGER NOT NULL)";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {
