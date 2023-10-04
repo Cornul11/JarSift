@@ -25,23 +25,26 @@ public class DatabaseManager {
 
     public static HikariConfig getHikariConfig(DatabaseConfig config) {
         HikariConfig hikariConfig = new HikariConfig();
-        hikariConfig.setJdbcUrl(config.getUrl());
-        hikariConfig.setUsername(config.getUsername());
-        hikariConfig.setPassword(config.getPassword());
-        hikariConfig.addDataSourceProperty("cachePrepStmts", config.getCachePrepStmts());
-        hikariConfig.addDataSourceProperty("prepStmtCacheSize", config.getPrepStmtCacheSize());
-        hikariConfig.addDataSourceProperty("prepStmtCacheSqlLimit", config.getPrepStmtCacheSqlLimit());
-        hikariConfig.addDataSourceProperty("useServerPrepStmts", config.getUseServerPrepStmts());
-        hikariConfig.addDataSourceProperty("useLocalSessionState", config.getUseLocalSessionState());
-        hikariConfig.addDataSourceProperty("rewriteBatchedStatements", config.getRewriteBatchedStatements());
-        hikariConfig.addDataSourceProperty("cacheResultSetMetadata", config.getCacheResultSetMetadata());
-        hikariConfig.addDataSourceProperty("cacheServerConfiguration", config.getCacheServerConfiguration());
-        hikariConfig.addDataSourceProperty("elideSetAutoCommits", config.getElideSetAutoCommits());
-        hikariConfig.addDataSourceProperty("maintainTimeStats", config.getMaintainTimeStats());
-        hikariConfig.setMaximumPoolSize(Integer.parseInt(config.getMaximumPoolSize()));
-        hikariConfig.setConnectionTimeout(Long.parseLong(config.getConnectionTimeout()));
-        hikariConfig.setIdleTimeout(60000);
-        hikariConfig.setMaxLifetime(6000000);
+        hikariConfig.setJdbcUrl("jdbc:h2:file:~/testdb;CACHE_SIZE=40960;DB_CLOSE_ON_EXIT=TRUE;DB_CLOSE_DELAY=-1");
+        hikariConfig.setUsername("sa");
+        hikariConfig.setPassword("sa");
+//        hikariConfig.setJdbcUrl(config.getUrl());
+//        hikariConfig.setUsername(config.getUsername());
+//        hikariConfig.setPassword(config.getPassword());
+//        hikariConfig.addDataSourceProperty("cachePrepStmts", config.getCachePrepStmts());
+//        hikariConfig.addDataSourceProperty("prepStmtCacheSize", config.getPrepStmtCacheSize());
+//        hikariConfig.addDataSourceProperty("prepStmtCacheSqlLimit", config.getPrepStmtCacheSqlLimit());
+//        hikariConfig.addDataSourceProperty("useServerPrepStmts", config.getUseServerPrepStmts());
+//        hikariConfig.addDataSourceProperty("useLocalSessionState", config.getUseLocalSessionState());
+//        hikariConfig.addDataSourceProperty("rewriteBatchedStatements", config.getRewriteBatchedStatements());
+//        hikariConfig.addDataSourceProperty("cacheResultSetMetadata", config.getCacheResultSetMetadata());
+//        hikariConfig.addDataSourceProperty("cacheServerConfiguration", config.getCacheServerConfiguration());
+//        hikariConfig.addDataSourceProperty("elideSetAutoCommits", config.getElideSetAutoCommits());
+//        hikariConfig.addDataSourceProperty("maintainTimeStats", config.getMaintainTimeStats());
+//        hikariConfig.setMaximumPoolSize(Integer.parseInt(config.getMaximumPoolSize()));
+//        hikariConfig.setConnectionTimeout(Long.parseLong(config.getConnectionTimeout()));
+//        hikariConfig.setIdleTimeout(60000);
+//        hikariConfig.setMaxLifetime(6000000);
         return hikariConfig;
     }
 
@@ -53,7 +56,7 @@ public class DatabaseManager {
                 "group_id VARCHAR(255) NOT NULL, " +
                 "artifact_id VARCHAR(255) NOT NULL," +
                 "version VARCHAR(255) NOT NULL, " +
-                "UNIQUE INDEX uindex (parent_library_id , library_id), " +
+                "CONSTRAINT uindex UNIQUE (parent_library_id , library_id), " +
                 "FOREIGN KEY (parent_library_id) REFERENCES libraries(id), " +
                 "FOREIGN KEY (library_id) REFERENCES libraries(id))";
 

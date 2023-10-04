@@ -30,7 +30,7 @@ public class SignatureDAOImpl implements SignatureDAO {
 
     @Override
     public int insertLibrary(JarAndPomInfoExtractor jarAndPomInfoExtractor, long jarHash, long jarCrc, boolean isBrokenJar) {
-        String insertLibraryQuery = "INSERT INTO libraries (group_id, artifact_id, version, jar_hash, jar_crc, is_uber_jar, total_class_files) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String insertLibraryQuery = "INSERT INTO libraries (group_id, artifact_id, version, jar_hash, jar_crc, is_uber_jar, total_class_files, disk_size) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
         executeWithDeadlockRetry(connection -> {
             try (PreparedStatement libraryStatement = connection.prepareStatement(insertLibraryQuery,
@@ -44,6 +44,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                 // there won't be any matches with this lib because there is no signature in the
                 // db, thus we don't need the total number of class files in it
                 libraryStatement.setInt(7, -1);
+                libraryStatement.setInt(8, 0);
                 libraryStatement.executeUpdate();
 
                 logger.info("Library row inserted.");
