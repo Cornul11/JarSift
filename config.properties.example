@@ -1,4 +1,4 @@
-database.url=jdbc:jdbc:sqlite:corpus.db
+database.url=jdbc:sqlite:corpus.db
 dataSource.cachePrepStmts=true
 dataSource.prepStmtCacheSize=250
 dataSource.prepStmtCacheSqlLimit=2048
