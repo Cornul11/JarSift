@@ -1,7 +1,6 @@
 package nl.tudelft.cornul11.thesis.corpus.database;
 
 import com.zaxxer.hikari.HikariDataSource;
-
 import nl.tudelft.cornul11.thesis.corpus.file.ClassFileInfo;
 import nl.tudelft.cornul11.thesis.corpus.file.JarAndPomInfoExtractor;
 import nl.tudelft.cornul11.thesis.corpus.model.Signature;
@@ -11,7 +10,6 @@ import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.codehaus.plexus.util.xml.Xpp3DomBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.sqlite.SQLiteException;
 
 import java.io.StringReader;
 import java.sql.*;
