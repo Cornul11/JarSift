@@ -5,6 +5,7 @@ import nl.tudelft.cornul11.thesis.corpus.extractor.bytecode.members.*;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Array;
 import java.util.jar.JarEntry;
 import java.util.zip.CRC32;
 
@@ -21,39 +22,9 @@ public class BytecodeUtils {
 
     public static long getSignatureHash(BytecodeDetails bytecodeDetails) {
         LongHashFunction cityHashFunction = LongHashFunction.xx3();
-        StringBuilder classSignature = new StringBuilder();
-
-        classSignature.append(bytecodeDetails.getAccess());
-        classSignature.append(bytecodeDetails.getName());
-        classSignature.append(bytecodeDetails.getExtendsType());
-
-        for (String iface : bytecodeDetails.getInterfaces()) {
-            classSignature.append(iface);
-        }
-
-        for (FieldDetails field : bytecodeDetails.getFields()) {
-            classSignature.append(field.toSignaturePart());
-        }
-
-        for (MethodDetails method : bytecodeDetails.getMethods()) {
-            classSignature.append(method.toSignaturePart());
-        }
-
-        for (ConstructorDetails constructor : bytecodeDetails.getConstructors()) {
-            classSignature.append(constructor.toSignaturePart());
-        }
-
-        for (NestedClassDetails nestedClass : bytecodeDetails.getInnerClasses()) {
-            classSignature.append(nestedClass.toSignaturePart());
-        }
-
-        for (AnnotationDetails annotation : bytecodeDetails.getAnnotations()) {
-            classSignature.append(annotation.toSignaturePart());
-        }
-
+        String classSignature = getSignatureString(bytecodeDetails);
         return cityHashFunction.hashChars(classSignature);
     }
-
 
     private static String processGenericPart(String genericPart) {
         // Generic parts are enclosed in <>, and can contain class names denoted by L...;
@@ -155,5 +126,62 @@ public class BytecodeUtils {
         }
 
         return className;
+    }
+
+
+    public static String deepArrayToString(Object array) {
+        if (array == null) return "null";
+
+        if (!array.getClass().isArray()) return array.toString();
+
+        int length = Array.getLength(array);
+        if (length == 0) return "[]";
+
+        StringBuilder buffer = new StringBuilder();
+        buffer.append('[');
+
+        for (int i = 0; i < length; i++) {
+            Object element = Array.get(array, i);
+            buffer.append(deepArrayToString(element));
+            if (i < length - 1) buffer.append(", ");
+        }
+
+        buffer.append(']');
+        return buffer.toString();
+    }
+
+    public static String getSignatureString(BytecodeDetails bytecodeDetails) {
+        StringBuilder classSignature = new StringBuilder();
+
+        classSignature.append(bytecodeDetails.getMajorVersion());
+        classSignature.append(bytecodeDetails.getAccess());
+        classSignature.append(bytecodeDetails.getName());
+        classSignature.append(bytecodeDetails.getExtendsType());
+
+        for (String iface : bytecodeDetails.getInterfaces()) {
+            classSignature.append(iface);
+        }
+
+        for (FieldDetails field : bytecodeDetails.getFields()) {
+            classSignature.append(field.toSignaturePart());
+        }
+
+        for (MethodDetails method : bytecodeDetails.getMethods()) {
+            classSignature.append(method.toSignaturePart());
+        }
+
+        for (ConstructorDetails constructor : bytecodeDetails.getConstructors()) {
+            classSignature.append(constructor.toSignaturePart());
+        }
+
+        for (NestedClassDetails nestedClass : bytecodeDetails.getInnerClasses()) {
+            classSignature.append(nestedClass.toSignaturePart());
+        }
+
+        for (AnnotationDetails annotation : bytecodeDetails.getAnnotations()) {
+            classSignature.append(annotation.toSignaturePart());
+        }
+
+        return classSignature.toString();
     }
 }
