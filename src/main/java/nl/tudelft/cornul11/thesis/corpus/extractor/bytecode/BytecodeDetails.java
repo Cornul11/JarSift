@@ -15,6 +15,7 @@ public class BytecodeDetails {
     private List<ConstructorDetails> constructors;
     private List<NestedClassDetails> innerClasses;
     private List<AnnotationDetails> annotations;
+    private int majorVersion;
 
     private BytecodeDetails(Builder builder) {
         this.access = builder.access;
@@ -26,6 +27,7 @@ public class BytecodeDetails {
         this.constructors = builder.constructors;
         this.innerClasses = builder.innerClasses;
         this.annotations = builder.annotations;
+        this.majorVersion = builder.majorVersion;
     }
 
     public String getName() {
@@ -64,6 +66,10 @@ public class BytecodeDetails {
         return access;
     }
 
+    public int getMajorVersion() {
+        return majorVersion;
+    }
+
     public static class Builder {
         private int access;
         private String name;
@@ -74,6 +80,7 @@ public class BytecodeDetails {
         private List<ConstructorDetails> constructors = new ArrayList<>();
         private List<NestedClassDetails> innerClasses = new ArrayList<>();
         private List<AnnotationDetails> annotations = new ArrayList<>();
+        private int majorVersion;
 
         public Builder setName(String name) {
             this.name = name;
@@ -117,6 +124,11 @@ public class BytecodeDetails {
 
         public Builder setAccess(int access) {
             this.access = access;
+            return this;
+        }
+
+        public Builder setMajorVersion(int majorVersion) {
+            this.majorVersion = majorVersion;
             return this;
         }
 

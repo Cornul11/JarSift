@@ -19,7 +19,13 @@ public class BytecodeClassVisitor extends ClassVisitor {
     }
 
     public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+        // The minor version is stored in the 16 most significant bits, and the major version in the 16 least significant bits.
+        // source: ASM documentation
+
+        int majorVersion = version & 0xFFFF;
+
         bytecodeDetailsBuilder.setName(BytecodeUtils.getShortName(name));
+        bytecodeDetailsBuilder.setMajorVersion(majorVersion);
         bytecodeDetailsBuilder.setAccess(access);
         bytecodeDetailsBuilder.setExtendsType(BytecodeUtils.getShortName(superName));
         Arrays.stream(interfaces).map(BytecodeUtils::getShortName).map(bytecodeDetailsBuilder::addInterface);
