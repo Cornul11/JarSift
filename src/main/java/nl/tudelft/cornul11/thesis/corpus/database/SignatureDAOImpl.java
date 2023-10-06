@@ -80,15 +80,9 @@ public class SignatureDAOImpl implements SignatureDAO {
                 libraryStatement.setInt(9, signatures.stream().map(Signature::getHash).collect(Collectors.toSet()).size());
                 libraryStatement.executeUpdate();
 
-                Statement rowIdStatement = connection.createStatement();
-                ResultSet rs = rowIdStatement.executeQuery("SELECT last_insert_rowid()");
-                int libraryId = -1;
-                if (rs.next()) {
-                    libraryId = rs.getInt(1);
-                }
-                rs.close();
-                rowIdStatement.close();
-                if (libraryId != -1) {
+                ResultSet generatedKeys = libraryStatement.getGeneratedKeys();
+                if (generatedKeys.next()) {
+                    int libraryId = generatedKeys.getInt(1);
                     PreparedStatement insertStatement = connection.prepareStatement(insertSignatureQuery);
 
                     // TODO: maybe switch to batch inserts here
@@ -513,7 +507,7 @@ public class SignatureDAOImpl implements SignatureDAO {
             try (PreparedStatement statement = connection.prepareStatement(mainQuery)) {
                 ResultSet resultSet = statement.executeQuery();
                 while (resultSet.next()) {
-                    Long classHash = resultSet.getLong("class_hash");
+                    Long classHash = resultSet.getLong("temp_hashes.class_hash");
                     int libraryId = resultSet.getInt("library_id");
 
                     // keep track of the hashes that are in many libraries
@@ -938,7 +932,7 @@ public class SignatureDAOImpl implements SignatureDAO {
                 connection.setAutoCommit(true);
                 success = true;
             } catch (SQLException e) {
-                if (e instanceof SQLiteException && e.getMessage().contains("SQLITE_BUSY")) { // 5 = SQLITE_BUSY
+                if (e.getErrorCode() == 1213) { // 1213 = ER_LOCK_DEADLOCK
                     handleDeadlock();
                 } else {
                     e.printStackTrace();

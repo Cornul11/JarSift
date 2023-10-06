@@ -1,5 +1,6 @@
-database.url=jdbc:sqlite:corpus.db
-dataSource.cachePrepStmts=true
+database.url=jdbc:mariadb://hostname:port/dbname
+database.username=username
+database.password=password
 dataSource.prepStmtCacheSize=250
 dataSource.prepStmtCacheSqlLimit=2048
 dataSource.useServerPrepStmts=true
