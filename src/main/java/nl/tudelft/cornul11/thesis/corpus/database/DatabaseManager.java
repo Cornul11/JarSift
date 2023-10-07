@@ -26,6 +26,7 @@ public class DatabaseManager {
             statement.execute("PRAGMA journal_mode = WAL");
             statement.execute("PRAGMA synchronous = OFF");
             statement.execute("PRAGMA busy_timeout = 10000");
+            statement.execute("PRAGMA temp_store=MEMORY");
         } catch (SQLException e) {
             logger.error("Error while setting SQLite PRAGMAs.", e);
         }
