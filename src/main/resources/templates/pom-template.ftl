@@ -9,7 +9,7 @@
     <version>1.0-SNAPSHOT</version>
 
     <dependencies>
-        <#list libraries as dependency>
+        <#list directDependencies as dependency>
             <dependency>
                 <groupId>${dependency.groupId}</groupId>
                 <artifactId>${dependency.artifactId}</artifactId>

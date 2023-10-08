@@ -2,6 +2,7 @@ package nl.tudelft.cornul11.thesis.corpus.extractor.bytecode;
 
 import nl.tudelft.cornul11.thesis.corpus.extractor.bytecode.members.AnnotationDetails;
 import org.objectweb.asm.AnnotationVisitor;
+import org.objectweb.asm.Type;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +19,8 @@ public class BytecodeAnnotationVisitor extends AnnotationVisitor {
     public void visit(String name, Object value) {
         if (value instanceof String) {
             value = BytecodeUtils.getShortName((String) value);
+        } else if (value instanceof Type) {
+            value = BytecodeUtils.getShortDesc(((Type) value).getDescriptor());
         }
         annotation.putArgument(name, value);
         super.visit(name, value);
