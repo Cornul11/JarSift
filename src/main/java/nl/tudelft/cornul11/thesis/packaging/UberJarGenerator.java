@@ -8,9 +8,6 @@ import nl.tudelft.cornul11.thesis.corpus.model.Dependency;
 import nl.tudelft.cornul11.thesis.corpus.model.LibraryInfo;
 import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
 
-import java.io.ByteArrayOutputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -67,9 +64,9 @@ public class UberJarGenerator {
                 try {
                     ProjectMetadata projectMetadata = projectGenerator.generateProject(dependencies, config);
 
-                    metadataStorage.storeMetadata(projectMetadata);
+                    projectMetadata = projectGenerator.packageJar(projectMetadata);
 
-                    projectGenerator.packageJar(projectMetadata);
+                    metadataStorage.storeMetadata(projectMetadata);
                 } catch (Exception e) {
                     System.err.println("Error while packaging uber-jar " + jarNum + " with " + randomNumLibraries + " dependencies");
                     e.printStackTrace();

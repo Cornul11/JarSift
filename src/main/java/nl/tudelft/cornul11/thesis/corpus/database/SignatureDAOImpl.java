@@ -532,6 +532,7 @@ public class SignatureDAOImpl implements SignatureDAO {
             try (Statement statement = connection.createStatement()) {
                 statement.execute(dropTempTable);
             }
+            // TODO: examine these files
             logger.info("# file not found in DB: " + (numUniqueHashes - hashToLib.size()) + " "
                     + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds.");
 

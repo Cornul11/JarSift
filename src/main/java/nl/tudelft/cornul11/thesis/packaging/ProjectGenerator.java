@@ -37,7 +37,7 @@ public class ProjectGenerator {
         return projectDir;
     }
 
-    private void generatePomFile(Path projectDir, List<Dependency> libraries, ShadeConfiguration shadeConfiguration, String projectName) throws IOException {
+    private void generatePomFile(Path projectDir, List<Dependency> directDependencies, ShadeConfiguration shadeConfiguration, String projectName) throws IOException {
         Configuration cfg = new Configuration(Configuration.VERSION_2_3_32);
         cfg.setClassLoaderForTemplateLoading(this.getClass().getClassLoader(), "templates");
 
@@ -45,7 +45,7 @@ public class ProjectGenerator {
 
         Map<String, Object> input = new HashMap<>();
         input.put("projectName", projectName);
-        input.put("libraries", libraries);
+        input.put("directDependencies", directDependencies);
         input.put("shadeConfiguration", shadeConfiguration);
 
         try (Writer fileWriter = Files.newBufferedWriter(projectDir.resolve("pom.xml"))) {
@@ -190,31 +190,15 @@ public class ProjectGenerator {
         return jarLocation.toString();
     }
 
-    public void packageJar(ProjectMetadata projectMetadata) {
+    public ProjectMetadata packageJar(ProjectMetadata projectMetadata) {
         Invoker invoker = new DefaultInvoker();
-        InvocationRequest request = new DefaultInvocationRequest();
-
-        // TODO: on the server, the maven home is different, so this will have to be accounted for
-
-        String projectName = projectMetadata.getProjectName();
-        String filePath = Paths.get("projects", projectName, "pom.xml").toString();
-
-        request.setPomFile(new File(filePath));
-        request.setGoals(Collections.singletonList("clean package"));
+        InvocationRequest request = createInvocationRequest(projectMetadata);
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        request.setOutputHandler(new PrintStreamHandler(new PrintStream(baos), true));
+        executeMavenGoal(request, invoker, "clean package", baos);
 
-        try {
-            InvocationResult result = invoker.execute(request);
-            if (result.getExitCode() != 0) {
-                System.err.println("Maven command output: " + baos);
-                throw new RuntimeException("Maven command failed");
-            }
-        } catch (MavenInvocationException e) {
-            e.printStackTrace();
-            System.err.println("Maven command output: " + baos);
-        }
+        List<Dependency> effectiveDependencies = getDependencies(request, invoker);
+        projectMetadata = projectMetadata.withEffectiveDependencies(effectiveDependencies);
 
         // if we got here, then the Jar was successfully generated
         boolean moveJar = false;
@@ -227,6 +211,57 @@ public class ProjectGenerator {
                 e.printStackTrace();
             }
         }
+        return projectMetadata; // with the newly added effective dependencies
+    }
+
+    private List<Dependency> getDependencies(InvocationRequest request, Invoker invoker) {
+        List<Dependency> dependencies = new ArrayList<>();
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+        executeMavenGoal(request, invoker, "dependency:list", baos);
+
+        String[] lines = baos.toString().split("\n");
+        for (String line : lines) {
+            if (line.contains(":jar:") && line.contains(":compile")) {
+                line = line.replace("[INFO]", "").trim();
+
+                String[] parts = line.split(":");
+
+                if (parts.length >= 5) {
+                    String groupId = parts[0];
+                    String artifactId = parts[1];
+                    String version = parts[3];
+                    dependencies.add(new Dependency(groupId, artifactId, version));
+                }
+            }
+        }
+        return dependencies;
+    }
+
+    private void executeMavenGoal(InvocationRequest request, Invoker invoker, String goal, ByteArrayOutputStream baos) {
+        request.setGoals(Collections.singletonList(goal));
+        request.setOutputHandler(new PrintStreamHandler(new PrintStream(baos), true));
+
+        try {
+            InvocationResult result = invoker.execute(request);
+            if (result.getExitCode() != 0) {
+                System.err.println("Maven command output for " + goal + ": " + baos);
+                throw new RuntimeException("Maven command for " + goal + " failed");
+            }
+        } catch (MavenInvocationException e) {
+            e.printStackTrace();
+            System.err.println("Maven command output for " + goal + ": " + baos);
+        }
+    }
+
+    private InvocationRequest createInvocationRequest(ProjectMetadata metadata) {
+        InvocationRequest request = new DefaultInvocationRequest();
+        String projectName = metadata.getProjectName();
+
+        // TODO: on the server, the maven home is different, so this will have to be accounted for
+        String filePath = Paths.get("projects", projectName, "pom.xml").toString();
+        request.setPomFile(new File(filePath));
+        return request;
     }
 
     private static class Result {

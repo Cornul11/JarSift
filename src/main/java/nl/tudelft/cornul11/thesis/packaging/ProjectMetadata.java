@@ -12,31 +12,48 @@ public class ProjectMetadata {
     @JsonProperty("projectName")
     private final String projectName;
 
-    @JsonProperty("dependencies")
-    private final List<Dependency> dependencies;
+    @JsonProperty("directDependencies")
+    private final List<Dependency> directDependencies;
 
     @JsonProperty("shadeConfiguration")
     private final ShadeConfiguration shadeConfiguration;
 
+    @JsonProperty("effectiveDependencies")
+    private final List<Dependency> effectiveDependencies;
+
     @JsonCreator
     public ProjectMetadata(
             @JsonProperty("projectName") String projectName,
-            @JsonProperty("dependencies") List<Dependency> dependencies,
-            @JsonProperty("shadeConfiguration") ShadeConfiguration shadeConfiguration) {
+            @JsonProperty("directDependencies") List<Dependency> directDependencies,
+            @JsonProperty("shadeConfiguration") ShadeConfiguration shadeConfiguration,
+            @JsonProperty("effectiveDependencies") List<Dependency> effectiveDependencies) {
         this.projectName = projectName;
-        this.dependencies = dependencies;
+        this.directDependencies = directDependencies;
         this.shadeConfiguration = shadeConfiguration;
+        this.effectiveDependencies = effectiveDependencies;
+    }
+
+    public ProjectMetadata(String projectName, List<Dependency> directDependencies, ShadeConfiguration shadeConfiguration) {
+        this(projectName, directDependencies, shadeConfiguration, null);
     }
 
     public String getProjectName() {
         return projectName;
     }
 
-    public List<Dependency> getDependencies() {
-        return dependencies;
+    public List<Dependency> getDirectDependencies() {
+        return directDependencies;
     }
 
     public ShadeConfiguration getShadeConfiguration() {
         return shadeConfiguration;
+    }
+
+    public List<Dependency> getEffectiveDependencies() {
+        return effectiveDependencies;
+    }
+
+    public ProjectMetadata withEffectiveDependencies(List<Dependency> effectiveDependencies) {
+        return new ProjectMetadata(projectName, directDependencies, shadeConfiguration, effectiveDependencies);
     }
 }

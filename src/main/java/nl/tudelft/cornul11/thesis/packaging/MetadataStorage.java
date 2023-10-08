@@ -17,7 +17,7 @@ public class MetadataStorage {
     }
 
     public void storeMetadata(ProjectMetadata metadata) throws IOException {
-        String json = objectMapper.writeValueAsString(metadata);
+        String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(metadata);
         Path filePath = storageDirectory.resolve(metadata.getProjectName() + ".json");
         Files.writeString(filePath, json, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
     }
