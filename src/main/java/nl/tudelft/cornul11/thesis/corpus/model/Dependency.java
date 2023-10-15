@@ -30,6 +30,18 @@ public class Dependency {
         this.gav = groupId + ":" + artifactId + ":" + version;
     }
 
+    public void setGroupId(String groupId) {
+        this.groupId = groupId;
+    }
+
+    public void setArtifactId(String artifactId) {
+        this.artifactId = artifactId;
+    }
+
+    public void setVersion(String version) {
+        this.version = version;
+    }
+
     public String getGroupId() {
         return groupId;
     }
