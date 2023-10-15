@@ -3,6 +3,7 @@ package nl.tudelft.cornul11.thesis.corpus.commandline;
 import nl.tudelft.cornul11.thesis.corpus.database.DatabaseConfig;
 import nl.tudelft.cornul11.thesis.corpus.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
+import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAOImpl;
 import nl.tudelft.cornul11.thesis.corpus.jarfile.JarEvaluator;
 import nl.tudelft.cornul11.thesis.corpus.jarfile.JarFileExplorer;
 import nl.tudelft.cornul11.thesis.corpus.jarfile.JarFrequencyAnalyzer;
@@ -11,6 +12,7 @@ import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.Map;
 
 public class CommandExecutor {
@@ -76,7 +78,8 @@ public class CommandExecutor {
                 String evaluationDirectory = options.getEvaluationDirectory();
                 if (evaluationDirectory != null) {
                     JarEvaluator jarEvaluator = new JarEvaluator(signatureDao, evaluationDirectory);
-                    jarEvaluator.evaluate();
+                    Map<String, List<SignatureDAOImpl.LibraryCandidate>> inferredLibrariesMap = jarEvaluator.inferLibrariesFromJars();
+                    jarEvaluator.evaluate(inferredLibrariesMap);
                 } else {
                     System.out.println("Evaluation directory is required for EVALUATION_MODE");
                     printHelpMessage();
@@ -93,11 +96,11 @@ public class CommandExecutor {
 
     private void printHelpMessage() {
         System.out.println("Help message");
-        // Implement the logic for printing the help message
+        // TODO: Implement the logic for printing the help message
     }
 
     private void printVersion() {
         System.out.println("Version: alpha");
-        // Implement the logic for printing the version
+        // TODO: Implement the logic for printing the version
     }
 }
