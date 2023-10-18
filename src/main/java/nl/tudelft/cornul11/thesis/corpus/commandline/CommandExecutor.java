@@ -3,7 +3,6 @@ package nl.tudelft.cornul11.thesis.corpus.commandline;
 import nl.tudelft.cornul11.thesis.corpus.database.DatabaseConfig;
 import nl.tudelft.cornul11.thesis.corpus.database.DatabaseManager;
 import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
-import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAOImpl;
 import nl.tudelft.cornul11.thesis.corpus.jarfile.JarEvaluator;
 import nl.tudelft.cornul11.thesis.corpus.jarfile.JarFileExplorer;
 import nl.tudelft.cornul11.thesis.corpus.jarfile.JarFrequencyAnalyzer;
@@ -78,7 +77,7 @@ public class CommandExecutor {
                 String evaluationDirectory = options.getEvaluationDirectory();
                 if (evaluationDirectory != null) {
                     JarEvaluator jarEvaluator = new JarEvaluator(signatureDao, evaluationDirectory);
-                    Map<String, List<SignatureDAOImpl.LibraryCandidate>> inferredLibrariesMap = jarEvaluator.inferLibrariesFromJars();
+                    Map<String, List<JarEvaluator.InferredLibrary>> inferredLibrariesMap = jarEvaluator.inferLibrariesFromJars();
                     jarEvaluator.evaluate(inferredLibrariesMap);
                 } else {
                     System.out.println("Evaluation directory is required for EVALUATION_MODE");

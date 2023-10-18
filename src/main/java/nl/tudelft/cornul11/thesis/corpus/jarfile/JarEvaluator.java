@@ -1,5 +1,6 @@
 package nl.tudelft.cornul11.thesis.corpus.jarfile;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAOImpl;
@@ -17,6 +18,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class JarEvaluator {
     private final SignatureDAO signatureDao;
@@ -34,15 +36,25 @@ public class JarEvaluator {
         this.jarSignatureMapper = new JarSignatureMapper(this.signatureDao);
     }
 
-    public void evaluate(Map<String, List<SignatureDAOImpl.LibraryCandidate>> inferredLibrariesMap) {
+    public void evaluate(Map<String, List<JarEvaluator.InferredLibrary>> inferredLibrariesMap) {
         double[] thresholds = {0.5, 0.75, 0.9, 0.95, 0.99, 1.0};
         for (double threshold : thresholds) {
             evaluateThreshold(threshold, inferredLibrariesMap);
         }
     }
 
-    public Map<String, List<SignatureDAOImpl.LibraryCandidate>> inferLibrariesFromJars() {
-        Map<String, List<SignatureDAOImpl.LibraryCandidate>> inferredLibrariesMap = new HashMap<>();
+    public Map<String, List<JarEvaluator.InferredLibrary>> inferLibrariesFromJars() {
+        try {
+            Map<String, List<InferredLibrary>> loadedLibraries = loadInferredLibraries();
+            if (!loadedLibraries.isEmpty()) {
+                logger.info("Loaded inferred libraries from file");
+                return loadedLibraries;
+            }
+        } catch (IOException e) {
+            logger.warn("Failed to load inferred libraries from file. Re-inferring them", e);
+        }
+
+        Map<String, List<JarEvaluator.InferredLibrary>> inferredLibrariesMap = new HashMap<>();
 
         File[] projectFolders = getProjectFolders();
         if (projectFolders == null) return inferredLibrariesMap;
@@ -57,23 +69,32 @@ public class JarEvaluator {
                 continue;
             }
 
-            List<SignatureDAOImpl.LibraryCandidate> candidateLibraries = jarSignatureMapper.inferJarFileMultithreadedProcess(jarFilePath);
+            List<JarEvaluator.InferredLibrary> candidateLibraries = jarSignatureMapper.inferJarFileMultithreadedProcess(jarFilePath).stream()
+                    .map(libraryCandidate -> new JarEvaluator.InferredLibrary(libraryCandidate, jarPath))
+                    .collect(Collectors.toList());
 
             inferredLibrariesMap.put(jarPath, candidateLibraries);
+        }
+
+
+        try {
+            storeInferredLibraries(inferredLibrariesMap);
+        } catch (IOException e) {
+            logger.error("Failed to store inferred libraries to file", e);
         }
         return inferredLibrariesMap;
     }
 
-    private void evaluateThreshold(double threshold, Map<String, List<SignatureDAOImpl.LibraryCandidate>> inferredLibrariesMap) {
+    private void evaluateThreshold(double threshold, Map<String, List<JarEvaluator.InferredLibrary>> inferredLibrariesMap) {
         logger.info("Evaluating with threshold: " + threshold);
 
         ThresholdStatistics statsVars = new ThresholdStatistics();
         int totalProjects = inferredLibrariesMap.size();
         int currentProject = 0;
 
-        for (Map.Entry<String, List<SignatureDAOImpl.LibraryCandidate>> entry : inferredLibrariesMap.entrySet()) {
+        for (Map.Entry<String, List<JarEvaluator.InferredLibrary>> entry : inferredLibrariesMap.entrySet()) {
             String jarPath = entry.getKey();
-            List<SignatureDAOImpl.LibraryCandidate> candidateLibraries = entry.getValue();
+            List<JarEvaluator.InferredLibrary> candidateLibraries = entry.getValue();
 
             currentProject++;
             double percentageCompleted = ((double) currentProject / totalProjects) * 100;
@@ -86,7 +107,7 @@ public class JarEvaluator {
         statisticsHandler.storeStatistics(threshold, statsVars);
     }
 
-    private void processProjectFolder(double threshold, String jarPath, List<SignatureDAOImpl.LibraryCandidate> candidateLibraries, ThresholdStatistics statVars) {
+    private void processProjectFolder(double threshold, String jarPath, List<JarEvaluator.InferredLibrary> candidateLibraries, ThresholdStatistics statVars) {
         File jarFile = new File(jarPath);
         if (!jarFile.exists()) {
             logger.info("Skipping " + jarPath + " because it does not exist");
@@ -99,28 +120,129 @@ public class JarEvaluator {
         try {
             ProjectMetadata groundTruth = fetchGroundTruth(metadataFilePath);
 
-            List<SignatureDAOImpl.LibraryCandidate> inferredLibraries = filterLibrariesByThreshold(candidateLibraries, threshold);
+            List<JarEvaluator.InferredLibrary> inferredLibraries = filterLibrariesByThreshold(candidateLibraries, threshold);
 
             if (inferredLibraries.isEmpty()) {
                 logger.info("For " + jarPath + ", no libraries passed the threshold");
             }
 
-            double f1Score = statisticsHandler.calculateF1Score(inferredLibraries, groundTruth);
-            statisticsHandler.updateStatisticsForProject(groundTruth, f1Score, statVars, groundTruth.getShadeConfiguration());
-            logger.info("F1 Score for {}: {}", jarPath, f1Score);
+            statisticsHandler.updateStatisticsForProject(groundTruth, statVars, inferredLibraries);
+            logger.info("F1 Score for {}: {}", jarPath, statisticsHandler.getLastF1Score());
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private List<SignatureDAOImpl.LibraryCandidate> filterLibrariesByThreshold(List<SignatureDAOImpl.LibraryCandidate> candidateLibraries, double threshold) {
-        List<SignatureDAOImpl.LibraryCandidate> filteredList = new ArrayList<>();
-        for (SignatureDAOImpl.LibraryCandidate inferredLibrary : candidateLibraries) {
+    private List<JarEvaluator.InferredLibrary> filterLibrariesByThreshold(List<JarEvaluator.InferredLibrary> candidateLibraries, double threshold) {
+        List<JarEvaluator.InferredLibrary> filteredList = new ArrayList<>();
+        for (JarEvaluator.InferredLibrary inferredLibrary : candidateLibraries) {
             if (inferredLibrary.getIncludedRatio() > threshold || inferredLibrary.isPerfectMatch()) {
                 filteredList.add(inferredLibrary);
             }
         }
         return filteredList;
+    }
+
+    private void storeInferredLibraries(Map<String, List<JarEvaluator.InferredLibrary>> inferredLibrariesMap) throws IOException {
+        Path filePath = Paths.get(evaluationDirectory, "evaluation", "inferredLibraries.json");
+
+        if (!filePath.getParent().toFile().exists()) {
+            filePath.getParent().toFile().mkdirs();
+        }
+
+        objectMapper.writerWithDefaultPrettyPrinter().writeValue(filePath.toFile(), inferredLibrariesMap);
+        logger.info("Stored inferred libraries to {}", filePath);
+    }
+
+    public static class InferredLibrary {
+        private String gav;
+        private String version;
+        private String groupId;
+        private String artifactId;
+        private String jarPath;
+        private double includedRatio;
+        private boolean perfectMatch;
+
+        // needed for deserialization
+        public InferredLibrary() {
+        }
+
+
+        public InferredLibrary(SignatureDAOImpl.LibraryCandidate libraryCandidate, String jarPath) {
+            this.gav = libraryCandidate.getGAV();
+            this.version = libraryCandidate.getVersion();
+            this.groupId = libraryCandidate.getGroupId();
+            this.artifactId = libraryCandidate.getArtifactId();
+            this.jarPath = jarPath;
+            this.includedRatio = libraryCandidate.getIncludedRatio();
+            this.perfectMatch = libraryCandidate.isPerfectMatch();
+        }
+
+        public String getGAV() {
+            return gav;
+        }
+
+        public void setGav(String gav) {
+            this.gav = gav;
+        }
+
+        public String getVersion() {
+            return version;
+        }
+
+        public void setVersion(String version) {
+            this.version = version;
+        }
+
+        public String getGroupId() {
+            return groupId;
+        }
+
+        public void setGroupId(String groupId) {
+            this.groupId = groupId;
+        }
+
+        public String getArtifactId() {
+            return artifactId;
+        }
+
+        public void setArtifactId(String artifactId) {
+            this.artifactId = artifactId;
+        }
+
+        public String getJarPath() {
+            return jarPath;
+        }
+
+        public void setJarPath(String jarPath) {
+            this.jarPath = jarPath;
+        }
+
+        public double getIncludedRatio() {
+            return includedRatio;
+        }
+
+        public void setIncludedRatio(double includedRatio) {
+            this.includedRatio = includedRatio;
+        }
+
+        public boolean isPerfectMatch() {
+            return perfectMatch;
+        }
+
+        public void setPerfectMatch(boolean perfectMatch) {
+            this.perfectMatch = perfectMatch;
+        }
+    }
+
+    private Map<String, List<InferredLibrary>> loadInferredLibraries() throws IOException {
+        Path filePath = Paths.get(evaluationDirectory, "evaluation", "inferredLibraries.json");
+        if (filePath.toFile().exists()) {
+            logger.info("Loading inferred libraries from {}", filePath);
+            return objectMapper.readValue(filePath.toFile(), new TypeReference<>() {
+            });
+        }
+        return new HashMap<>();
     }
 
     private File[] getProjectFolders() {
