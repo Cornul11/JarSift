@@ -50,6 +50,8 @@ public class StatisticsHandler {
         for (SignatureDAOImpl.LibraryCandidate inferredLibrary : inferredLibraries) {
             inferredLibrariesSet.add(inferredLibrary.getGAV());
         }
+
+        // TODO: check if library is present in the db
         int tp = 0, fp = 0, fn = 0;
         for (String library : inferredLibrariesSet) {
             if (groundTruthLibrariesSet.contains(library)) {
@@ -65,10 +67,10 @@ public class StatisticsHandler {
             }
         }
 
-        double precision = (double) tp / (tp + fp);
-        double recall = (double) tp / (tp + fn);
+        double precision = (tp + fp) == 0 ? 0 : (double) tp / (tp + fp);
+        double recall = (tp + fn) == 0 ? 0 : (double) tp / (tp + fn);
 
-        if (precision == 0 && recall == 0) {
+        if (precision + recall == 0) {
             return 0;
         }
         // f1 score
