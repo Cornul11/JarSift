@@ -197,6 +197,7 @@ public class SignatureDAOImpl implements SignatureDAO {
         private boolean self;
 
         private Set<String> gas;
+        private List<String> alternativeVersions;
         private List<LibraryCandidate> alternatives;
         private List<LibraryCandidate> includes;
         private List<LibraryCandidate> includedIn;
@@ -433,6 +434,18 @@ public class SignatureDAOImpl implements SignatureDAO {
             sb.append("]}");
             return sb.toString();
         }
+
+        public List<String> getAlternativeVersions() {
+            return alternativeVersions;
+        }
+
+        public void addAlternativeVersion(LibraryCandidate other) {
+            if (this.alternativeVersions == null) {
+                this.alternativeVersions = new ArrayList<>();
+            }
+
+            this.alternativeVersions.add(other.getGAV());
+        }
     }
 
     @Override
@@ -651,6 +664,12 @@ public class SignatureDAOImpl implements SignatureDAO {
                             (lib.expectedNumberOfClasses == lib2.expectedNumberOfClasses
                                     && libHashSize == lib2HashSize
                                     && lib.contains(lib2))) {
+                        if ((lib.expectedNumberOfClasses == lib2.expectedNumberOfClasses
+                                && libHashSize == lib2HashSize
+                                && lib.contains(lib2))) {
+                            lib.addAlternativeVersion(lib2);
+                            logger.info("Adding alternative version to " + lib.getGAV() + ": " + lib2.getGAV());
+                        }
                         lib.addAlternative(lib2);
                         nbAlternative++;
                     }

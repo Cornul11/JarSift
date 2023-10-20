@@ -105,7 +105,13 @@ public class ProjectMetadata {
                 String artifactId = pathParts[3];
 
                 // open the pom.xml file and extract the version from the <version> tag
-                String version = PomParser.extractVersion(jarFile.getInputStream(entry), artifactId);
+                String version = null;
+                try {
+                    version = PomParser.extractVersion(jarFile.getInputStream(entry), artifactId);
+                } catch (Exception e) {
+                    logger.error("Error while parsing pom.xml file: " + entry.getName() + " in jar file: " + jarFile.getName(), e);
+                    e.printStackTrace();
+                }
 
                 if (version != null) {
                     updateDependencyVersion(groupId, artifactId, version);

@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -54,16 +55,31 @@ public class StatisticsHandler {
         return 2 * precision * recall / (precision + recall);
     }
 
+    private Map<String, Set<String>> convertToMapWithAlternatives(List<JarEvaluator.InferredLibrary> libraries) {
+        return libraries.stream()
+                .collect(Collectors.toMap(
+                        JarEvaluator.InferredLibrary::getGAV,
+                        lib -> new HashSet<>(lib.getAlternativeVersions())
+                ));
+    }
+
     private Set<String> convertToSet(List<JarEvaluator.InferredLibrary> libraries) {
         return libraries.stream().map(JarEvaluator.InferredLibrary::getGAV).collect(Collectors.toSet());
     }
 
-    private int computeTruePositive(Set<String> inferredLibrariesSet, Set<String> groundTruthLibrariesSet) {
+    private int computeTruePositive(Map<String, Set<String>> inferredLibrariesMap, Set<String> groundTruthLibrariesSet) {
         int tp = 0;
         // TODO: check if library is present in the db
-        for (String library : inferredLibrariesSet) {
-            if (groundTruthLibrariesSet.contains(library)) {
+        for (String primaryGAV : inferredLibrariesMap.keySet()) {
+            if (groundTruthLibrariesSet.contains(primaryGAV)) {
                 tp++;
+            } else {
+                for (String alternativeGAV : inferredLibrariesMap.get(primaryGAV)) {
+                    if (groundTruthLibrariesSet.contains(alternativeGAV)) {
+                        tp++;
+                        break; // No need to keep checking other alternatives for this primaryGAV
+                    }
+                }
             }
         }
         return tp;
@@ -91,10 +107,11 @@ public class StatisticsHandler {
 
     private double calculatePrecision(List<JarEvaluator.InferredLibrary> inferredLibraries, ProjectMetadata groundTruth) {
         Set<String> groundTruthLibrariesSet = new HashSet<>(groundTruth.getEffectiveDependencies().stream().map(Dependency::getGAV).toList());
-        Set<String> inferredLibrariesSet = convertToSet(inferredLibraries);
+        Map<String, Set<String>> inferredLibrariesMap = convertToMapWithAlternatives(inferredLibraries);
 
-        int tp = computeTruePositive(inferredLibrariesSet, groundTruthLibrariesSet);
-        int fp = computeFalsePositive(inferredLibrariesSet, groundTruthLibrariesSet);
+        int tp = computeTruePositive(inferredLibrariesMap, groundTruthLibrariesSet);
+        int fp = computeFalsePositive(inferredLibrariesMap.keySet(), groundTruthLibrariesSet);
+
 
         if (tp + fp == 0) {
             return 0;
@@ -105,10 +122,10 @@ public class StatisticsHandler {
 
     private double calculateRecall(List<JarEvaluator.InferredLibrary> inferredLibraries, ProjectMetadata groundTruth) {
         Set<String> groundTruthLibrariesSet = new HashSet<>(groundTruth.getEffectiveDependencies().stream().map(Dependency::getGAV).toList());
-        Set<String> inferredLibrariesSet = convertToSet(inferredLibraries);
+        Map<String, Set<String>> inferredLibrariesMap = convertToMapWithAlternatives(inferredLibraries);
 
-        int tp = computeTruePositive(inferredLibrariesSet, groundTruthLibrariesSet);
-        int fn = computeFalseNegative(inferredLibrariesSet, groundTruthLibrariesSet);
+        int tp = computeTruePositive(inferredLibrariesMap, groundTruthLibrariesSet);
+        int fn = computeFalseNegative(inferredLibrariesMap.keySet(), groundTruthLibrariesSet);
 
         if (tp + fn == 0) {
             return 0;

@@ -26,7 +26,6 @@ public class ThresholdStatistics {
     private double recallRelocationDisabled;
     private int totalProjectsRelocationDisabled;
 
-
     public double getF1ScoreAverage() {
         return f1ScoreAverage;
     }
@@ -98,7 +97,6 @@ public class ThresholdStatistics {
     public void setRecallRelocationDisabled(double recallRelocationDisabled) {
         this.recallRelocationDisabled = recallRelocationDisabled;
     }
-
 
     public double getTotalF1ScoreMinimizeJarEnabled() {
         return totalF1ScoreMinimizeJarEnabled;

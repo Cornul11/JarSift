@@ -14,10 +14,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class JarEvaluator {
@@ -75,7 +72,6 @@ public class JarEvaluator {
 
             inferredLibrariesMap.put(jarPath, candidateLibraries);
         }
-
 
         try {
             storeInferredLibraries(inferredLibrariesMap);
@@ -162,6 +158,7 @@ public class JarEvaluator {
         private String jarPath;
         private double includedRatio;
         private boolean perfectMatch;
+        private List<String> alternativeVersions;
 
         // needed for deserialization
         public InferredLibrary() {
@@ -176,6 +173,7 @@ public class JarEvaluator {
             this.jarPath = jarPath;
             this.includedRatio = libraryCandidate.getIncludedRatio();
             this.perfectMatch = libraryCandidate.isPerfectMatch();
+            this.alternativeVersions = new ArrayList<>(Objects.requireNonNullElseGet(libraryCandidate.getAlternativeVersions(), ArrayList::new));
         }
 
         public String getGAV() {
@@ -232,6 +230,14 @@ public class JarEvaluator {
 
         public void setPerfectMatch(boolean perfectMatch) {
             this.perfectMatch = perfectMatch;
+        }
+
+        public List<String> getAlternativeVersions() {
+            return alternativeVersions;
+        }
+
+        public void setAlternativeVersions(List<String> alternativeVersions) {
+            this.alternativeVersions = alternativeVersions;
         }
     }
 

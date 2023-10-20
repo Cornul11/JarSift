@@ -15,9 +15,6 @@ public class ShadeConfiguration {
     @JsonProperty("minimizeJar")
     private final boolean minimizeJar;
 
-    @JsonProperty("createDependencyReducedPom")
-    private final boolean createDependencyReducedPom;
-
     @JsonProperty("packagePrefixes")
     private List<String> packagePrefixes = new ArrayList<>();
 
@@ -25,18 +22,15 @@ public class ShadeConfiguration {
     public ShadeConfiguration(
             @JsonProperty("relocation") boolean relocation,
             @JsonProperty("minimizeJar") boolean minimizeJar,
-            @JsonProperty("createDependencyReducedPom") boolean createDependencyReducedPom,
             @JsonProperty("packagePrefixes") List<String> packagePrefixes) {
         this.relocation = relocation;
         this.minimizeJar = minimizeJar;
-        this.createDependencyReducedPom = createDependencyReducedPom;
         this.packagePrefixes = (packagePrefixes != null) ? packagePrefixes : new ArrayList<>();
     }
 
-    public ShadeConfiguration(boolean relocation, boolean minimizeJar, boolean createDependencyReducedPom) {
+    public ShadeConfiguration(boolean relocation, boolean minimizeJar) {
         this.relocation = relocation;
         this.minimizeJar = minimizeJar;
-        this.createDependencyReducedPom = createDependencyReducedPom;
     }
 
     public void setPackagePrefixes(List<String> packagePrefixes) {
@@ -47,22 +41,10 @@ public class ShadeConfiguration {
         List<ShadeConfiguration> configurations = new ArrayList<>();
         // TODO: disabled createDependencyReducedPom for now, because it is not relevant
 
-        // no params, just a simple uber-jar
-        configurations.add(new ShadeConfiguration(false, false, false));
-        // minimize jar
-        configurations.add(new ShadeConfiguration(false, true, false));
-//        // create dependency reduced pom
-//        configurations.add(new ShadeConfiguration(false, false, true));
-//        // minimize jar and create dependency reduced pom
-//        configurations.add(new ShadeConfiguration(false, true, true));
-        // relocation
-        configurations.add(new ShadeConfiguration(true, false, false));
-        // relocation and minimize jar
-        configurations.add(new ShadeConfiguration(true, true, false));
-//        // relocation and create dependency reduced pom
-//        configurations.add(new ShadeConfiguration(true, false, true));
-//        // relocation, minimize jar and create dependency reduced pom
-//        configurations.add(new ShadeConfiguration(true, true, true));
+        configurations.add(new ShadeConfiguration(false, false));
+        configurations.add(new ShadeConfiguration(false, true));
+        configurations.add(new ShadeConfiguration(true, false));
+        configurations.add(new ShadeConfiguration(true, true));
         return configurations;
     }
 
@@ -76,9 +58,5 @@ public class ShadeConfiguration {
 
     public boolean isMinimizeJar() {
         return minimizeJar;
-    }
-
-    public boolean isCreateDependencyReducedPom() {
-        return createDependencyReducedPom;
     }
 }
