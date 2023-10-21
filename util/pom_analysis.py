@@ -1,6 +1,8 @@
 import argparse
 import json
 import os
+import subprocess
+import sys
 import zipfile
 from datetime import datetime
 
@@ -102,6 +104,32 @@ def get_publication_date_from_maven_central(group_id, artifact_id, version):
         print(
             f"Error fetching publication date for {group_id}:{artifact_id}:{version} from Maven Central: {e}"
         )
+        return None
+    finally:
+        end_time = datetime.now()
+        total_waiting_for_maven += (end_time - start_time).total_seconds()
+
+
+def get_publication_date_from_local_maven_index(group_id, artifact_id, version):
+    global total_waiting_for_maven
+    start_time = datetime.now()
+
+    try:
+        response = requests.get(
+            "http://localhost:8080/lookup",
+            params={"groupId": group_id, "artifactId": artifact_id, "version": version},
+        )
+        if response.status_code == 200:
+            date_str = response.text.strip()
+            return date_str
+        else:
+            print(
+                f"Lookup failed with status code {response.status_code}",
+                file=sys.stderr,
+            )
+            return None
+    except subprocess.CalledProcessError as e:
+        print(f"An error occurred: {e}", file=sys.stderr)
         return None
     finally:
         end_time = datetime.now()
@@ -246,6 +274,7 @@ if __name__ == "__main__":
     total_minimize_jar = 0
     total_relocations = 0
     total_errors = 0
+    total_not_found_in_index = 0
     total_with_parents = 0
     total_shade_plugin_no_parent = 0
     monthly_trends = {
@@ -280,7 +309,7 @@ if __name__ == "__main__":
             year_month = None
 
             if result["has_shade_plugin"]:
-                date = get_publication_date_from_maven_repo(
+                date = get_publication_date_from_local_maven_index(
                     result["group_id"], result["artifact_id"], result["version"]
                 )
                 if date:
@@ -288,6 +317,8 @@ if __name__ == "__main__":
                     monthly_trends["shade_plugin"][year_month] = (
                         monthly_trends["shade_plugin"].get(year_month, 0) + 1
                     )
+                else:
+                    total_not_found_in_index += 1
                 total_shade_plugins += 1
             if result["has_dependency_reduced_pom"]:
                 if date:
@@ -338,6 +369,9 @@ if __name__ == "__main__":
         )
         print(
             f"Total pom files with parent: {total_with_parents} ({total_with_parents / total_pom_files * 100:.2f}%)"
+        )
+        print(
+            f"Total not found in index: {total_not_found_in_index} ({total_not_found_in_index / total_shade_plugins * 100:.2f}%)"
         )
 
         if args.save:

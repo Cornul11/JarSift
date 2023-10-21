@@ -18,6 +18,7 @@
  */
 package org.cornul11.maven;
 
+
 import com.google.inject.Guice;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
@@ -33,9 +34,9 @@ import org.apache.maven.index.updater.ResourceFetcher;
 import org.eclipse.sisu.launch.Main;
 import org.eclipse.sisu.space.BeanScanning;
 
-import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
+import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -50,6 +51,8 @@ import java.time.Instant;
 import java.util.*;
 
 import static java.util.Objects.requireNonNull;
+import static spark.Spark.get;
+import static spark.Spark.port;
 
 /**
  * Collection of some use cases.
@@ -65,7 +68,13 @@ public class MavenIndexTimestampLookup {
 
     public static void main(String[] args) throws IOException {
         final com.google.inject.Module app = Main.wire(BeanScanning.INDEX);
-        Guice.createInjector(app).getInstance(MavenIndexTimestampLookup.class).perform(args);
+        MavenIndexTimestampLookup mavenIndexTimestampLookup = Guice.createInjector(app).getInstance(MavenIndexTimestampLookup.class);
+
+        if (args.length > 0 && "server".equals(args[0])) {
+            mavenIndexTimestampLookup.startServer();
+        } else {
+            mavenIndexTimestampLookup.perform(args);
+        }
     }
 
     @Inject
@@ -75,7 +84,7 @@ public class MavenIndexTimestampLookup {
         this.indexCreators = requireNonNull(indexCreators);
     }
 
-    public void perform(String[] args) throws IOException {
+    private IndexingContext createCentralContext() throws IOException {
         // Files where local cache is (if any) and Lucene Index should be located
         File centralLocalCache = new File("target/central-cache");
         File centralIndexDir = new File("target/central-index");
@@ -87,7 +96,7 @@ public class MavenIndexTimestampLookup {
         indexers.add(requireNonNull(indexCreators.get("maven-plugin")));
 
         // Create context for central repository index
-        IndexingContext centralContext = indexer.createIndexingContext(
+        return indexer.createIndexingContext(
                 "central-context",
                 "central",
                 centralLocalCache,
@@ -97,43 +106,68 @@ public class MavenIndexTimestampLookup {
                 true,
                 true,
                 indexers);
+    }
 
-        // Update the index (incremental update will happen if this is not 1st run and files are not deleted)
-        // This whole block below should not be executed on every app start, but rather controlled by some configuration
-        // since this block will always emit at least one HTTP GET. Central indexes are updated once a week, but
-        // other index sources might have different index publishing frequency.
-        // Preferred frequency is once a week.
-        if (args[0].equals("update")) {
-            updateLocalIndex(centralContext);
-            return;
+    private String lookupArtifactLastModified(String groupId, String artifactId, String version) throws IOException {
+        IndexingContext centralContext = createCentralContext();
+        try {
+            // construct the query for known GA
+            Query query = constructQuery(groupId, artifactId, version);
+
+            IteratorSearchRequest request = new IteratorSearchRequest(query, Collections.singletonList(centralContext));
+            IteratorSearchResponse response = indexer.searchIterator(request);
+
+            if (response.getTotalHitsCount() > 0) {
+                ArtifactInfo ai = response.iterator().next();
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+                return sdf.format(new Date(ai.getLastModified()));
+            } else {
+                return "Artifact not found";
+            }
+        } finally {
+            indexer.closeIndexingContext(centralContext, false);
         }
+    }
 
-        // ====
-        // Case:
-        // Search for all GAVs with known G and A and having version V
 
-        String groupId = args[0];
-        String artifactId = args[1];
-        String version = args[2];
-
+    private Query constructQuery(String groupId, String artifactId, String version) {
         // construct the query for known GA
         final Query groupIdQ = indexer.constructQuery(MAVEN.GROUP_ID, new SourcedSearchExpression(groupId));
         final Query artifactIdQ = indexer.constructQuery(MAVEN.ARTIFACT_ID, new SourcedSearchExpression(artifactId));
         final Query versionQ = indexer.constructQuery(MAVEN.VERSION, new SourcedSearchExpression(version));
 
-        final BooleanQuery query = new BooleanQuery.Builder()
+        return new BooleanQuery.Builder()
                 .add(groupIdQ, Occur.MUST)
                 .add(artifactIdQ, Occur.MUST)
                 .add(versionQ, Occur.MUST)
                 // we want "jar" artifacts only
-                .add(indexer.constructQuery(MAVEN.PACKAGING, new SourcedSearchExpression("jar")), Occur.MUST)
-                // we want main artifacts only (no classifier)
-                // Note: this below is unfinished API, needs fixing
-                .add(indexer.constructQuery(MAVEN.CLASSIFIER, new SourcedSearchExpression(Field.NOT_PRESENT)), Occur.MUST_NOT)
+//                .add(indexer.constructQuery(MAVEN.PACKAGING, new SourcedSearchExpression("jar")), Occur.MUST)
+//                 we want main artifacts only (no classifier)
+//                 Note: this below is unfinished API, needs fixing
+//                .add(indexer.constructQuery(MAVEN.CLASSIFIER, new SourcedSearchExpression(Field.NOT_PRESENT)), Occur.MUST_NOT)
                 .build();
+    }
 
-        final IteratorSearchRequest request = new IteratorSearchRequest(query, Collections.singletonList(centralContext));
-        final IteratorSearchResponse response = indexer.searchIterator(request);
+    public void perform(String[] args) throws IOException {
+        IndexingContext centralContext = createCentralContext();
+        try {
+            if (args[0].equals("update")) {
+                updateLocalIndex(centralContext);
+                return;
+            }
+            String groupId = args[0];
+            String artifactId = args[1];
+            String version = args[2];
+            Query query = constructQuery(groupId, artifactId, version);
+            executeQuery(centralContext, query);
+        } finally {
+            indexer.closeIndexingContext(centralContext, false);
+        }
+    }
+
+    private void executeQuery(IndexingContext context, Query query) throws IOException {
+        IteratorSearchRequest request = new IteratorSearchRequest(query, Collections.singletonList(context));
+        IteratorSearchResponse response = indexer.searchIterator(request);
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 
         System.out.println("Found " + response.getTotalHitsCount() + " artifacts.");
@@ -141,9 +175,34 @@ public class MavenIndexTimestampLookup {
             System.out.println("GAV: " + ai.getGroupId() + ":" + ai.getArtifactId() + ":" + ai.getVersion());
             System.out.println("Last Modified: " + sdf.format(new Date(ai.getLastModified())));
         }
+    }
 
-        // close cleanly
-        indexer.closeIndexingContext(centralContext, false);
+    private void startServer() {
+        port(8080);
+
+        get("/lookup", (request, response) -> {
+            String groupId = request.queryParams("groupId");
+            String artifactId = request.queryParams("artifactId");
+            String version = request.queryParams("version");
+
+            if (groupId == null || artifactId == null || version == null) {
+                response.status(400);
+                return "Missing query parameters";
+            }
+
+            try {
+                String lastModified = lookupArtifactLastModified(groupId, artifactId, version);
+                if (!"Artifact not found".equals(lastModified)) {
+                    return lastModified;
+                } else {
+                    response.status(404);
+                    return "Artifact not found";
+                }
+            } catch (Exception e) {
+                response.status(500);
+                return "Internal server error: " + e.getMessage();
+            }
+        });
     }
 
     private void updateLocalIndex(IndexingContext centralContext) throws IOException {
