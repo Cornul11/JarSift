@@ -22,9 +22,16 @@ public class SignatureDAOImpl implements SignatureDAO {
     private final HikariDataSource ds;
     private static final Logger logger = LoggerFactory.getLogger(SignatureDAOImpl.class);
     private final long startTime = System.currentTimeMillis();
+    private final String dbMode;
 
     public SignatureDAOImpl(HikariDataSource ds) {
         this.ds = ds;
+        this.dbMode = "file";
+    }
+
+    public SignatureDAOImpl(HikariDataSource ds, String dbMode) {
+        this.ds = ds;
+        this.dbMode = dbMode;
     }
 
     @Override
@@ -456,8 +463,11 @@ public class SignatureDAOImpl implements SignatureDAO {
         String dropTempTable = "DROP TABLE temp_hashes";
         String insertIntoTempTable = "INSERT INTO temp_hashes (class_hash) VALUES (?)";
 
-        String mainQuery = "SELECT temp_hashes.class_hash, library_id FROM signatures " +
-                "JOIN temp_hashes ON signatures.class_hash = temp_hashes.class_hash";
+        String signaturesTable = Objects.equals(this.dbMode, "file") ? "signatures" : "signatures_memory";
+        String classHashField = signaturesTable + ".class_hash";
+
+        String mainQuery = String.format("SELECT temp_hashes.class_hash, library_id FROM %s " +
+                "JOIN temp_hashes ON %s = temp_hashes.class_hash", signaturesTable, classHashField);
 
         List<LibraryCandidate> candidates = new ArrayList<>();
 

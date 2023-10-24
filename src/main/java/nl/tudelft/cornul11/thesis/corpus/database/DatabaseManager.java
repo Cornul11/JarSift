@@ -82,6 +82,10 @@ public class DatabaseManager {
         return new SignatureDAOImpl(ds);
     }
 
+    public SignatureDAO getSignatureDao(String dbmode) {
+        return new SignatureDAOImpl(ds, dbmode);
+    }
+
     private void createSchema() {
         createLibrariesTable();
         createSignaturesTable();

@@ -42,3 +42,47 @@ Used to create the paths file
 ```bash
 find /home/dan/.m2/repository \( -name "*.jar" -fprint jar_files.txt \) -o \( -name "*.pom" -fprint pom_files.txt \)
 ```
+
+To seed the MongoDB database:
+```bash
+# Create the MongoDB container
+docker compose up mongodb
+
+# preferably in a venv
+cd util
+pip install -r requirements.txt
+python inport.py all.zip extracted
+```
+
+To export the SQL file for usage in SQLite:
+```bash
+mysqldump \
+--host 127.0.0.1 \
+--user=root --password \
+--skip-create-options \
+--compatible=ansi \
+--skip-extended-insert \
+--compact \
+--single-transaction \
+--no-create-db \
+--no-create-info \
+--hex-blob \
+--skip-quote-names corpus \
+| grep -a "^INSERT INTO" | grep -a -v "__diesel_schema_migrations" \
+| sed 's#\\"#"#gm' \
+| sed -sE "s#,0x([^,]*)#,X'\L\1'#gm" \
+> mysql-to-sqlite.sql
+```
+
+To import the SQL file into SQLite:
+```bash
+sqlite3 corpus.db
+> CREATE TABLE IF NOT EXISTS libraries (id INTEGER PRIMARY KEY AUTOINCREMENT, group_id TEXT NOT NULL, artifact_id TEXT NOT NULL, version TEXT NOT NULL, jar_hash INTEGER NOT NULL, jar_crc INTEGER NOT NULL, is_uber_jar INTEGER NOT NULL, disk_size INTEGER NOT NULL, total_class_files INTEGER NOT NULL, unique_signatures INTEGER NOT NULL);
+> CREATE TABLE IF NOT EXISTS signatures (id INTEGER PRIMARY KEY AUTOINCREMENT, library_id INTEGER NOT NULL, class_hash TEXT NOT NULL, class_crc INTEGER NOT NULL);
+> PRAGMA synchronous = OFF;
+> PRAGMA journal_mode = MEMORY;
+> PRAGMA auto_vacuum=OFF;
+> PRAGMA index_journal=OFF;
+> PRAGMA temp_store=MEMORY;
+> PRAGMA cache_siz=-256000;
+```

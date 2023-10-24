@@ -10,6 +10,8 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -21,6 +23,8 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
 public class ProjectGenerator {
+    private static Logger logger = LoggerFactory.getLogger(ProjectGenerator.class);
+
     public ProjectMetadata generateProject(LibraryInfo dependencies, ShadeConfiguration shadeConfiguration) throws Exception {
         String projectName = "project" + System.currentTimeMillis();
         Path projectDir = createProjectDirectory(projectName);
@@ -75,7 +79,7 @@ public class ProjectGenerator {
             Result result = getClassName(dependency);
             String className = result.className;
             if (className == null || className.isBlank()) {
-                System.err.println("Skipping dependency: " + dependency.getGAV() + " has no valid class found");
+                logger.warn("No valid class found, skipping dependency: " + dependency.getGAV());
                 continue;
             }
 
@@ -173,8 +177,23 @@ public class ProjectGenerator {
 
 
     private String getJarLocation(Dependency library) {
-        String userHomeDir = System.getProperty("user.home");
-        Path m2RepositoryPath = Paths.get(userHomeDir, ".m2", "repository");
+        Path m2RepositoryPath;
+        // get hostname to determine if we are on the server or not
+        String hostname = System.getenv("HOSTNAME");
+
+        // sometimes hostname is null
+        if (hostname == null) {
+            hostname = "";
+        }
+
+        if (hostname.equals("goteborg")) {
+            // m2RepositoryPath shoud become /data/.m2/repository
+            m2RepositoryPath = Paths.get("/data", ".m2", "repository");
+
+        } else {
+            String userHomeDir = System.getProperty("user.home");
+            m2RepositoryPath = Paths.get(userHomeDir, ".m2", "repository");
+        }
 
         String groupId = library.getGroupId();
         String artifactId = library.getArtifactId();
@@ -193,6 +212,8 @@ public class ProjectGenerator {
     public ProjectMetadata packageJar(ProjectMetadata projectMetadata) {
         Invoker invoker = new DefaultInvoker();
         InvocationRequest request = createInvocationRequest(projectMetadata);
+
+        logger.info("Packaging jar for project: " + projectMetadata.getProjectName());
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         executeMavenGoal(request, invoker, "clean package", baos);
@@ -240,17 +261,18 @@ public class ProjectGenerator {
 
     private void executeMavenGoal(InvocationRequest request, Invoker invoker, String goal, ByteArrayOutputStream baos) {
         request.setGoals(Collections.singletonList(goal));
+        request.setInputStream(InputStream.nullInputStream());
         request.setOutputHandler(new PrintStreamHandler(new PrintStream(baos), true));
 
         try {
             InvocationResult result = invoker.execute(request);
             if (result.getExitCode() != 0) {
-                System.err.println("Maven command output for " + goal + ": " + baos);
+                logger.error("Maven command output for " + goal + ": " + baos);
                 throw new RuntimeException("Maven command for " + goal + " failed");
             }
         } catch (MavenInvocationException e) {
             e.printStackTrace();
-            System.err.println("Maven command output for " + goal + ": " + baos);
+            logger.error("Maven command output for " + goal + ": " + baos);
         }
     }
 

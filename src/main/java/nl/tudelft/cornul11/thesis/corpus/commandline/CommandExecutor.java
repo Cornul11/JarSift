@@ -41,7 +41,7 @@ public class CommandExecutor {
         if (mode != null) {
             DatabaseConfig databaseConfig = config.getDatabaseConfig();
             DatabaseManager databaseManager = DatabaseManager.getInstance(databaseConfig);
-            SignatureDAO signatureDao = databaseManager.getSignatureDao();
+            SignatureDAO signatureDao = databaseManager.getSignatureDao(options.getDatabaseMode());
 
             if ("CORPUS_GEN_MODE".equals(mode)) {
                 JarFileExplorer jarFileExplorer = new JarFileExplorer(signatureDao, config);

@@ -106,7 +106,7 @@ public class StatisticsHandler {
     }
 
     private double calculatePrecision(List<JarEvaluator.InferredLibrary> inferredLibraries, ProjectMetadata groundTruth) {
-        Set<String> groundTruthLibrariesSet = new HashSet<>(groundTruth.getEffectiveDependencies().stream().map(Dependency::getGAV).toList());
+        Set<String> groundTruthLibrariesSet = new HashSet<>(groundTruth.getEffectiveDependencies().stream().map(Dependency::getGAV).collect(Collectors.toSet()));
         Map<String, Set<String>> inferredLibrariesMap = convertToMapWithAlternatives(inferredLibraries);
 
         int tp = computeTruePositive(inferredLibrariesMap, groundTruthLibrariesSet);
@@ -121,7 +121,7 @@ public class StatisticsHandler {
     }
 
     private double calculateRecall(List<JarEvaluator.InferredLibrary> inferredLibraries, ProjectMetadata groundTruth) {
-        Set<String> groundTruthLibrariesSet = new HashSet<>(groundTruth.getEffectiveDependencies().stream().map(Dependency::getGAV).toList());
+        Set<String> groundTruthLibrariesSet = new HashSet<>(groundTruth.getEffectiveDependencies().stream().map(Dependency::getGAV).collect(Collectors.toSet()));
         Map<String, Set<String>> inferredLibrariesMap = convertToMapWithAlternatives(inferredLibraries);
 
         int tp = computeTruePositive(inferredLibrariesMap, groundTruthLibrariesSet);

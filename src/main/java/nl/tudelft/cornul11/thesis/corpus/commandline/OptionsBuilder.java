@@ -47,6 +47,10 @@ public class OptionsBuilder {
         return cmd.getOptionValue("fp");
     }
 
+    public String getDatabaseMode() {
+        return cmd.getOptionValue("dbm");
+    }
+
     private Options buildOptions() {
         Options options = new Options();
 
@@ -100,6 +104,13 @@ public class OptionsBuilder {
                 .hasArg()
                 .argName("directory")
                 .desc("Specify the directory path for evaluation mode")
+                .build());
+
+        options.addOption(Option.builder("dbm")
+                .longOpt("databaseMode")
+                .hasArg()
+                .argName("mode")
+                .desc("Specif the database mode, memory or file")
                 .build());
 
         return options;

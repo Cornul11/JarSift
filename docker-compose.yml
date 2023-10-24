@@ -1,5 +1,19 @@
 version: "2" # to use the older docker compose version installed on the storage server
 services:
+  corpus:
+    build:
+      context: .
+      dockerfile: Dockerfile-corpus
+    volumes:
+      - ${JARS_DIRECTORY}:/usr/src/app/jars
+      - ./config.properties:/usr/src/app/config.properties
+      - ./logs:/usr/src/app/logs
+      - ${PATHS_FILE}:/usr/src/app/paths.txt
+    environment:
+      - DIRECTORY=jars
+      - PATHS_FILE=paths.txt
+    depends_on:
+      - db
   app:
     build:
       context: .
@@ -34,7 +48,7 @@ services:
   mongodb:
     image: mongo:latest
     ports:
-      - "27017:27017"
+      - "27072:27017"
     volumes:
       - ${MONGODB_DATA_LOCATION}:/data/db
 
