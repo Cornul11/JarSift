@@ -21,6 +21,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.regex.Pattern;
 
 public class ProjectGenerator {
     private static Logger logger = LoggerFactory.getLogger(ProjectGenerator.class);
@@ -242,7 +243,10 @@ public class ProjectGenerator {
         executeMavenGoal(request, invoker, "dependency:list", baos);
 
         String[] lines = baos.toString().split("\n");
+        Pattern ansiEscapeCodePattern = Pattern.compile("\u001B\\[[;\\d]*m");
+
         for (String line : lines) {
+            line = ansiEscapeCodePattern.matcher(line).replaceAll("");
             if (line.contains(":jar:") && line.contains(":compile")) {
                 line = line.replace("[INFO]", "").trim();
 

@@ -1,0 +1,20 @@
+FROM maven:3.8.1-openjdk-17-slim AS build
+WORKDIR /usr/src/app
+COPY pom.xml /usr/src/app
+# to avoid downloading maven stuff each time
+RUN mvn -f /usr/src/app/pom.xml dependency:go-offline
+RUN mvn dependency:resolve
+
+COPY ./src /usr/src/app/src
+COPY ./pom.xml /usr/src/app/pom.xml
+RUN mvn -f /usr/src/app/pom.xml package -DskipTests dependency:copy-dependencies
+
+FROM openjdk:17-slim
+WORKDIR /usr/src/app
+COPY --from=build /usr/src/app/target/thesis-1.0-SNAPSHOT.jar /usr/src/app
+COPY --from=build /usr/src/app/target/dependency /usr/src/app/libs
+COPY www /usr/src/app/www
+RUN mkdir /usr/src/app/uploads
+
+ENV TZ=Europe/Amsterdam
+ENTRYPOINT java -Xmx8g -cp /usr/src/app/libs/*:/usr/src/app/thesis-1.0-SNAPSHOT.jar nl.tudelft.cornul11.thesis.corpus.MainApp -m CORPUS_GEN_MODE -fp ${PATHS_FILE}

@@ -66,9 +66,16 @@ public class JarEvaluator {
                 continue;
             }
 
-            List<JarEvaluator.InferredLibrary> candidateLibraries = jarSignatureMapper.inferJarFileMultithreadedProcess(jarFilePath).stream()
+            List<SignatureDAOImpl.LibraryCandidate> libraryCandidates = jarSignatureMapper.inferJarFileMultithreadedProcess(jarFilePath);
+            if (libraryCandidates == null) {
+                logger.warn("No class file signatures were retrieved from {}", jarFilePath);
+                continue;
+            }
+
+            List<JarEvaluator.InferredLibrary> candidateLibraries = libraryCandidates.stream()
                     .map(libraryCandidate -> new JarEvaluator.InferredLibrary(libraryCandidate, jarPath))
                     .collect(Collectors.toList());
+
 
             inferredLibrariesMap.put(jarPath, candidateLibraries);
         }
@@ -103,15 +110,15 @@ public class JarEvaluator {
         statisticsHandler.storeStatistics(threshold, statsVars);
     }
 
-    private void processProjectFolder(double threshold, String jarPath, List<JarEvaluator.InferredLibrary> candidateLibraries, ThresholdStatistics statVars) {
-        File jarFile = new File(jarPath);
-        if (!jarFile.exists()) {
-            logger.info("Skipping " + jarPath + " because it does not exist");
+    private void processProjectFolder(double threshold, String jarName, List<JarEvaluator.InferredLibrary> candidateLibraries, ThresholdStatistics statVars) {
+        String projectName = new File(jarName).getParentFile().getParentFile().getName();
+        String metadataFilePath = Paths.get(evaluationDirectory, "projects_metadata", projectName + ".json").toString();
+
+        File metadataFile = new File(metadataFilePath);
+        if (!metadataFile.exists()) {
+            logger.info("Skipping " + jarName + " because " + metadataFilePath + " does not exist");
             return;
         }
-
-        String projectName = jarFile.getParentFile().getParentFile().getName();
-        String metadataFilePath = Paths.get(evaluationDirectory, "projects_metadata", projectName + ".json").toString();
 
         try {
             ProjectMetadata groundTruth = fetchGroundTruth(metadataFilePath);
@@ -119,11 +126,11 @@ public class JarEvaluator {
             List<JarEvaluator.InferredLibrary> inferredLibraries = filterLibrariesByThreshold(candidateLibraries, threshold);
 
             if (inferredLibraries.isEmpty()) {
-                logger.info("For " + jarPath + ", no libraries passed the threshold");
+                logger.info("For " + jarName + ", no libraries passed the threshold");
             }
 
             statisticsHandler.updateStatisticsForProject(groundTruth, statVars, inferredLibraries);
-            logger.info("F1 Score for {}: {}", jarPath, statisticsHandler.getLastF1Score());
+            logger.info("F1 Score for {}: {}", jarName, statisticsHandler.getLastF1Score());
         } catch (IOException e) {
             e.printStackTrace();
         }

@@ -7,6 +7,8 @@ import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.corpus.model.Dependency;
 import nl.tudelft.cornul11.thesis.corpus.model.LibraryInfo;
 import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -15,6 +17,7 @@ import java.util.List;
 import java.util.Random;
 
 public class UberJarGenerator {
+    private static final Logger logger = LoggerFactory.getLogger(UberJarGenerator.class);
     public static final String METADATA_DIRECTORY = "./projects_metadata";
     private SignatureDAO signatureDao;
 
@@ -34,10 +37,13 @@ public class UberJarGenerator {
         }
     }
 
-    private void start(int numJars, int maxNumLibraries) {
-        if (numJars <= 0 || maxNumLibraries <= 0) {
+    private void start(int numSetsOfLibraries, int maxNumLibraries) {
+        if (numSetsOfLibraries <= 0 || maxNumLibraries <= 0) {
             throw new IllegalArgumentException("Number of jars and maximum number of libraries must be positive");
         }
+
+        logger.info("Initialization started");
+        long startTime = System.currentTimeMillis();
 
         initDb();
         initPaths();
@@ -53,26 +59,32 @@ public class UberJarGenerator {
         }
 
         List<ShadeConfiguration> shadeConfigurations = ShadeConfiguration.getAllConfigurations();
-
+        int totalJars = numSetsOfLibraries * shadeConfigurations.size();
         Random random = new Random();
 
-        for (int jarNum = 1; jarNum <= numJars; jarNum++) {
+        logger.info("Starting to generate {} Uber Jars from {} sets of libraries", totalJars, numSetsOfLibraries);
+        int jarCount = 0;
+
+        for (int jarNum = 1; jarNum <= numSetsOfLibraries; jarNum++) {
             int randomNumLibraries = random.nextInt(maxNumLibraries) + 1;
             LibraryInfo dependencies = librarySelector.getRandomDependencies(allLibraries, randomNumLibraries);
 
             for (ShadeConfiguration config : shadeConfigurations) {
                 try {
                     ProjectMetadata projectMetadata = projectGenerator.generateProject(dependencies, config);
-
                     projectMetadata = projectGenerator.packageJar(projectMetadata);
-
                     metadataStorage.storeMetadata(projectMetadata);
+
+                    jarCount++;
+                    logger.info(String.format("Successfully generated Uber Jar %1$d/%2$d. Progress: %3$.2f%%", jarCount, totalJars, ((double) jarCount / totalJars * 100)));
                 } catch (Exception e) {
-                    System.err.println("Error while packaging uber-jar " + jarNum + " with " + randomNumLibraries + " dependencies");
-                    e.printStackTrace();
+                    logger.error("Error while packaging uber-jar " + jarNum + " with " + randomNumLibraries + " dependencies", e);
                 }
             }
         }
+        long endTime = System.currentTimeMillis();
+        long duration = (endTime - startTime) / 1000;
+        logger.info("Generation completed in {} seconds. Average time per jar: {} seconds", duration, duration / totalJars);
     }
 
     private void initPaths() {

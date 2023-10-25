@@ -12,11 +12,15 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static org.slf4j.LoggerFactory.getLogger;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ProjectMetadata {
+    private static final Pattern ANSI_ESCAPE_CODE_PATTERN = Pattern.compile("\u001B\\[[;\\d]*m");
+
     private final static Logger logger = getLogger(ProjectMetadata.class);
     private static final String META_INF_MAVEN = "META-INF/maven";
     private static final String POM_XML = "pom.xml";
@@ -42,11 +46,26 @@ public class ProjectMetadata {
         this.projectName = projectName;
         this.directDependencies = directDependencies;
         this.shadeConfiguration = shadeConfiguration;
-        this.effectiveDependencies = effectiveDependencies;
+        this.effectiveDependencies = cleanDependencies(effectiveDependencies);
     }
 
     public ProjectMetadata(String projectName, List<Dependency> directDependencies, ShadeConfiguration shadeConfiguration) {
         this(projectName, directDependencies, shadeConfiguration, null);
+    }
+
+    private List<Dependency> cleanDependencies(List<Dependency> dependencies) {
+        return dependencies.stream()
+                .map(dep -> new Dependency(
+                        cleanGroupId(dep.getGroupId()),
+                        dep.getArtifactId(),
+                        dep.getVersion()))
+                .collect(Collectors.toList());
+    }
+
+    private String cleanGroupId(String groupId) {
+        groupId = ANSI_ESCAPE_CODE_PATTERN.matcher(groupId).replaceAll("");
+        groupId = groupId.replace("[INFO]", "").trim();
+        return groupId;
     }
 
     public String getProjectName() {
