@@ -8,9 +8,9 @@ from datetime import datetime
 
 import lxml.etree as ET
 import requests
+from bs4 import BeautifulSoup
 from tqdm import tqdm
 from tqdm.gui import tqdm as tqdm_gui
-from bs4 import BeautifulSoup
 
 total_waiting_for_maven = 0
 start_time = datetime.now()
@@ -198,8 +198,8 @@ def contains_shade_plugin(pom_file_path):
                 for execution in plugin.findall(f".//{{{ns_url}}}execution"):
                     for conf in execution.findall(f".//{{{ns_url}}}configuration"):
                         if (
-                            conf.find(f"{{{ns_url}}}createDependencyReducedPom")
-                            is not None
+                                conf.find(f"{{{ns_url}}}createDependencyReducedPom")
+                                is not None
                         ):
                             result_dict["has_dependency_reduced_pom"] = True
                         if conf.find(f"{{{ns_url}}}minimizeJar") is not None:
@@ -277,6 +277,7 @@ if __name__ == "__main__":
     total_not_found_in_index = 0
     total_with_parents = 0
     total_shade_plugin_no_parent = 0
+    overall_trends = {}
     monthly_trends = {
         "shade_plugin": {},
         "dependency_reduced_pom": {},
@@ -298,44 +299,45 @@ if __name__ == "__main__":
         create_archive(pom_files, args.archive_path, progress_bar)
     elif args.mode == "analyze":
         for result in progress_bar(
-            (contains_shade_plugin(pom_file) for pom_file in pom_files),
-            total=total_pom_files,
-            desc="Processing pom.xml files",
+                (contains_shade_plugin(pom_file) for pom_file in pom_files),
+                total=total_pom_files,
+                desc="Processing pom.xml files",
         ):
             if result["is_error"]:
                 total_errors += 1
 
-            date = None
-            year_month = None
+            date = get_publication_date_from_local_maven_index(
+                result["group_id"], result["artifact_id"], result["version"]
+            )
+            year_month = date[:7] if date else None
+
+            if date:
+                overall_trends[year_month] = overall_trends.get(year_month, 0) + 1
+            else:
+                total_not_found_in_index += 1
 
             if result["has_shade_plugin"]:
-                date = get_publication_date_from_local_maven_index(
-                    result["group_id"], result["artifact_id"], result["version"]
-                )
                 if date:
-                    year_month = date[:7]
                     monthly_trends["shade_plugin"][year_month] = (
-                        monthly_trends["shade_plugin"].get(year_month, 0) + 1
+                            monthly_trends["shade_plugin"].get(year_month, 0) + 1
                     )
-                else:
-                    total_not_found_in_index += 1
                 total_shade_plugins += 1
             if result["has_dependency_reduced_pom"]:
                 if date:
                     monthly_trends["dependency_reduced_pom"][year_month] = (
-                        monthly_trends["dependency_reduced_pom"].get(year_month, 0) + 1
+                            monthly_trends["dependency_reduced_pom"].get(year_month, 0) + 1
                     )
                 total_dependency_reduced_pom += 1
             if result["has_minimize_jar"]:
                 if date:
                     monthly_trends["minimize_jar"][year_month] = (
-                        monthly_trends["minimize_jar"].get(year_month, 0) + 1
+                            monthly_trends["minimize_jar"].get(year_month, 0) + 1
                     )
                 total_minimize_jar += 1
             if result["has_relocations"]:
                 if date:
                     monthly_trends["relocations"][year_month] = (
-                        monthly_trends["relocations"].get(year_month, 0) + 1
+                            monthly_trends["relocations"].get(year_month, 0) + 1
                     )
                 total_relocations += 1
             if result["has_parent"]:
@@ -343,8 +345,8 @@ if __name__ == "__main__":
             if result["has_shade_plugin"] and not result["has_parent"]:
                 if date:
                     monthly_trends["shade_plugin_and_no_parent"][year_month] = (
-                        monthly_trends["shade_plugin_and_no_parent"].get(year_month, 0)
-                        + 1
+                            monthly_trends["shade_plugin_and_no_parent"].get(year_month, 0)
+                            + 1
                     )
                 total_shade_plugin_no_parent += 1
 
