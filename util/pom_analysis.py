@@ -43,6 +43,17 @@ def get_pom_files_from_file(file_path):
             yield line.strip()
 
 
+def get_publication_date_from_maven_repo_header(group_id, artifact_id, version):
+    url = f"https://repo1.maven.org/maven2/{group_id.replace('.', '/')}/{artifact_id}/{version}/{artifact_id}-{version}.pom"
+    response = requests.head(url)
+    if response.status_code == 200:
+        date_text = response.headers["last-modified"]
+        publication_date = datetime.strptime(
+            date_text, "%a, %d %b %Y %H:%M:%S %Z"
+        ).strftime("%Y-%m")
+        return publication_date
+
+
 def get_publication_date_from_maven_repo(group_id, artifact_id, version):
     global total_waiting_for_maven
     start_time = datetime.now()
@@ -136,6 +147,21 @@ def get_publication_date_from_local_maven_index(group_id, artifact_id, version):
         total_waiting_for_maven += (end_time - start_time).total_seconds()
 
 
+def extract_gav_from_pom_path(pom_file_path):
+    # last folder name is the version
+    # second last is the artifactId
+    # and everything that comes after ../.m2/repository/ is the groupId, only with dots instead of slashes
+
+    path_components = pom_file_path.split(os.sep)
+    version = path_components[-2]
+    artifact_id = path_components[-3]
+
+    m2_index = path_components.index(".m2")
+    group_id = ".".join(path_components[m2_index + 2 : -3])
+
+    return group_id, artifact_id, version
+
+
 def contains_shade_plugin(pom_file_path):
     result_dict = {
         "path": pom_file_path,
@@ -154,28 +180,6 @@ def contains_shade_plugin(pom_file_path):
         tree = ET.parse(pom_file_path, xml_parser)
         root = tree.getroot()
         ns_url = "http://maven.apache.org/POM/4.0.0"
-
-        group_id = root.find(f"{{{ns_url}}}groupId")
-        artifact_id = root.find(f"{{{ns_url}}}artifactId")
-        version = root.find(f"{{{ns_url}}}version")
-
-        if group_id is None:
-            parent = root.find(f"{{{ns_url}}}parent")
-            if parent is not None:
-                group_id = parent.find(f"{{{ns_url}}}groupId")
-
-        if version is None:
-            parent = root.find(f"{{{ns_url}}}parent")
-            if parent is not None:
-                version = parent.find(f"{{{ns_url}}}version")
-
-        result_dict.update(
-            {
-                "group_id": group_id.text if group_id is not None else None,
-                "artifact_id": artifact_id.text if artifact_id is not None else None,
-                "version": version.text if version is not None else None,
-            }
-        )
 
         if root.find(f"{{{ns_url}}}parent") is not None:
             result_dict["has_parent"] = True
@@ -275,6 +279,7 @@ if __name__ == "__main__":
     total_relocations = 0
     total_errors = 0
     total_not_found_in_index = 0
+    total_not_found = 0
     total_with_parents = 0
     total_shade_plugin_no_parent = 0
     overall_trends = {}
@@ -303,18 +308,33 @@ if __name__ == "__main__":
                 total=total_pom_files,
                 desc="Processing pom.xml files",
         ):
-            if result["is_error"]:
+            group_id, artifact_id, version = extract_gav_from_pom_path(result["path"])
+
+            if (
+                    result["is_error"]
+                    or group_id is None
+                    or artifact_id is None
+                    or version is None
+            ):
                 total_errors += 1
 
             date = get_publication_date_from_local_maven_index(
-                result["group_id"], result["artifact_id"], result["version"]
+                group_id, artifact_id, version
             )
+
+            if date is None:
+                total_not_found_in_index += 1
+                date = get_publication_date_from_maven_repo_header(
+                    group_id, artifact_id, version
+                )
+
+            # retain only the year and month for stats
             year_month = date[:7] if date else None
 
             if date:
                 overall_trends[year_month] = overall_trends.get(year_month, 0) + 1
             else:
-                total_not_found_in_index += 1
+                total_not_found += 1
 
             if result["has_shade_plugin"]:
                 if date:
@@ -375,6 +395,9 @@ if __name__ == "__main__":
         print(
             f"Total not found in index: {total_not_found_in_index} ({total_not_found_in_index / total_shade_plugins * 100:.2f}%)"
         )
+        print(
+            f"Total not found: {total_not_found} ({total_not_found / total_shade_plugins * 100:.2f}%)"
+        )
 
         if args.save:
             stats = {
@@ -386,6 +409,9 @@ if __name__ == "__main__":
                 "total_minimize_jar": total_minimize_jar,
                 "total_relocations": total_relocations,
                 "total_with_parents": total_with_parents,
+                "total_not_found_in_index": total_not_found_in_index,
+                "total_not_found": total_not_found,
+                "general_trends": overall_trends,
                 "shade_plugin_trends": monthly_trends,
             }
 
