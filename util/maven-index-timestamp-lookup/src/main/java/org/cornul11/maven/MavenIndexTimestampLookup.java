@@ -49,6 +49,9 @@ import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static java.util.Objects.requireNonNull;
 import static spark.Spark.get;
@@ -65,6 +68,8 @@ public class MavenIndexTimestampLookup {
     private final IndexUpdater indexUpdater;
 
     private final Map<String, IndexCreator> indexCreators;
+
+    private final ExecutorService executorService = Executors.newCachedThreadPool();
 
     public static void main(String[] args) throws IOException {
         final com.google.inject.Module app = Main.wire(BeanScanning.INDEX);
@@ -190,18 +195,22 @@ public class MavenIndexTimestampLookup {
                 return "Missing query parameters";
             }
 
-            try {
-                String lastModified = lookupArtifactLastModified(groupId, artifactId, version);
-                if (!"Artifact not found".equals(lastModified)) {
-                    return lastModified;
-                } else {
-                    response.status(404);
-                    return "Artifact not found";
+            CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
+                try {
+                    String lastModified = lookupArtifactLastModified(groupId, artifactId, version);
+                    if (!"Artifact not found".equals(lastModified)) {
+                        return lastModified;
+                    } else {
+                        response.status(404);
+                        return "Artifact not found";
+                    }
+                } catch (Exception e) {
+                    response.status(500);
+                    return "Internal server error: " + e.getMessage();
                 }
-            } catch (Exception e) {
-                response.status(500);
-                return "Internal server error: " + e.getMessage();
-            }
+            }, executorService);
+
+            return future.join();
         });
     }
 

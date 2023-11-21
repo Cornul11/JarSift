@@ -11,7 +11,7 @@ FROM openjdk:11-jre-slim
 WORKDIR /app
 COPY --from=build /app/target/maven-local-index-timestamp-lookup-7.0.3.jar .
 COPY --from=build /app/target/dependency ./libs
-COPY --from=build /app/run-app.sh .
+COPY --from=build /app/run_app.sh .
 RUN chmod +x run_app.sh
 
-ENTRYPOINT ["/app/run-app.sh"]
+ENTRYPOINT ["/app/run_app.sh"]
