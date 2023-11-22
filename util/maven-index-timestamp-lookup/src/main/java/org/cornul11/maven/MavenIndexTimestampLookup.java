@@ -49,9 +49,6 @@ import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import static java.util.Objects.requireNonNull;
 import static spark.Spark.get;
@@ -69,14 +66,15 @@ public class MavenIndexTimestampLookup {
 
     private final Map<String, IndexCreator> indexCreators;
 
-    private final ExecutorService executorService = Executors.newCachedThreadPool();
-
     public static void main(String[] args) throws IOException {
         final com.google.inject.Module app = Main.wire(BeanScanning.INDEX);
         MavenIndexTimestampLookup mavenIndexTimestampLookup = Guice.createInjector(app).getInstance(MavenIndexTimestampLookup.class);
 
         if (args.length > 0 && "server".equals(args[0])) {
-            mavenIndexTimestampLookup.startServer();
+            mavenIndexTimestampLookup.updateLocalIndex();
+
+            IndexingContext centralIndex = mavenIndexTimestampLookup.createCentralContext();
+            mavenIndexTimestampLookup.startServer(centralIndex);
         } else {
             mavenIndexTimestampLookup.perform(args);
         }
@@ -113,24 +111,19 @@ public class MavenIndexTimestampLookup {
                 indexers);
     }
 
-    private String lookupArtifactLastModified(String groupId, String artifactId, String version) throws IOException {
-        IndexingContext centralContext = createCentralContext();
-        try {
-            // construct the query for known GA
-            Query query = constructQuery(groupId, artifactId, version);
+    private String lookupArtifactLastModified(IndexingContext centralContext, String groupId, String artifactId, String version) throws IOException {
+        // construct the query for known GA
+        Query query = constructQuery(groupId, artifactId, version);
 
-            IteratorSearchRequest request = new IteratorSearchRequest(query, Collections.singletonList(centralContext));
-            IteratorSearchResponse response = indexer.searchIterator(request);
+        IteratorSearchRequest request = new IteratorSearchRequest(query, Collections.singletonList(centralContext));
+        IteratorSearchResponse response = indexer.searchIterator(request);
 
-            if (response.getTotalHitsCount() > 0) {
-                ArtifactInfo ai = response.iterator().next();
-                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-                return sdf.format(new Date(ai.getLastModified()));
-            } else {
-                return "Artifact not found";
-            }
-        } finally {
-            indexer.closeIndexingContext(centralContext, false);
+        if (response.getTotalHitsCount() > 0) {
+            ArtifactInfo ai = response.iterator().next();
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+            return sdf.format(new Date(ai.getLastModified()));
+        } else {
+            return "Artifact not found";
         }
     }
 
@@ -156,10 +149,6 @@ public class MavenIndexTimestampLookup {
     public void perform(String[] args) throws IOException {
         IndexingContext centralContext = createCentralContext();
         try {
-            if (args[0].equals("update")) {
-                updateLocalIndex(centralContext);
-                return;
-            }
             String groupId = args[0];
             String artifactId = args[1];
             String version = args[2];
@@ -182,7 +171,7 @@ public class MavenIndexTimestampLookup {
         }
     }
 
-    private void startServer() {
+    private void startServer(IndexingContext centralIndex) throws IOException {
         port(8080);
 
         get("/lookup", (request, response) -> {
@@ -195,29 +184,37 @@ public class MavenIndexTimestampLookup {
                 return "Missing query parameters";
             }
 
-            CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
-                try {
-                    String lastModified = lookupArtifactLastModified(groupId, artifactId, version);
-                    if (!"Artifact not found".equals(lastModified)) {
-                        return lastModified;
-                    } else {
-                        response.status(404);
-                        return "Artifact not found";
-                    }
-                } catch (Exception e) {
-                    response.status(500);
-                    return "Internal server error: " + e.getMessage();
+            try {
+                String lastModified = lookupArtifactLastModified(centralIndex, groupId, artifactId, version);
+                if (!"Artifact not found".equals(lastModified)) {
+                    return lastModified;
+                } else {
+                    response.status(404);
+                    return "Artifact not found";
                 }
-            }, executorService);
-
-            return future.join();
+            } catch (Exception e) {
+                response.status(500);
+                e.printStackTrace();
+                return "Internal server error: " + e.getMessage();
+            }
         });
+
+        // when the server is stopped, close the indexer
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                indexer.closeIndexingContext(centralIndex, false);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }));
     }
 
-    private void updateLocalIndex(IndexingContext centralContext) throws IOException {
+    private void updateLocalIndex() throws IOException {
         Instant updateStart = Instant.now();
-        System.out.println("Updating Index...");
+        System.out.println("Updating index...");
         System.out.println("This might take a while on first run, so please be patient!");
+
+        IndexingContext centralContext = createCentralContext();
 
         Date centralContextCurrentTimestamp = centralContext.getTimestamp();
         IndexUpdateRequest updateRequest = new IndexUpdateRequest(centralContext, new Java11HttpClient());
@@ -231,6 +228,7 @@ public class MavenIndexTimestampLookup {
                     + " - " + updateResult.getTimestamp() + " period.");
         }
 
+        indexer.closeIndexingContext(centralContext, false);
         System.out.println("Finished in "
                 + Duration.between(updateStart, Instant.now()).getSeconds() + " sec");
         System.out.println();

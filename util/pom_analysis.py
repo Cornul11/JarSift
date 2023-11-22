@@ -13,8 +13,6 @@ from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 from tqdm.gui import tqdm as tqdm_gui
 
-total_waiting_for_maven = 0
-
 DEFAULT_ARCHIVE_PATH = "pom_archive.zip"
 NS_URL = "http://maven.apache.org/POM/4.0.0"
 
@@ -288,12 +286,13 @@ class MavenPomAnalyzer:
             logging.info(
                 f"Total pom files with parent: {self.total_with_parents} ({self.total_with_parents / self.total_pom_files * 100:.2f}%)"
             )
-            logging.info(
-                f"Total not found in index: {self.total_not_found_in_index} ({self.total_not_found_in_index / self.total_shade_plugins * 100:.2f}%)"
-            )
-            logging.info(
-                f"Total not found: {self.total_not_found} ({self.total_not_found / self.total_shade_plugins * 100:.2f}%)"
-            )
+            if self.total_shade_plugins > 0:
+                logging.info(
+                    f"Total not found in index: {self.total_not_found_in_index} ({self.total_not_found_in_index / self.total_shade_plugins * 100:.2f}%)"
+                )
+                logging.info(
+                    f"Total not found: {self.total_not_found} ({self.total_not_found / self.total_shade_plugins * 100:.2f}%)"
+                )
 
     def save_stats_if_required(self):
         if self.args.save:
@@ -313,11 +312,8 @@ class MavenPomAnalyzer:
             }
 
             with open(self.args.save, "w") as f:
-                json.dump(stats, f)
+                json.dump(stats, f, indent=4)
             logging.info(f"Saved stats to {self.args.save}")
-            logging.info(
-                f"Total time waiting for Maven Central: {total_waiting_for_maven}"
-            )
             logging.info(
                 f"Total time: {(datetime.now() - self.start_time).total_seconds()}"
             )
@@ -333,7 +329,11 @@ def parse_arguments():
         default=None,
     )
     parser.add_argument(
-        "--file", type=str, help="File containing paths to pom.xml files", default=None
+        "-f",
+        "--file",
+        type=str,
+        help="File containing paths to pom.xml files",
+        default=None,
     )
     parser.add_argument(
         "--mode",
@@ -373,9 +373,6 @@ def get_publication_date_from_maven_repo_header(group_id, artifact_id, version):
 
 
 def get_publication_date_from_maven_repo(group_id, artifact_id, version):
-    global total_waiting_for_maven
-    start_time = datetime.now()
-
     group_id = group_id.replace(".", "/")
 
     url = f"https://repo1.maven.org/maven2/{group_id}/{artifact_id}/{version}"
@@ -406,14 +403,9 @@ def get_publication_date_from_maven_repo(group_id, artifact_id, version):
     except Exception as err:
         logging.error(f"Other error occurred: {err}")
         return None
-    finally:
-        end_time = datetime.now()
-        total_waiting_for_maven += (end_time - start_time).total_seconds()
 
 
 def get_publication_date_from_maven_central(group_id, artifact_id, version):
-    global total_waiting_for_maven
-    start_time = datetime.now()
     try:
         base_url = "https://search.maven.org/solrsearch/select"
         query = f"g:{group_id} AND a:{artifact_id} AND v:{version}"
@@ -436,9 +428,6 @@ def get_publication_date_from_maven_central(group_id, artifact_id, version):
             f"Error fetching publication date for {group_id}:{artifact_id}:{version} from Maven Central: {e}"
         )
         return None
-    finally:
-        end_time = datetime.now()
-        total_waiting_for_maven += (end_time - start_time).total_seconds()
 
 
 def main():

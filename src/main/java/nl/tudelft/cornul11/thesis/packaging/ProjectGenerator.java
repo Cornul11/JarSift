@@ -5,6 +5,7 @@ import freemarker.template.Template;
 import nl.tudelft.cornul11.thesis.corpus.jarfile.JarProcessingUtils;
 import nl.tudelft.cornul11.thesis.corpus.model.Dependency;
 import nl.tudelft.cornul11.thesis.corpus.model.LibraryInfo;
+import nl.tudelft.cornul11.thesis.packaging.util.HostNameUtility;
 import org.apache.maven.shared.invoker.*;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Opcodes;
@@ -14,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -179,18 +181,16 @@ public class ProjectGenerator {
 
     private String getJarLocation(Dependency library) {
         Path m2RepositoryPath;
+        // TODO: find a better way to determine the m2 repository path
         // get hostname to determine if we are on the server or not
-        String hostname = System.getenv("HOSTNAME");
+        String hostname = HostNameUtility.getHostName();
 
         // sometimes hostname is null
-        if (hostname == null) {
-            hostname = "";
-        }
+        hostname = Objects.requireNonNullElse(hostname, "");
 
         if (hostname.equals("goteborg")) {
-            // m2RepositoryPath shoud become /data/.m2/repository
+            // m2RepositoryPath should become /data/.m2/repository
             m2RepositoryPath = Paths.get("/data", ".m2", "repository");
-
         } else {
             String userHomeDir = System.getProperty("user.home");
             m2RepositoryPath = Paths.get(userHomeDir, ".m2", "repository");
