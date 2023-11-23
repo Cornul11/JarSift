@@ -36,51 +36,56 @@ public class OracleCommandExecutor {
         if (mode != null) {
             DatabaseConfig databaseConfig = config.getDatabaseConfig();
             DatabaseManager databaseManager = DatabaseManager.getInstance(databaseConfig);
-            SignatureDAO signatureDao = databaseManager.getSignatureDao();
+            SignatureDAO signatureDao = databaseManager.getSignatureDao(config.getDatabaseMode());
 
-            if ("ORACLE_CORPUS_GEN_MODE".equals(mode)) {
-                String pomPathsFilePath = options.getFilename();
-                if (pomPathsFilePath != null) {
-                    Path pathToFile = Paths.get(pomPathsFilePath);
-                    PomFilesProcessor app = new PomFilesProcessor(/*config.getNumConsumerThreads()*/    1);
-                    app.processPomFiles(pathToFile);
+            switch (mode) {
+                case "ORACLE_CORPUS_GEN_MODE":
+                    String pomPathsFilePath = options.getFilename();
+                    if (pomPathsFilePath != null) {
+                        Path pathToFile = Paths.get(pomPathsFilePath);
+                        PomFilesProcessor app = new PomFilesProcessor(/*config.getNumConsumerThreads()*/    1);
+                        app.processPomFiles(pathToFile);
 
-                } else {
-                    System.out.println("File path is required for ORACLE_CORPUS_GEN_MODE");
-                    printHelpMessage();
-                }
-            } else if ("COMPARISON_MODE".equals(mode)) {
-                String fileName = options.getFilename();
-                if (fileName != null) {
-                    OracleInformationComparator comparator = new OracleInformationComparator(signatureDao);
-                    comparator.validateUberJar(fileName);
-                    if (comparator.getResults() == null) {
-                        System.out.println("Error in processing jar file");
                     } else {
-                        System.out.println("Results: " + comparator.getResults());
+                        System.out.println("File path is required for ORACLE_CORPUS_GEN_MODE");
+                        printHelpMessage();
                     }
+                    break;
+                case "COMPARISON_MODE":
+                    String fileName = options.getFilename();
+                    if (fileName != null) {
+                        OracleInformationComparator comparator = new OracleInformationComparator(signatureDao);
+                        comparator.validateUberJar(fileName);
+                        if (comparator.getResults() == null) {
+                            System.out.println("Error in processing jar file");
+                        } else {
+                            System.out.println("Results: " + comparator.getResults());
+                        }
 
-                } else {
-                    System.out.println("File name is required for COMPARISON_MODE");
-                    printHelpMessage();
-                }
-            } else if ("BATCH_COMPARISON_MODE".equals(mode)) {
-                String repoPath = options.getDirectory();
-                if (repoPath != null) {
-                    OracleInformationComparator comparator = new OracleInformationComparator(signatureDao);
-                    comparator.validateUberJars(repoPath);
-                    if (comparator.getResults() == null) {
-                        System.out.println("Error in the batch validation of jar files");
                     } else {
-                        System.out.println("Results: " + comparator.getResults());
+                        System.out.println("File name is required for COMPARISON_MODE");
+                        printHelpMessage();
                     }
-                } else {
-                    System.out.println("M2 repo root path is required for BATCH_COMPARISON_MODE");
+                    break;
+                case "BATCH_COMPARISON_MODE":
+                    String repoPath = options.getDirectory();
+                    if (repoPath != null) {
+                        OracleInformationComparator comparator = new OracleInformationComparator(signatureDao);
+                        comparator.validateUberJars(repoPath);
+                        if (comparator.getResults() == null) {
+                            System.out.println("Error in the batch validation of jar files");
+                        } else {
+                            System.out.println("Results: " + comparator.getResults());
+                        }
+                    } else {
+                        System.out.println("M2 repo root path is required for BATCH_COMPARISON_MODE");
+                        printHelpMessage();
+                    }
+                    break;
+                default:
+                    System.out.println("Invalid mode specified: " + mode);
                     printHelpMessage();
-                }
-            } else {
-                System.out.println("Invalid mode specified: " + mode);
-                printHelpMessage();
+                    break;
             }
         } else {
             System.out.println("No mode specified");

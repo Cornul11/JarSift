@@ -41,51 +41,57 @@ public class CommandExecutor {
         if (mode != null) {
             DatabaseConfig databaseConfig = config.getDatabaseConfig();
             DatabaseManager databaseManager = DatabaseManager.getInstance(databaseConfig);
-            SignatureDAO signatureDao = databaseManager.getSignatureDao(options.getDatabaseMode());
+            SignatureDAO signatureDao = databaseManager.getSignatureDao(config.getDatabaseMode());
 
-            if ("CORPUS_GEN_MODE".equals(mode)) {
-                JarFileExplorer jarFileExplorer = new JarFileExplorer(signatureDao, config);
-                String directoryPath = options.getDirectory();
-                String filePaths = options.getFilePaths();
-                if (directoryPath != null) {
-                    jarFileExplorer.processFiles(directoryPath, options.getLastPath());
-                } else if (filePaths != null) {
-                    jarFileExplorer.processFilesFromPathListFile(filePaths, options.getLastPath());
-                } else {
-                    System.out.println("Directory path or file path(s) is required for CORPUS_GEN_MODE");
-                    printHelpMessage();
-                }
-            } else if ("DETECTION_MODE".equals(mode)) {
-                String fileName = options.getFilename();
-                if (fileName != null) {
-                    JarFrequencyAnalyzer jarFrequencyAnalyzer = new JarFrequencyAnalyzer(signatureDao);
-                    Map<String, Map<String, Object>> frequencyMap = jarFrequencyAnalyzer.processJar(fileName);
-                    if (frequencyMap == null) {
-                        logger.error("Error in processing jar file, ignoring it");
-                        return;
+            switch (mode) {
+                case "CORPUS_GEN_MODE":
+                    JarFileExplorer jarFileExplorer = new JarFileExplorer(signatureDao, config);
+                    String directoryPath = options.getDirectory();
+                    String filePaths = options.getFilePaths();
+                    if (directoryPath != null) {
+                        jarFileExplorer.processFiles(directoryPath, options.getLastPath());
+                    } else if (filePaths != null) {
+                        jarFileExplorer.processFilesFromPathListFile(filePaths, options.getLastPath());
+                    } else {
+                        System.out.println("Directory path or file path(s) is required for CORPUS_GEN_MODE");
+                        printHelpMessage();
                     }
-                    int totalClassCount = jarFrequencyAnalyzer.getTotalClassCount();
+                    break;
+                case "IDENTIFICATION_MODE":
+                    String fileName = options.getFilename();
+                    Double threshold = options.getThreshold();
+                    if (fileName != null) {
+                        JarFrequencyAnalyzer jarFrequencyAnalyzer = new JarFrequencyAnalyzer(signatureDao);
+                        Map<String, Map<String, Object>> frequencyMap = jarFrequencyAnalyzer.processJar(fileName);
+                        if (frequencyMap == null) {
+                            logger.error("Error in processing jar file, ignoring it");
+                            return;
+                        }
+                        int totalClassCount = jarFrequencyAnalyzer.getTotalClassCount();
 
-                    VulnerabilityAnalyzer vulnerabilityAnalyzer = new VulnerabilityAnalyzer(totalClassCount, config);
+                        VulnerabilityAnalyzer vulnerabilityAnalyzer = new VulnerabilityAnalyzer(totalClassCount, config, threshold);
 
-                    vulnerabilityAnalyzer.checkForVulnerability(frequencyMap);
-                } else {
-                    System.out.println("File name is required for DETECTION_MODE");
+                        vulnerabilityAnalyzer.checkForVulnerability(frequencyMap, options.getOutput());
+                    } else {
+                        System.out.println("File name is required for IDENTIFICATION_MODE");
+                        printHelpMessage();
+                    }
+                    break;
+                case "EVALUATION_MODE":
+                    String evaluationDirectory = options.getEvaluationDirectory();
+                    if (evaluationDirectory != null) {
+                        JarEvaluator jarEvaluator = new JarEvaluator(signatureDao, evaluationDirectory);
+                        Map<String, List<JarEvaluator.InferredLibrary>> inferredLibrariesMap = jarEvaluator.inferLibrariesFromJars();
+                        jarEvaluator.evaluate(inferredLibrariesMap);
+                    } else {
+                        System.out.println("Evaluation directory is required for EVALUATION_MODE");
+                        printHelpMessage();
+                    }
+                    break;
+                default:
+                    System.out.println("Invalid mode specified: " + mode);
                     printHelpMessage();
-                }
-            } else if ("EVALUATION_MODE".equals(mode)) {
-                String evaluationDirectory = options.getEvaluationDirectory();
-                if (evaluationDirectory != null) {
-                    JarEvaluator jarEvaluator = new JarEvaluator(signatureDao, evaluationDirectory);
-                    Map<String, List<JarEvaluator.InferredLibrary>> inferredLibrariesMap = jarEvaluator.inferLibrariesFromJars();
-                    jarEvaluator.evaluate(inferredLibrariesMap);
-                } else {
-                    System.out.println("Evaluation directory is required for EVALUATION_MODE");
-                    printHelpMessage();
-                }
-            } else {
-                System.out.println("Invalid mode specified: " + mode);
-                printHelpMessage();
+                    break;
             }
         } else {
             System.out.println("No mode specified");

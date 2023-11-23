@@ -73,4 +73,8 @@ public class ConfigurationLoader {
     public String getMongoDbConnectionString() {
         return config.getProperty("mongoDbConnectionString");
     }
+
+    public String getDatabaseMode() {
+        return config.getProperty("databaseMode");
+    }
 }

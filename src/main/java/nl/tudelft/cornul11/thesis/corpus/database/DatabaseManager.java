@@ -78,10 +78,6 @@ public class DatabaseManager {
         return InstanceHolder.instance;
     }
 
-    public SignatureDAO getSignatureDao() {
-        return new SignatureDAOImpl(ds);
-    }
-
     public SignatureDAO getSignatureDao(String dbmode) {
         return new SignatureDAOImpl(ds, dbmode);
     }

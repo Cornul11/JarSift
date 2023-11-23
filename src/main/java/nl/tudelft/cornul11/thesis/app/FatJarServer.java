@@ -42,7 +42,7 @@ public class FatJarServer extends AbstractHandler {
     ConfigurationLoader config = new ConfigurationLoader();
     DatabaseConfig databaseConfig = config.getDatabaseConfig();
     DatabaseManager databaseManager = DatabaseManager.getInstance(databaseConfig);
-    SignatureDAO signatureDao = databaseManager.getSignatureDao();
+    SignatureDAO signatureDao = databaseManager.getSignatureDao(config.getDatabaseMode());
     JarSignatureMapper jarSignatureMapper = new JarSignatureMapper(signatureDao);
 
     MultipartConfigElement multipartConfig = new MultipartConfigElement(location, maxFileSize, maxRequestSize, fileSizeThreshold);

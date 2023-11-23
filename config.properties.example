@@ -20,3 +20,4 @@ totalJars=42
 mongoDbDatabase=osv_db
 mongoDbCollection=data
 mongoDbConnectionString=mongodb://localhost:27072
+databaseMode=file

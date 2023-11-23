@@ -95,8 +95,8 @@ public class UberJarGenerator {
     }
 
     private void initDb() {
-        DatabaseConfig databaseConfig = new ConfigurationLoader().getDatabaseConfig();
-        DatabaseManager databaseManager = DatabaseManager.getInstance(databaseConfig);
-        this.signatureDao = databaseManager.getSignatureDao();
+        ConfigurationLoader config = new ConfigurationLoader();
+        DatabaseManager databaseManager = DatabaseManager.getInstance(config.getDatabaseConfig());
+        this.signatureDao = databaseManager.getSignatureDao(config.getDatabaseMode());
     }
 }

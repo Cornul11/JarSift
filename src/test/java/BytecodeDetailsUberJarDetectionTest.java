@@ -92,7 +92,7 @@ public class BytecodeDetailsUberJarDetectionTest {
         ConfigurationLoader config = new ConfigurationLoader();
         DatabaseConfig databaseConfig = config.getDatabaseConfig();
         DatabaseManager databaseManager = DatabaseManager.getInstance(databaseConfig);
-        SignatureDAO signatureDao = databaseManager.getSignatureDao();
+        SignatureDAO signatureDao = databaseManager.getSignatureDao(config.getDatabaseMode());
         JarSignatureMapper jarSignatureMapper = new JarSignatureMapper(signatureDao);
         jarSignatureMapper.inferJarFileMultithreadedProcess(Paths.get("/Users/tdurieux/Downloads/uber-jar-6.5.15.jar"));
     }

@@ -31,7 +31,7 @@ public class SignatureDAOImpl implements SignatureDAO {
 
     public SignatureDAOImpl(HikariDataSource ds, String dbMode) {
         this.ds = ds;
-        this.dbMode = dbMode;
+        this.dbMode = Objects.requireNonNullElse(dbMode, "file");
     }
 
     @Override

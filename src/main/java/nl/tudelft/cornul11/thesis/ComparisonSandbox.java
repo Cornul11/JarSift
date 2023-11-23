@@ -39,7 +39,7 @@ public class ComparisonSandbox {
 
         DatabaseConfig databaseConfig = config.getDatabaseConfig();
         DatabaseManager databaseManager = DatabaseManager.getInstance(databaseConfig);
-        SignatureDAO signatureDao = databaseManager.getSignatureDao();
+        SignatureDAO signatureDao = databaseManager.getSignatureDao(config.getDatabaseMode());
         // Fetch hashes for a specific artifactId and version from the database
         if (false) {
             List<Long> dbHashesForArtifact = ((SignatureDAOImpl) signatureDao).getHashesForArtifactIdVersion("logback-core", "1.4.0");

@@ -47,8 +47,23 @@ public class OptionsBuilder {
         return cmd.getOptionValue("fp");
     }
 
-    public String getDatabaseMode() {
-        return cmd.getOptionValue("dbm");
+    public String getOutput() {
+        return cmd.getOptionValue("o");
+    }
+
+    public Double getThreshold() {
+        String thresholdValue = cmd.getOptionValue("t");
+        try {
+            double threshold = Double.parseDouble(thresholdValue);
+            if (threshold < 0 || threshold > 1) {
+                logger.error("Threshold value must be between 0 and 1");
+                System.exit(1);
+            }
+            return threshold;
+        } catch (Exception e) {
+            logger.error("Invalid threshold value: {}, must be a double value between 0 and 1", thresholdValue);
+            return null;
+        }
     }
 
     private Options buildOptions() {
@@ -82,7 +97,7 @@ public class OptionsBuilder {
                 .longOpt("mode")
                 .hasArg()
                 .argName("mode")
-                .desc("Specify the operation mode: CORPUS_GEN_MODE or DETECTION_MODE")
+                .desc("Specify the operation mode: CORPUS_GEN_MODE, IDENTIFICATION_MODE or EVALUATION_MODE")
                 .build());
 
         options.addOption(Option.builder("p")
@@ -106,13 +121,19 @@ public class OptionsBuilder {
                 .desc("Specify the directory path for evaluation mode")
                 .build());
 
-        options.addOption(Option.builder("dbm")
-                .longOpt("databaseMode")
+        options.addOption(Option.builder("o")
+                .longOpt("output")
                 .hasArg()
-                .argName("mode")
-                .desc("Specif the database mode, memory or file")
+                .argName("file")
+                .desc("Specify the path to inference output file")
                 .build());
 
+        options.addOption(Option.builder("t")
+                .longOpt("threshold")
+                .hasArg()
+                .argName("threshold")
+                .desc("Specify the threshold for inference")
+                .build());
         return options;
     }
 }

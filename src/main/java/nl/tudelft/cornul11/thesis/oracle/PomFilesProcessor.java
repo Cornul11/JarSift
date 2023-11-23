@@ -34,7 +34,7 @@ public class PomFilesProcessor {
         ConfigurationLoader config = new ConfigurationLoader();
         DatabaseConfig databaseConfig = config.getDatabaseConfig();
         DatabaseManager databaseManager = DatabaseManager.getInstance(databaseConfig);
-        SignatureDAO signatureDao = databaseManager.getSignatureDao();
+        SignatureDAO signatureDao = databaseManager.getSignatureDao(config.getDatabaseMode());
 
         AtomicInteger usingShadePlugin = new AtomicInteger(0);
         AtomicInteger brokenPomCount = new AtomicInteger(0);
