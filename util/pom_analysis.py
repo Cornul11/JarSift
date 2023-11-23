@@ -39,7 +39,7 @@ def extract_gav_from_pom_path(pom_file_path):
 def get_publication_date_from_local_maven_index(group_id, artifact_id, version):
     try:
         response = requests.get(
-            "http://localhost:8080/lookup",
+            "http://localhost:8032/lookup",
             params={
                 "groupId": group_id,
                 "artifactId": artifact_id,

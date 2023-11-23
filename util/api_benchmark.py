@@ -47,7 +47,7 @@ def parse_jar_path(jar_path):
     return groupId, artifactId, version
 
 
-def benchmark_api(groupId, artifactId, version, url="http://localhost:8080/lookup"):
+def benchmark_api(groupId, artifactId, version, url="http://localhost:8032/lookup"):
     params = {
         "groupId": groupId,
         "artifactId": artifactId,

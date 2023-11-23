@@ -171,8 +171,8 @@ public class MavenIndexTimestampLookup {
         }
     }
 
-    private void startServer(IndexingContext centralIndex) throws IOException {
-        port(8080);
+    private void startServer(IndexingContext centralIndex) {
+        port(8032);
 
         get("/lookup", (request, response) -> {
             String groupId = request.queryParams("groupId");
@@ -202,6 +202,7 @@ public class MavenIndexTimestampLookup {
         // when the server is stopped, close the indexer
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
+                System.out.println("Shutting down...");
                 indexer.closeIndexingContext(centralIndex, false);
             } catch (IOException e) {
                 e.printStackTrace();
