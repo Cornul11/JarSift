@@ -31,12 +31,13 @@ async function fetchLibraryVersions(page, library) {
     });
 }
 
+
 /**
- * Extracts data about all the libraries from a search query results page on mvnrepository.com
+ * Extracts data about all the artifacts from a search query results page on mvnrepository.com
  * @param page
  * @returns {Promise<*>}
  */
-async function extractDataFromPage(page) {
+async function extractSearchPageArtifactInfo(page) {
     return page.evaluate(() => {
         function isAd(element) {
             return element.innerHTML.includes('adsbygoogle');
@@ -60,11 +61,57 @@ function delay(time) {
     return new Promise(resolve => setTimeout(resolve, time));
 }
 
+async function fetchRepos(page, groupId, artifactId, version) {
+    const url = `https://mvnrepository.com/artifact/${groupId}/${artifactId}/${version}`;
+    await page.goto(url, {waitUntil: 'networkidle2'});
+
+    return await page.evaluate(() => {
+        const thElements = Array.from(document.querySelectorAll('table.grid tr th'));
+        const reposTh = thElements.find(element => element.innerText.trim() === 'Repositories');
+
+        if (reposTh && reposTh.nextElementSibling) {
+            return Array.from(reposTh.nextElementSibling.querySelectorAll('a'))
+                .map(element => element.innerText.trim());
+        }
+    });
+}
+
+async function getRepos() {
+    const browser = await puppeteer.launch({headless: false});
+    const page = await browser.newPage();
+    let libraries = JSON.parse(fs.readFileSync('all_usable_jars_with_versions.json', 'utf8'));
+
+    const bar = new ProgressBar('[:bar] :current/:total :percent :etas', {total: libraries.length});
+    for (const library of libraries) {
+        if (library.repositories) { // already fetched
+            continue;
+        }
+
+        if (library.mostUsedVulnerableVersion) {
+            const repos = await fetchRepos(page, library.groupId, library.artifactId, library.mostUsedVulnerableVersion.version);
+            library.mostUsedVulnerableVersion.repositories = repos;
+        }
+
+        if (library.mostUsedVersion) {
+            const repos = await fetchRepos(page, library.groupId, library.artifactId, library.mostUsedVersion.version);
+            library.mostUsedVersion.repositories = repos;
+        }
+
+        // wait for 2 to 3 seconds
+        await delay(Math.floor(Math.random() * 500) + 500);
+        bar.tick();
+    }
+
+    await browser.close();
+
+    fs.writeFileSync('all_usable_jars_with_versions_and_repos.json', JSON.stringify(libraries, null, 4));
+}
+
 /**
  * Fetches versions of all the libraries given in a list from mvnrepository.com
  * @returns {Promise<void>}
  */
-async function mainGetVersions() {
+async function getVersions() {
     const browser = await puppeteer.launch({headless: false});
     const page = await browser.newPage();
     let libraries = JSON.parse(fs.readFileSync('all_uber_shaded_jars.json', 'utf8'));
@@ -77,7 +124,10 @@ async function mainGetVersions() {
         const versions = await fetchLibraryVersions(page, library);
 
         if (versions.length > 0) {
-            const mostUsedVersion = versions.reduce((a, b) => (a.usages > b.usages) ? a : b);
+            const nonVulnerableVersions = versions.filter(v => v.vulnerabilities === 0);
+            const mostUsedVersion = nonVulnerableVersions.length > 0 ?
+                nonVulnerableVersions.reduce((a, b) => (a.usages > b.usages) ? a : b) : null;
+
             const vulnerableVersions = versions.filter(v => v.vulnerabilities > 0);
             const mostUsedVulnerableVersion = vulnerableVersions.length > 0 ?
                 vulnerableVersions.reduce((a, b) => (a.usages > b.usages) ? a : b) : null;
@@ -99,14 +149,14 @@ async function mainGetVersions() {
  * Fetches all the libraries from a search result from mvnrepository.com given a search query
  * @returns {Promise<void>}
  */
-async function mainGetLibraries(searchQuery) {
+async function getArtifacts(searchQuery) {
     const browser = await puppeteer.launch({headless: false});
     const page = await browser.newPage();
     let currentPage = 1;
     const allData = [];
     while (true) {
         await page.goto(`https://mvnrepository.com/search?q=${searchQuery}&p=${currentPage}`, {waitUntil: 'networkidle2'});
-        const data = await extractDataFromPage(page);
+        const data = await extractSearchPageArtifactInfo(page);
         allData.push(...data);
 
         const nextButton = await page.$('ul.search-nav li.current + li a');
@@ -155,11 +205,11 @@ async function fetchJars(query, rowsPerPage) {
 }
 
 /**
- * Fetches all the JARs from the search.maven.org API given a search query and writes them to a file
+ * Fetches all the artifacts from the search.maven.org API given a search query and writes them to a file
  * @param query
  * @returns {Promise<void>}
  */
-async function mainGetJars(query) {
+async function getJars(query) {
     const jars = await fetchJars(query, 200);
     console.log(jars.length);
     fs.writeFileSync(`${query}_jars.json`, JSON.stringify(jars, null, 4));
@@ -174,18 +224,21 @@ async function main() {
         console.log('get-jars <query> - fetches all the JARs from the search.maven.org API given a search query');
         console.log('get-libraries - fetches all the libraries from a search result from mvnrepository.com given a search query');
         console.log('get-versions - fetches versions of all the libraries given in a list from mvnrepository.com');
+        console.log('get-repos - fetches the repositories at which artifacts are located');
         return;
     }
 
     const command = args[0];
     if (command === 'get-jars') {
         const query = args[1];
-        await mainGetJars(query);
+        await getJars(query);
     } else if (command === 'get-libraries') {
         const searchQuery = args[1];
-        await mainGetLibraries(searchQuery);
+        await getArtifacts(searchQuery);
     } else if (command === 'get-versions') {
-        await mainGetVersions();
+        await getVersions();
+    } else if (command === 'get-repos') {
+        await getRepos();
     } else {
         console.log('Unknown command');
     }
