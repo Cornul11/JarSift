@@ -45,27 +45,6 @@ public class DatabaseManager {
         return hikariConfig;
     }
 
-    public void createTmpDependenciesTable() {
-        String createTableQuery = "CREATE TABLE IF NOT EXISTS tmp_dependencies (" +
-                "id INT PRIMARY KEY AUTO_INCREMENT, " +
-                "parent_library_id INT NOT NULL, " +
-                "library_id INT, " +
-                "group_id VARCHAR(255) NOT NULL, " +
-                "artifact_id VARCHAR(255) NOT NULL," +
-                "version VARCHAR(255) NOT NULL, " +
-                "UNIQUE INDEX uindex (parent_library_id , library_id), " +
-                "FOREIGN KEY (parent_library_id) REFERENCES libraries(id), " +
-                "FOREIGN KEY (library_id) REFERENCES libraries(id))";
-
-        try (Connection connection = ds.getConnection();
-             Statement statement = connection.createStatement()) {
-            statement.executeUpdate(createTableQuery);
-            logger.info("Temporary dependencies table created or already exists.");
-        } catch (SQLException e) {
-            logger.error("Error while creating temporary dependencies table.", e);
-        }
-    }
-
     private static final class InstanceHolder {
         // singleton instance
         private static DatabaseManager instance;
@@ -85,7 +64,6 @@ public class DatabaseManager {
     private void createSchema() {
         createLibrariesTable();
         createSignaturesTable();
-        createTmpDependenciesTable();
 //        addIndexes();
     }
 
@@ -105,24 +83,6 @@ public class DatabaseManager {
         }
     }
 
-    private void createOracleLibrariesTable() {
-        String createTableQuery = "CREATE TABLE IF NOT EXISTS oracle_libraries (" +
-                "id INT PRIMARY KEY AUTO_INCREMENT, "
-                + "group_id VARCHAR(255) NOT NULL, "
-                + "artifact_id VARCHAR(255) NOT NULL, "
-                + "version VARCHAR(255) NOT NULL,"
-                + "using_maven_shade_plugin BOOLEAN NOT NULL,"
-                + "is_an_uber_jar BOOLEAN NOT NULL)";
-
-        try (Connection connection = ds.getConnection();
-             Statement statement = connection.createStatement()) {
-            statement.executeUpdate(createTableQuery);
-            logger.info("Oracle libraries table created or already exists.");
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
     private void createLibrariesTable() {
         String createTableQuery = "CREATE TABLE IF NOT EXISTS libraries (" +
                 "id INT PRIMARY KEY AUTO_INCREMENT, "
@@ -134,7 +94,8 @@ public class DatabaseManager {
                 + "is_uber_jar BOOLEAN NOT NULL,"
                 + "disk_size INT NOT NULL,"
                 + "total_class_files INT NOT NULL,"
-                + "unique_signatures INT NOT NULL)";
+                + "unique_signatures INT NOT NULL,"
+                + "creation_date DATETIME)";
 
         try (Connection connection = ds.getConnection();
              Statement statement = connection.createStatement()) {

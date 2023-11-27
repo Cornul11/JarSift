@@ -7,8 +7,10 @@ import zipfile
 from datetime import datetime
 
 import lxml.etree as ET
+import mysql.connector
 import requests
 from bs4 import BeautifulSoup
+from jproperties import Properties
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 from tqdm.gui import tqdm as tqdm_gui
@@ -52,7 +54,7 @@ def get_publication_date_from_local_maven_index(group_id, artifact_id, version):
         else:
             with logging_redirect_tqdm():
                 logging.error(
-                    f"Lookup failed with status code {response.status_code}",
+                    f"Lookup failed with status code {response.status_code} for {group_id}:{artifact_id}:{version}"
                 )
             return None
     except subprocess.CalledProcessError as e:
@@ -131,11 +133,31 @@ def contains_shade_plugin(pom_file_path):
     return result_dict
 
 
+def parse_database_url(db_url):
+    # db_url is in the format "jdbc:postgresql://localhost:5432/maven"
+    try:
+        url_parts = db_url.split("//")[1].split("/")
+        host_port = url_parts[0]
+        database = url_parts[1]
+
+        host = host_port.split(":")[0]
+
+        return host, database
+    except IndexError:
+        raise ValueError("Invalid database URL format")
+
+
 class MavenPomAnalyzer:
     def __init__(self, args):
         self.args = args
         self.start_time = datetime.now()
         self.initialize_stats()
+        self.p = Properties()
+        self.load_properties()
+
+    def load_properties(self):
+        with open("../config.properties", "rb") as f:
+            self.p.load(f, "utf-8")
 
     def _update_trend(self, trend_dict, year_month):
         if year_month:
@@ -149,7 +171,7 @@ class MavenPomAnalyzer:
         self.total_relocations = 0
         self.total_errors = 0
         self.total_not_found_in_index = 0
-        self.total_not_found = 0
+        self.total_date_not_found = 0
         self.total_with_parents = 0
         self.total_shade_plugin_no_parent = 0
         self.overall_trends = {}
@@ -228,9 +250,20 @@ class MavenPomAnalyzer:
 
         if date is None:
             self.total_not_found_in_index += 1
-            date = get_publication_date_from_maven_repo_header(
+            with logging_redirect_tqdm():
+                logging.info(
+                    f"Attempting to fetch publication date from local db for {group_id}:{artifact_id}:{version}"
+                )
+            date = self.get_creation_date_from_local_database(
                 group_id, artifact_id, version
             )
+
+            if date is not None:
+                date = date.strftime("%Y-%m")  # retain only year and month
+
+            # if date is before 2000, it's probably wrong
+            if date is not None and date < "2000-01":
+                date = None
 
         # retain only the year and month for stats
         year_month = date[:7] if date else None
@@ -238,7 +271,7 @@ class MavenPomAnalyzer:
         if date:
             self.overall_trends[year_month] = self.overall_trends.get(year_month, 0) + 1
         else:
-            self.total_not_found += 1
+            self.total_date_not_found += 1
 
         if result["has_shade_plugin"]:
             self._update_trend(self.shade_trends["shade_plugin"], year_month)
@@ -291,8 +324,43 @@ class MavenPomAnalyzer:
                     f"Total not found in index: {self.total_not_found_in_index} ({self.total_not_found_in_index / self.total_shade_plugins * 100:.2f}%)"
                 )
                 logging.info(
-                    f"Total not found: {self.total_not_found} ({self.total_not_found / self.total_shade_plugins * 100:.2f}%)"
+                    f"Total not found: {self.total_date_not_found} ({self.total_date_not_found / self.total_shade_plugins * 100:.2f}%)"
                 )
+
+    def get_creation_date_from_local_database(self, group_id, artifact_id, version):
+        db_url = self.p.get("database.url").data
+        db_user = self.p.get("database.username").data
+        db_password = self.p.get("database.password").data
+
+        db_host, db_name = parse_database_url(db_url)
+
+        query = (
+            f"SELECT creation_date FROM libraries WHERE "
+            f"group_id = '{group_id}' AND "
+            f"artifact_id = '{artifact_id}' AND "
+            f"version = '{version}'"
+        )
+
+        try:
+            conn = mysql.connector.connect(
+                host=db_host,
+                database=db_name,
+                user=db_user,
+                password=db_password,
+            )
+
+            cursor = conn.cursor(buffered=True)
+            cursor.execute(query)
+
+            result = cursor.fetchone()
+
+            cursor.close()
+            conn.close()
+
+            return result[0] if result else None
+        except mysql.connector.Error as e:
+            logging.error(f"Database error: {e}")
+            return None
 
     def save_stats_if_required(self):
         if self.args.save:
@@ -304,7 +372,7 @@ class MavenPomAnalyzer:
                 "total_relocations": self.total_relocations,
                 "total_errors": self.total_errors,
                 "total_not_found_in_index": self.total_not_found_in_index,
-                "total_not_found": self.total_not_found,
+                "total_date_not_found": self.total_date_not_found,
                 "total_with_parents": self.total_with_parents,
                 "total_shade_plugin_no_parent": self.total_shade_plugin_no_parent,
                 "general_trends": self.overall_trends,
@@ -370,6 +438,12 @@ def get_publication_date_from_maven_repo_header(group_id, artifact_id, version):
             date_text, "%a, %d %b %Y %H:%M:%S %Z"
         ).strftime("%Y-%m")
         return publication_date
+    else:
+        with logging_redirect_tqdm():
+            logging.error(
+                f"Could not find POM link for {group_id}:{artifact_id}:{version}"
+            )
+        return None
 
 
 def get_publication_date_from_maven_repo(group_id, artifact_id, version):

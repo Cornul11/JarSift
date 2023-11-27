@@ -51,23 +51,24 @@ public class FileAnalyzer {
         LongHashFunction xx = LongHashFunction.xx();
         long jarHash = xx.hashChars(sb.toString());
         long jarCrc = jarHandler.getJarCrc();
+        long jarCreationDate = jarHandler.getJarCreationDate();
 
         JarAndPomInfoExtractor jarAndPomInfoExtractor = new JarAndPomInfoExtractor(jarFilePath.toString());
         if (signatures.isEmpty()) { // it's probably an uber-JAR, let's still add it to the db
             insertedUberJars.incrementAndGet();
-            return commitLibrary(jarAndPomInfoExtractor, jarHash, jarCrc, jarHandler.isBrokenJar());
+            return commitLibrary(jarAndPomInfoExtractor, jarHash, jarCrc, jarHandler.isBrokenJar(), jarCreationDate);
         }
 
         // TODO: maybe switch to a thread that does the insertions, and many other threads do the extraction and processing
-        return commitSignatures(signatures, jarAndPomInfoExtractor, jarHash, jarCrc);
+        return commitSignatures(signatures, jarAndPomInfoExtractor, jarHash, jarCrc, jarCreationDate);
     }
 
-    public int commitLibrary(JarAndPomInfoExtractor jarAndPomInfoExtractor, long jarHash, long jarCrc, boolean isBrokenJar) {
+    public int commitLibrary(JarAndPomInfoExtractor jarAndPomInfoExtractor, long jarHash, long jarCrc, boolean isBrokenJar, long jarCreationDate) {
         logger.info("Committing library: " + jarAndPomInfoExtractor.getArtifactId() + " version: " + jarAndPomInfoExtractor.getVersion());
-        return signatureDao.insertLibrary(jarAndPomInfoExtractor, jarHash, jarCrc, isBrokenJar);
+        return signatureDao.insertLibrary(jarAndPomInfoExtractor, jarHash, jarCrc, isBrokenJar, jarCreationDate);
     }
 
-    public int commitSignatures(List<ClassFileInfo> signatures, JarAndPomInfoExtractor jarAndPomInfoExtractor, long jarHash, long jarCrc) {
+    public int commitSignatures(List<ClassFileInfo> signatures, JarAndPomInfoExtractor jarAndPomInfoExtractor, long jarHash, long jarCrc, long jarCreationDate) {
         logJarCommitment(jarAndPomInfoExtractor);
 
         for (ClassFileInfo signature : signatures) {
@@ -75,7 +76,7 @@ public class FileAnalyzer {
         }
 
         List<Signature> signaturesToInsert = getSignaturesToInsert(signatures, jarAndPomInfoExtractor);
-        int insertedRows = signatureDao.insertSignatures(signaturesToInsert, jarHash, jarCrc);
+        int insertedRows = signatureDao.insertSignatures(signaturesToInsert, jarHash, jarCrc, jarCreationDate);
 
         if (totalJars > 0) {
             calculateAndLogElapsedTime();

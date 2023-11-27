@@ -27,6 +27,7 @@ public class JarHandler {
     private final Logger logger = LoggerFactory.getLogger(JarHandler.class);
     private final boolean ignoreUberJarSignatures;
     private final CRC32 jarCrc = new CRC32();
+    private long jarCreationDate = -1;
     private final long crcValue;
     private boolean brokenJar = false;
 
@@ -73,7 +74,11 @@ public class JarHandler {
                 JarEntry entry = entries.nextElement();
                 String entryName = entry.getName();
 
-                if (isMavenSubmodule(entry) && shouldSkipDueToSubmoduleCount()) {
+                if (entryName.equals("META-INF/MANIFEST.MF")) {
+                    jarCreationDate = entry.getTime();
+                }
+
+                if (isMavenSubmodule(entry) && shouldSkipDueToSubmoduleCount() && jarCreationDate != -1) {
                     if (ignoreUberJarSignatures) {
                         ignoredUberJars.add(jarFilePath.toString());
                         return new ArrayList<>();
@@ -157,5 +162,9 @@ public class JarHandler {
 
     public long getJarCrc() {
         return crcValue;
+    }
+
+    public long getJarCreationDate() {
+        return jarCreationDate;
     }
 }

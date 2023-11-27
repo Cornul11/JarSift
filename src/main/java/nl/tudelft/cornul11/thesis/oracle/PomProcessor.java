@@ -79,7 +79,7 @@ public class PomProcessor implements Runnable {
                     boolean isMinimizeJarPresent = isMinimizeJarConfigPresent(pluginConfiguration);
 
                     if (pluginConfiguration != null) {
-                        signatureDao.insertPluginInfo(model, shadePlugin, isMinimizeJarPresent, usingShadePlugin, true);
+//                        signatureDao.insertPluginInfo(model, shadePlugin, isMinimizeJarPresent, usingShadePlugin, true);
                         insertedPomCount.incrementAndGet();
                         if (isMinimizeJarPresent) {
                             logger.debug("Minimize jar config present in POM: " + pomPath);
@@ -90,7 +90,7 @@ public class PomProcessor implements Runnable {
                         Xpp3Dom executionConfiguration = (Xpp3Dom) execution.getConfiguration();
                         isMinimizeJarPresent = isMinimizeJarConfigPresent(executionConfiguration);
                         if (executionConfiguration != null) {
-                            signatureDao.insertPluginInfo(model, shadePlugin, isMinimizeJarPresent, usingShadePlugin, true);
+//                            signatureDao.insertPluginInfo(model, shadePlugin, isMinimizeJarPresent, usingShadePlugin, true);
                             insertedPomCount.incrementAndGet();
                             if (isMinimizeJarPresent) {
                                 logger.debug("Minimize jar config present in execution of POM: " + pomPath);
@@ -106,7 +106,7 @@ public class PomProcessor implements Runnable {
                     // if both maven-shade-plugin and maven-assembly-plugin are not present,
                     // we can most likely assume that this is not an uber jar
                     if (assemblyPluginOptional.isEmpty()) {
-                        signatureDao.insertPluginInfo(model, null, false, false, false);
+//                        signatureDao.insertPluginInfo(model, null, false, false, false);
                         insertedPomCount.incrementAndGet();
                     }
                 }

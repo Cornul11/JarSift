@@ -12,7 +12,6 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
@@ -46,7 +45,7 @@ public class BytecodeDetailsUberJarDetectionTest {
     }
 
     @Test
-    public void testUberJarWithModuleInfoDetection() throws IOException {
+    public void testUberJarWithModuleInfoDetection() {
         prepareSignatureDaoMock();
 
         Path jarPath = getJarPath(JAR_WITH_MODULE_INFO_IN_META_INF);
@@ -56,7 +55,7 @@ public class BytecodeDetailsUberJarDetectionTest {
     }
 
     @Test
-    public void testUberJarWithManyClasspathsDetection() throws IOException {
+    public void testUberJarWithManyClasspathsDetection() {
         prepareSignatureDaoMock();
 
         Path jarPath = getJarPath(JAR_WITH_MULTIPLE_CLASSPATH);
@@ -66,7 +65,7 @@ public class BytecodeDetailsUberJarDetectionTest {
     }
 
     @Test
-    public void testNormalJarDetection() throws IOException {
+    public void testNormalJarDetection() {
         prepareSignatureDaoMock();
 
         Path jarPath = getJarPath(JAR_WITH_NORMAL_FEATURES);
@@ -76,7 +75,7 @@ public class BytecodeDetailsUberJarDetectionTest {
     }
 
     @Test
-    public void testUberJarWithOneClasspathDetection() throws IOException {
+    public void testUberJarWithOneClasspathDetection() {
         prepareSignatureDaoMock();
 
         Path jarPath = getJarPath(JAR_WITH_TWO_SUBPROJECTS);
@@ -98,7 +97,7 @@ public class BytecodeDetailsUberJarDetectionTest {
     }
 
     @Test
-    public void testUberJarWithHiddenFolderDetection() throws IOException {
+    public void testUberJarWithHiddenFolderDetection() {
         prepareSignatureDaoMock();
 
         Path jarPath = getJarPath(JAR_WITH_HIDDEN_FOLDER);
@@ -108,7 +107,7 @@ public class BytecodeDetailsUberJarDetectionTest {
     }
 
     @Test
-    public void testUberJarWithMultipleReleaseDetection() throws IOException {
+    public void testUberJarWithMultipleReleaseDetection() {
         prepareSignatureDaoMock();
 
         Path jarPath = getJarPath(JAR_MULTI_RELEASE_JAR);
@@ -118,7 +117,7 @@ public class BytecodeDetailsUberJarDetectionTest {
     }
 
     @Test
-    public void testUberJarWithManyMavenSubprojectsDetection() throws IOException {
+    public void testUberJarWithManyMavenSubprojectsDetection() {
         // this JAR file contains only one classpath, but many secondary classpaths at
         // deeper levels
         // which in fact, are many Maven subprojects, thus is an uber-JAR
@@ -131,7 +130,7 @@ public class BytecodeDetailsUberJarDetectionTest {
     }
 
     private void prepareSignatureDaoMock() {
-        Mockito.when(signatureDao.insertSignatures(Mockito.anyList(), Mockito.anyLong(), Mockito.anyLong()))
+        Mockito.when(signatureDao.insertSignatures(Mockito.anyList(), Mockito.anyLong(), Mockito.anyLong(), Mockito.anyLong()))
                 .thenAnswer(invocation -> {
                     List<Signature> signatures = invocation.getArgument(0);
                     return signatures.size();

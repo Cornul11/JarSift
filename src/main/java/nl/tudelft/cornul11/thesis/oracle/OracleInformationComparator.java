@@ -265,7 +265,8 @@ public class OracleInformationComparator {
     private Model getModelByJarPath(Path jarPath) {
         String GAV = getGAVFromPath(jarPath);
         String[] parts = GAV.split(":");
-        return signatureDAO.retrievePluginInfo(parts[0], parts[1], parts[2]);
+//        return signatureDAO.retrievePluginInfo(parts[0], parts[1], parts[2]);
+        return new Model();
     }
 
     public String getResults() {
@@ -415,7 +416,7 @@ public class OracleInformationComparator {
 
     private List<SignatureDAOImpl.OracleLibrary> getCachedOracleLibraries() {
         if (cachedOracleLibraries == null) {
-            cachedOracleLibraries = signatureDAO.getOracleLibraries();
+//            cachedOracleLibraries = signatureDAO.getOracleLibraries();
         }
         return cachedOracleLibraries;
     }

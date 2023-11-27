@@ -48,7 +48,7 @@ public class PomDependencyResolver {
     private void run(String m2Path) {
         this.m2Path = m2Path;
 
-        databaseManager.createTmpDependenciesTable();
+//        databaseManager.createTmpDependenciesTable();
 
         // walk on all pom.xml files in the m2Path
         File dir = new File(m2Path);
