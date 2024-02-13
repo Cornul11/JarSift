@@ -40,6 +40,10 @@ public class FileAnalyzer {
         logger.info("Inserted library information of " + insertedUberJars + " uber JARs");
     }
 
+    public void setProcessedJars(int processedJars) {
+        this.processedJars.set(processedJars);
+    }
+
     public int processJarFile(Path jarFilePath) {
         JarHandler jarHandler = new JarHandler(jarFilePath, ignoredUberJars, insertedLibraries, config);
         List<ClassFileInfo> signatures = jarHandler.extractSignatures();
@@ -98,24 +102,24 @@ public class FileAnalyzer {
 
     private void calculateAndLogElapsedTime() {
         int processed = processedJars.incrementAndGet();
-        long elapsedTimeMillis = System.currentTimeMillis() - startTime;
+        long currentTime = System.currentTimeMillis();
+        long elapsedTimeMillis = currentTime - startTime;
         double elapsedTimeSec = elapsedTimeMillis / 1000.0;
-        double timePerJarSec = elapsedTimeSec / processed;
+        double timePerJarSec = processed > 0 ? elapsedTimeSec / processed : 0;
 
         int remainingJars = totalJars - processed;
-        double etaSec = remainingJars * timePerJarSec;
+        double etaSec = remainingJars > 0 ? remainingJars * timePerJarSec : 0;
 
         int etaMin = (int) (etaSec / 60);
         int etaSecs = (int) (etaSec % 60);
-
         int etaHour = etaMin / 60;
         int etaMins = etaMin % 60;
-
         int etaDays = etaHour / 24;
         int etaHours = etaHour % 24;
 
         logger.info(String.format("Done processing %d/%d JARs, progress: \u001B[94m%d%%\u001B[0m, ETA: %d days, %d hours, %d minutes and %d seconds",
                 processed, totalJars, (processed * 100 / totalJars), etaDays, etaHours, etaMins, etaSecs));
+
     }
     public void printStats() {
         // TODO: investigate why the number of unique hashes is not constant for a constant given set of JARs

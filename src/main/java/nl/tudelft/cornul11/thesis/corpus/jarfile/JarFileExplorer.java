@@ -88,8 +88,10 @@ public class JarFileExplorer {
         ExecutorService executor = Executors.newFixedThreadPool(numConsumerThreads);
         try {
             List<String> allPaths = Files.readAllLines(Paths.get(pathToFileWithPaths));
+            logger.info("Found " + allPaths.size() + " files from file: " + pathToFileWithPaths);
 
-            logger.info("Processing " + allPaths.size() + " files from file: " + pathToFileWithPaths);
+            // Calculate the number of paths to skip
+            int skipCount = (lastVisitedPath != null) ? allPaths.indexOf(lastVisitedPath.toString()) + 1 : 0;
 
             // due to the concurrent nature of the app, it is difficult to pinpoint to last processed file,
             // thus, this needs a more robust and resilient methodology
@@ -98,6 +100,9 @@ public class JarFileExplorer {
                     .dropWhile(path -> (lastVisitedPath != null) && !path.equals(lastVisitedPath))
                     .collect(Collectors.toList());
 
+            logger.info("Processing " + pathsToProcess.size() + " files, skipping " + skipCount + " files.");
+
+            fileAnalyzer.setProcessedJars(skipCount);
             pathsToProcess.stream().forEach(path -> executor.submit(new JarFromPathProcessor(path, fileAnalyzer)));
 
 

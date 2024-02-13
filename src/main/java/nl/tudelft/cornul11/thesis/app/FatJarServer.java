@@ -122,6 +122,7 @@ public class FatJarServer extends AbstractHandler {
         int port = System.getenv("PORT") != null ? Integer.parseInt(System.getenv("PORT")) : 8080;
         // Create a Server instance.
         Server server = new Server(port);
+        System.out.println("Server started on port " + port);
 
         // Create a ServerConnector to accept connections from clients.
         Connector connector = new ServerConnector(server);
