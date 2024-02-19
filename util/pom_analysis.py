@@ -11,6 +11,7 @@ import mysql.connector
 import requests
 from bs4 import BeautifulSoup
 from jproperties import Properties
+from mysql.connector import pooling
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 from tqdm.gui import tqdm as tqdm_gui
@@ -79,6 +80,7 @@ def has_parent(pom_file_path):
 def contains_shade_plugin(pom_file_path):
     result_dict = {
         "path": pom_file_path,
+        "has_assembly_plugin": False,
         "has_shade_plugin": False,
         "has_dependency_reduced_pom": False,
         "has_minimize_jar": False,
@@ -87,6 +89,7 @@ def contains_shade_plugin(pom_file_path):
         "has_transformers": False,
         "is_error": False,
         "has_parent": False,
+        "parent": None,
     }
 
     try:
@@ -94,12 +97,53 @@ def contains_shade_plugin(pom_file_path):
         tree = ET.parse(pom_file_path, xml_parser)
         root = tree.getroot()
 
-        if root.find(f"{{{NS_URL}}}parent") is not None:
+        parent = root.find(f"{{{NS_URL}}}parent")
+        if parent is not None:
             result_dict["has_parent"] = True
+            parent_group_id = (
+                parent.find(f"{{{NS_URL}}}groupId").text
+                if parent.find(f"{{{NS_URL}}}groupId") is not None
+                else None
+            )
+            parent_artifact_id = (
+                parent.find(f"{{{NS_URL}}}artifactId").text
+                if parent.find(f"{{{NS_URL}}}artifactId") is not None
+                else None
+            )
+            parent_version = (
+                parent.find(f"{{{NS_URL}}}version").text
+                if parent.find(f"{{{NS_URL}}}version") is not None
+                else None
+            )
+
+            if parent_group_id and parent_artifact_id and parent_version:
+                # check if any of these contain a variable or placeholder or path separator
+                if (
+                    "$" in parent_group_id
+                    or "${" in parent_group_id
+                    or "$" in parent_artifact_id
+                    or "${" in parent_artifact_id
+                    or "$" in parent_version
+                    or "${" in parent_version
+                    or "/" in parent_group_id
+                    or "/" in parent_artifact_id
+                    or "/" in parent_version
+                ):
+                    result_dict["has_parent"] = False
+                else:
+                    result_dict["parent"] = {
+                        "group_id": parent_group_id,
+                        "artifact_id": parent_artifact_id,
+                        "version": parent_version,
+                    }
+            else:
+                result_dict["has_parent"] = False
 
         for plugin in root.findall(f".//{{{NS_URL}}}plugin"):
             artifact_id = plugin.find(f"{{{NS_URL}}}artifactId")
-            if artifact_id is not None and artifact_id.text == "maven-shade-plugin":
+            if artifact_id is not None and artifact_id.text == "maven-assembly-plugin":
+                result_dict["has_assembly_plugin"] = True
+            elif artifact_id is not None and artifact_id.text == "maven-shade-plugin":
                 result_dict["has_shade_plugin"] = True
 
                 # search in <configuration> of <plugin>
@@ -133,20 +177,6 @@ def contains_shade_plugin(pom_file_path):
     return result_dict
 
 
-def parse_database_url(db_url):
-    # db_url is in the format "jdbc:postgresql://localhost:5432/maven"
-    try:
-        url_parts = db_url.split("//")[1].split("/")
-        host_port = url_parts[0]
-        database = url_parts[1]
-
-        host = host_port.split(":")[0]
-
-        return host, database
-    except IndexError:
-        raise ValueError("Invalid database URL format")
-
-
 class MavenPomAnalyzer:
     def __init__(self, args):
         self.args = args
@@ -154,6 +184,11 @@ class MavenPomAnalyzer:
         self.initialize_stats()
         self.p = Properties()
         self.load_properties()
+        self.db_manager = DatabaseManager(
+            self.p.get("database.url").data,
+            self.p.get("database.username").data,
+            self.p.get("database.password").data,
+        )
 
     def load_properties(self):
         with open("../config.properties", "rb") as f:
@@ -165,17 +200,23 @@ class MavenPomAnalyzer:
 
     def initialize_stats(self):
         self.total_pom_files = 0
+        self.total_assembly_plugins = 0
         self.total_shade_plugins = 0
         self.total_dependency_reduced_pom = 0
         self.total_minimize_jar = 0
         self.total_relocations = 0
         self.total_errors = 0
+        self.total_not_found_in_index_with_assembly = 0
+        self.total_not_found_in_index_with_shade = 0
         self.total_not_found_in_index = 0
+        self.total_date_not_found_with_assembly = 0
+        self.total_date_not_found_with_shade = 0
         self.total_date_not_found = 0
         self.total_with_parents = 0
         self.total_shade_plugin_no_parent = 0
         self.overall_trends = {}
         self.shade_trends = {
+            "assembly_plugin": {},
             "shade_plugin": {},
             "dependency_reduced_pom": {},
             "minimize_jar": {},
@@ -210,9 +251,56 @@ class MavenPomAnalyzer:
                 yield line.strip()
 
     def analyze_pom_files(self, pom_files):
-        for pom_file in self.progress_bar(pom_files):
-            result = contains_shade_plugin(pom_file)
-            self.update_stats(result)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        not_found_filename = f"not_found_poms_{timestamp}.txt"
+
+        with open(not_found_filename, "w") as not_found_file:
+            with logging_redirect_tqdm():
+                for pom_file in self.progress_bar(pom_files):
+                    group_id, artifact_id, version = extract_gav_from_pom_path(pom_file)
+
+                    library_id = self.db_manager.get_library_id(
+                        group_id, artifact_id, version
+                    )
+                    if library_id is None:
+                        logging.info(
+                            f"Inserting abstract POM for {group_id}:{artifact_id}:{version}"
+                        )
+                        library_id = self.db_manager.insert_abstract_pom(
+                            group_id, artifact_id, version
+                        )
+                        if library_id is None:
+                            logging.error(
+                                f"Failed to insert abstract POM for {group_id}:{artifact_id}:{version}"
+                            )
+                            not_found_file.write(pom_file + "\n")
+                            continue
+
+                    result = contains_shade_plugin(pom_file)
+
+                    self.update_stats(result)
+
+                    parent_id = None
+                    if result["has_parent"]:
+                        parent_gav = result["parent"]
+                        parent_id = self.db_manager.get_library_id(
+                            parent_gav["group_id"],
+                            parent_gav["artifact_id"],
+                            parent_gav["version"],
+                        )
+
+                        if parent_id is None:
+                            parent_id = self.db_manager.insert_abstract_pom(
+                                parent_gav["group_id"],
+                                parent_gav["artifact_id"],
+                                parent_gav["version"],
+                            )
+                            logging.info(f"Inserted parent POM for {pom_file}")
+
+                    self.db_manager.insert_or_update_pom_info(
+                        library_id, result, parent_id
+                    )
+
         self.print_stats()
         self.save_stats_if_required()
 
@@ -250,13 +338,17 @@ class MavenPomAnalyzer:
 
         if date is None:
             self.total_not_found_in_index += 1
+
+            if not result["has_assembly_plugin"]:
+                self.total_not_found_in_index_with_assembly += 1
+            if not result["has_shade_plugin"]:
+                self.total_not_found_in_index_with_shade += 1
+
             with logging_redirect_tqdm():
                 logging.info(
                     f"Attempting to fetch publication date from local db for {group_id}:{artifact_id}:{version}"
                 )
-            date = self.get_creation_date_from_local_database(
-                group_id, artifact_id, version
-            )
+            date = self.db_manager.get_creation_date(group_id, artifact_id, version)
 
             if date is not None:
                 date = date.strftime("%Y-%m")  # retain only year and month
@@ -273,9 +365,16 @@ class MavenPomAnalyzer:
         else:
             self.total_date_not_found += 1
 
+        if result["has_assembly_plugin"]:
+            self._update_trend(self.shade_trends["assembly_plugin"], year_month)
+            self.total_assembly_plugins += 1
         if result["has_shade_plugin"]:
             self._update_trend(self.shade_trends["shade_plugin"], year_month)
             self.total_shade_plugins += 1
+            if not date:
+                self.total_date_not_found_with_shade += 1
+            if not date and result["has_assembly_plugin"]:
+                self.total_date_not_found_with_assembly += 1
         if result["has_dependency_reduced_pom"]:
             self._update_trend(self.shade_trends["dependency_reduced_pom"], year_month)
             self.total_dependency_reduced_pom += 1
@@ -302,6 +401,9 @@ class MavenPomAnalyzer:
                 f"Total pom files with errors: {self.total_errors} ({self.total_errors / self.total_pom_files * 100:.2f}%)"
             )
             logging.info(
+                f"Total pom files with maven-assembly-plugin: {self.total_assembly_plugins} ({self.total_assembly_plugins / self.total_pom_files * 100:.2f}%)"
+            )
+            logging.info(
                 f"Total pom files with maven-shade-plugin: {self.total_shade_plugins} ({self.total_shade_plugins / self.total_pom_files * 100:.2f}%)"
             )
             logging.info(
@@ -321,58 +423,40 @@ class MavenPomAnalyzer:
             )
             if self.total_shade_plugins > 0:
                 logging.info(
-                    f"Total not found in index: {self.total_not_found_in_index} ({self.total_not_found_in_index / self.total_shade_plugins * 100:.2f}%)"
+                    f"Total not found in index: {self.total_not_found_in_index} ({self.total_not_found_in_index / self.total_pom_files * 100:.2f}%)"
                 )
                 logging.info(
-                    f"Total not found: {self.total_date_not_found} ({self.total_date_not_found / self.total_shade_plugins * 100:.2f}%)"
+                    f"Total not found: {self.total_date_not_found} ({self.total_date_not_found / self.total_pom_files * 100:.2f}%)"
                 )
-
-    def get_creation_date_from_local_database(self, group_id, artifact_id, version):
-        db_url = self.p.get("database.url").data
-        db_user = self.p.get("database.username").data
-        db_password = self.p.get("database.password").data
-
-        db_host, db_name = parse_database_url(db_url)
-
-        query = (
-            f"SELECT creation_date FROM libraries WHERE "
-            f"group_id = '{group_id}' AND "
-            f"artifact_id = '{artifact_id}' AND "
-            f"version = '{version}'"
-        )
-
-        try:
-            conn = mysql.connector.connect(
-                host=db_host,
-                database=db_name,
-                user=db_user,
-                password=db_password,
-            )
-
-            cursor = conn.cursor(buffered=True)
-            cursor.execute(query)
-
-            result = cursor.fetchone()
-
-            cursor.close()
-            conn.close()
-
-            return result[0] if result else None
-        except mysql.connector.Error as e:
-            logging.error(f"Database error: {e}")
-            return None
+                logging.info(
+                    f"Total date not found with maven-assembly-plugin: {self.total_date_not_found_with_assembly} ({self.total_date_not_found_with_assembly / self.total_assembly_plugins * 100:.2f}%)"
+                )
+                logging.info(
+                    f"Total date not found with maven-shade-plugin: {self.total_date_not_found_with_shade} ({self.total_date_not_found_with_shade / self.total_shade_plugins * 100:.2f}%)"
+                )
+                logging.info(
+                    f"Total not found in index with maven-assembly-plugin: {self.total_not_found_in_index_with_assembly} ({self.total_not_found_in_index_with_assembly / self.total_assembly_plugins * 100:.2f}%)"
+                )
+                logging.info(
+                    f"Total not found in index with maven-shade-plugin: {self.total_not_found_in_index_with_shade} ({self.total_not_found_in_index_with_shade / self.total_shade_plugins * 100:.2f}%)"
+                )
 
     def save_stats_if_required(self):
         if self.args.save:
             stats = {
                 "total_pom_files": self.total_pom_files,
+                "total_assembly_plugins": self.total_assembly_plugins,
                 "total_shade_plugins": self.total_shade_plugins,
                 "total_dependency_reduced_pom": self.total_dependency_reduced_pom,
                 "total_minimize_jar": self.total_minimize_jar,
                 "total_relocations": self.total_relocations,
                 "total_errors": self.total_errors,
                 "total_not_found_in_index": self.total_not_found_in_index,
+                "total_date_not_found_with_assembly": self.total_date_not_found_with_assembly,
+                "total_date_not_found_with_shade": self.total_date_not_found_with_shade,
                 "total_date_not_found": self.total_date_not_found,
+                "total_not_found_in_index_with_assembly": self.total_not_found_in_index_with_assembly,
+                "total_not_found_in_index_with_shade": self.total_not_found_in_index_with_shade,
                 "total_with_parents": self.total_with_parents,
                 "total_shade_plugin_no_parent": self.total_shade_plugin_no_parent,
                 "general_trends": self.overall_trends,
@@ -502,6 +586,134 @@ def get_publication_date_from_maven_central(group_id, artifact_id, version):
             f"Error fetching publication date for {group_id}:{artifact_id}:{version} from Maven Central: {e}"
         )
         return None
+
+
+class DatabaseManager:
+    def __init__(self, db_url, db_user, db_password):
+        self.db_host, self.db_name = self.parse_database_url(db_url)
+        self.connection_pool = pooling.MySQLConnectionPool(
+            pool_name="pom_analysis_pool",
+            pool_size=5,
+            host=self.db_host,
+            database=self.db_name,
+            user=db_user,
+            password=db_password,
+        )
+
+    def parse_database_url(self, db_url):
+        # db_url is in the format "jdbc:postgresql://localhost:5432/maven"
+        try:
+            url_parts = db_url.split("//")[1].split("/")
+            host_port = url_parts[0]
+            database = url_parts[1]
+
+            host = host_port.split(":")[0]
+
+            return host, database
+        except IndexError:
+            raise ValueError("Invalid database URL format")
+
+    def insert_abstract_pom(self, group_id, artifact_id, version):
+        jar_hash = 0
+        jar_crc = 0
+        is_uber_jar = -2
+        disk_size = 0
+        total_class_files = 0
+        unique_signatures = 0
+        creation_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        query = """INSERT INTO libraries (group_id, artifact_id, version,
+        jar_hash, jar_crc, is_uber_jar, disk_size, total_class_files,
+        unique_signatures, creation_date)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+
+        values = (
+            group_id,
+            artifact_id,
+            version,
+            jar_hash,
+            jar_crc,
+            is_uber_jar,
+            disk_size,
+            total_class_files,
+            unique_signatures,
+            creation_date,
+        )
+
+        with self.connection_pool.get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(query, values)
+                conn.commit()
+                return cursor.lastrowid
+
+    def check_library_exists(self, group_id, artifact_id, version):
+        query = """SELECT COUNT(id) FROM libraries WHERE group_id = %s AND artifact_id = %s AND version = %s"""
+        try:
+            with self.connection_pool.get_connection() as conn:
+                with conn.cursor(buffered=True) as cursor:
+                    cursor.execute(query, (group_id, artifact_id, version))
+                    (count,) = cursor.fetchone()
+                    return count > 0
+        except mysql.connector.Error as e:
+            logging.error(f"Database error: {e}")
+            return False
+
+    def get_library_id(self, group_id, artifact_id, version):
+        query = """SELECT id FROM libraries WHERE group_id = %s AND artifact_id = %s AND version = %s"""
+        with self.connection_pool.get_connection() as conn:
+            with conn.cursor(buffered=True) as cursor:
+                cursor.execute(query, (group_id, artifact_id, version))
+                result = cursor.fetchone()
+                return result[0] if result else None
+
+    def insert_or_update_pom_info(self, library_id, pom_data, parent_id=None):
+        query = """INSERT INTO pom_info (library_id,
+        has_assembly_plugin, has_shade_plugin, has_dependency_reduced_pom,
+        has_minimize_jar, has_relocations, has_filters, has_transformers, parent_id)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+        has_assembly_plugin = VALUES(has_assembly_plugin),
+        has_shade_plugin = VALUES(has_shade_plugin),
+        has_dependency_reduced_pom = VALUES(has_dependency_reduced_pom),
+        has_minimize_jar = VALUES(has_minimize_jar),
+        has_relocations = VALUES(has_relocations),
+        has_filters = VALUES(has_filters),
+        has_transformers = VALUES(has_transformers),
+        parent_id = VALUES(parent_id)"""
+
+        values = (
+            library_id,
+            pom_data["has_assembly_plugin"],
+            pom_data["has_shade_plugin"],
+            pom_data["has_dependency_reduced_pom"],
+            pom_data["has_minimize_jar"],
+            pom_data["has_relocations"],
+            pom_data["has_filters"],
+            pom_data["has_transformers"],
+            parent_id,
+        )
+
+        with self.connection_pool.get_connection() as conn:
+            with conn.cursor(buffered=True) as cursor:
+                cursor.execute(query, values)
+                conn.commit()
+
+    def get_creation_date(self, group_id, artifact_id, version):
+        query = (
+            f"SELECT creation_date FROM libraries WHERE "
+            f"group_id = '{group_id}' AND "
+            f"artifact_id = '{artifact_id}' AND "
+            f"version = '{version}'"
+        )
+        try:
+            with self.connection_pool.get_connection() as conn:
+                with conn.cursor(buffered=True) as cursor:
+                    cursor.execute(query)
+                    result = cursor.fetchone()
+                    return result[0] if result else None
+        except mysql.connector.Error as e:
+            logging.error(f"Database error: {e}")
+            return None
 
 
 def main():
