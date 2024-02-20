@@ -17,7 +17,7 @@ public class LibraryIterator implements Iterator<Dependency> {
 
     public LibraryIterator(HikariDataSource ds) {
         try {
-            String selectLibrariesQuery = "SELECT group_id, artifact_id, version FROM libraries";
+            String selectLibrariesQuery = "SELECT group_id, artifact_id, version FROM libraries WHERE is_uber_jar = 0";
 
             this.connection = ds.getConnection();
             this.statement = this.connection.prepareStatement(selectLibrariesQuery, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
