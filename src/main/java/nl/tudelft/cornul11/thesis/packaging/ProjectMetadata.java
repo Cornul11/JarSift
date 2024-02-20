@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.jar.JarEntry;
@@ -54,6 +55,9 @@ public class ProjectMetadata {
     }
 
     private List<Dependency> cleanDependencies(List<Dependency> dependencies) {
+        if (dependencies == null) {
+            return new ArrayList<>();
+        }
         return dependencies.stream()
                 .map(dep -> new Dependency(
                         cleanGroupId(dep.getGroupId()),
