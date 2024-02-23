@@ -146,27 +146,27 @@ def contains_shade_plugin(pom_file_path):
             elif artifact_id is not None and artifact_id.text == "maven-shade-plugin":
                 result_dict["has_shade_plugin"] = True
 
+                def search_configuration_tags(configuration, result_dict):
+                    tags_to_search = [
+                        ("createDependencyReducedPom", "has_dependency_reduced_pom"),
+                        ("minimizeJar", "has_minimize_jar"),
+                        ("relocations", "has_relocations"),
+                        ("filters", "has_filters"),
+                        ("transformers", "has_transformers"),
+                    ]
+
+                    for tag, dict_key in tags_to_search:
+                        if configuration.find(f"{{{NS_URL}}}{tag}") is not None:
+                            result_dict[dict_key] = True
+
                 # search in <configuration> of <plugin>
                 for conf in plugin.findall(f".//{{{NS_URL}}}configuration"):
-                    if conf.find(f"{{{NS_URL}}}createDependencyReducedPom") is not None:
-                        result_dict["has_dependency_reduced_pom"] = True
-                    if conf.find(f"{{{NS_URL}}}minimizeJar") is not None:
-                        result_dict["has_minimize_jar"] = True
-                    if conf.find(f"{{{NS_URL}}}relocations") is not None:
-                        result_dict["has_relocations"] = True
+                    search_configuration_tags(conf, result_dict)
 
                 # search within <executions> as well
                 for execution in plugin.findall(f".//{{{NS_URL}}}execution"):
                     for conf in execution.findall(f".//{{{NS_URL}}}configuration"):
-                        if (
-                            conf.find(f"{{{NS_URL}}}createDependencyReducedPom")
-                            is not None
-                        ):
-                            result_dict["has_dependency_reduced_pom"] = True
-                        if conf.find(f"{{{NS_URL}}}minimizeJar") is not None:
-                            result_dict["has_minimize_jar"] = True
-                        if conf.find(f"{{{NS_URL}}}relocations") is not None:
-                            result_dict["has_relocations"] = True
+                        search_configuration_tags(conf, result_dict)
 
     except ET.ParseError as e:
         logging.error(f"Error parsing pom file: {pom_file_path}: {e}")
@@ -205,6 +205,8 @@ class MavenPomAnalyzer:
         self.total_dependency_reduced_pom = 0
         self.total_minimize_jar = 0
         self.total_relocations = 0
+        self.total_transformers = 0
+        self.total_filters = 0
         self.total_errors = 0
         self.total_not_found_in_index_with_assembly = 0
         self.total_not_found_in_index_with_shade = 0
@@ -221,6 +223,8 @@ class MavenPomAnalyzer:
             "dependency_reduced_pom": {},
             "minimize_jar": {},
             "relocations": {},
+            "transformers": {},
+            "filters": {},
             "shade_plugin_and_no_parent": {},
         }
 
@@ -267,7 +271,10 @@ class MavenPomAnalyzer:
                             f"Inserting abstract POM for {group_id}:{artifact_id}:{version}"
                         )
                         library_id = self.db_manager.insert_abstract_pom(
-                            group_id, artifact_id, version
+                            group_id,
+                            artifact_id,
+                            version,
+                            self.get_gav_creation_date(group_id, artifact_id, version),
                         )
                         if library_id is None:
                             logging.error(
@@ -294,6 +301,11 @@ class MavenPomAnalyzer:
                                 parent_gav["group_id"],
                                 parent_gav["artifact_id"],
                                 parent_gav["version"],
+                                self.get_gav_creation_date(
+                                    parent_gav["group_id"],
+                                    parent_gav["artifact_id"],
+                                    parent_gav["version"],
+                                ),
                             )
                             logging.info(f"Inserted parent POM for {pom_file}")
 
@@ -323,6 +335,20 @@ class MavenPomAnalyzer:
                 if not has_parent(pom_file):
                     zipf.write(pom_file)
 
+    def get_gav_creation_date(self, group_id, artifact_id, version) -> datetime:
+        date = get_publication_date_from_local_maven_index(
+            group_id, artifact_id, version
+        )
+        if date is None:
+            date = self.db_manager.get_creation_date(group_id, artifact_id, version)
+
+        if date is not None and date < "2000-01":
+            date = "1800-01"
+
+        # retain only the year and month for stats
+        year_month = date[:7] if date else None
+        return datetime.strptime(year_month, "%Y-%m") if date else None
+
     def update_stats(self, result):
         group_id, artifact_id, version = extract_gav_from_pom_path(result["path"])
 
@@ -335,6 +361,8 @@ class MavenPomAnalyzer:
         date = get_publication_date_from_local_maven_index(
             group_id, artifact_id, version
         )
+
+        result["found_in_index"] = date is not None
 
         if date is None:
             self.total_not_found_in_index += 1
@@ -352,6 +380,8 @@ class MavenPomAnalyzer:
 
             if date is not None:
                 date = date.strftime("%Y-%m")  # retain only year and month
+
+            result["found_in_libraries"] = date is not None
 
             # if date is before 2000, it's probably wrong
             if date is not None and date < "2000-01":
@@ -385,6 +415,14 @@ class MavenPomAnalyzer:
         if result["has_relocations"]:
             self._update_trend(self.shade_trends["relocations"], year_month)
             self.total_relocations += 1
+
+        if result["has_filters"]:
+            self._update_trend(self.shade_trends["filters"], year_month)
+            self.total_filters += 1
+
+        if result["has_transformers"]:
+            self._update_trend(self.shade_trends["transformers"], year_month)
+            self.total_transformers += 1
 
         if result["has_parent"]:
             self.total_with_parents += 1
@@ -613,14 +651,18 @@ class DatabaseManager:
         except IndexError:
             raise ValueError("Invalid database URL format")
 
-    def insert_abstract_pom(self, group_id, artifact_id, version):
+    def insert_abstract_pom(self, group_id, artifact_id, version, date=None):
         jar_hash = 0
         jar_crc = 0
         is_uber_jar = -2
         disk_size = 0
         total_class_files = 0
         unique_signatures = 0
-        creation_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        creation_date = (
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            if date is None
+            else date.strftime("%Y-%m-%d %H:%M:%S")
+        )
 
         query = """INSERT INTO libraries (group_id, artifact_id, version,
         jar_hash, jar_crc, is_uber_jar, disk_size, total_class_files,
@@ -669,8 +711,9 @@ class DatabaseManager:
     def insert_or_update_pom_info(self, library_id, pom_data, parent_id=None):
         query = """INSERT INTO pom_info (library_id,
         has_assembly_plugin, has_shade_plugin, has_dependency_reduced_pom,
-        has_minimize_jar, has_relocations, has_filters, has_transformers, parent_id)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        has_minimize_jar, has_relocations, has_filters, has_transformers,
+         parent_id, found_in_index, found_in_libraries)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
         has_assembly_plugin = VALUES(has_assembly_plugin),
         has_shade_plugin = VALUES(has_shade_plugin),
@@ -679,7 +722,9 @@ class DatabaseManager:
         has_relocations = VALUES(has_relocations),
         has_filters = VALUES(has_filters),
         has_transformers = VALUES(has_transformers),
-        parent_id = VALUES(parent_id)"""
+        parent_id = VALUES(parent_id),
+        found_in_index = VALUES(found_in_index),
+        found_in_libraries = VALUES(found_in_libraries)"""
 
         values = (
             library_id,
@@ -691,6 +736,8 @@ class DatabaseManager:
             pom_data["has_filters"],
             pom_data["has_transformers"],
             parent_id,
+            pom_data.get("found_in_index", -1),
+            pom_data.get("found_in_libraries", -1),
         )
 
         with self.connection_pool.get_connection() as conn:
