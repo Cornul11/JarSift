@@ -40,51 +40,81 @@ public class JarEvaluator {
         }
     }
 
-    public Map<String, List<JarEvaluator.InferredLibrary>> inferLibrariesFromJars() {
+    public Map<String, List<JarEvaluator.InferredLibrary>> inferLibrariesFromJars(String resumePath) {
+        boolean resumeProcessing = (resumePath == null || resumePath.isEmpty());
+        Map<String, List<JarEvaluator.InferredLibrary>> inferredLibrariesMap = new HashMap<>();
+
+        File[] projectFolders = getProjectFolders();
+        if (projectFolders == null) {
+            logger.warn("No projects found in {}", evaluationDirectory);
+            return inferredLibrariesMap;
+        }
+
+
         try {
             Map<String, List<InferredLibrary>> loadedLibraries = loadInferredLibraries();
             if (!loadedLibraries.isEmpty()) {
-                logger.info("Loaded inferred libraries from file");
+                logger.info("Loaded {} inferred libraries from file out of {}", loadedLibraries.size(), projectFolders.length);
                 return loadedLibraries;
             }
         } catch (IOException e) {
             logger.warn("Failed to load inferred libraries from file. Re-inferring them", e);
         }
 
-        Map<String, List<JarEvaluator.InferredLibrary>> inferredLibrariesMap = new HashMap<>();
+        int total = projectFolders.length;
+        logger.info("Inferring libraries from {} projects", total);
 
-        File[] projectFolders = getProjectFolders();
-        if (projectFolders == null) return inferredLibrariesMap;
-
+        int current = 0;
+        int failedCount = 0;
         for (File projectFolder : projectFolders) {
             String projectName = projectFolder.getName();
             String jarPath = Paths.get(projectFolder.getAbsolutePath(), "target", projectName + "-1.0-SNAPSHOT.jar").toString();
-            Path jarFilePath = Path.of(jarPath);
 
+            if (!resumeProcessing) {
+                if (!jarPath.equals(resumePath)) {
+                    current++;
+                    continue;
+                }
+                resumeProcessing = true;
+            }
+
+            current++;
+
+            Path jarFilePath = Path.of(jarPath);
+            boolean processedSuccessfully = true;
             if (!jarFilePath.toFile().exists()) {
                 logger.info("Skipping " + jarPath + " because it does not exist");
-                continue;
+                processedSuccessfully = false;
+            } else {
+                List<SignatureDAOImpl.LibraryCandidate> libraryCandidates = jarSignatureMapper.inferJarFileMultithreadedProcess(jarFilePath);
+                if (libraryCandidates == null) {
+                    logger.warn("No class file signatures were retrieved from {}", jarFilePath);
+                    processedSuccessfully = false;
+                } else {
+                    List<JarEvaluator.InferredLibrary> candidateLibraries = libraryCandidates.stream()
+                            .map(libraryCandidate -> new JarEvaluator.InferredLibrary(libraryCandidate, jarPath))
+                            .collect(Collectors.toList());
+
+                    inferredLibrariesMap.put(jarPath, candidateLibraries);
+
+                    try {
+                        storeInferredLibraries(projectName, candidateLibraries);
+                    } catch (IOException e) {
+                        logger.error("Failed to store inferred libraries to file", e);
+                    }
+                }
             }
 
-            List<SignatureDAOImpl.LibraryCandidate> libraryCandidates = jarSignatureMapper.inferJarFileMultithreadedProcess(jarFilePath);
-            if (libraryCandidates == null) {
-                logger.warn("No class file signatures were retrieved from {}", jarFilePath);
-                continue;
+            if (!processedSuccessfully) {
+                failedCount++;
             }
 
-            List<JarEvaluator.InferredLibrary> candidateLibraries = libraryCandidates.stream()
-                    .map(libraryCandidate -> new JarEvaluator.InferredLibrary(libraryCandidate, jarPath))
-                    .collect(Collectors.toList());
-
-
-            inferredLibrariesMap.put(jarPath, candidateLibraries);
+            double percentageCompleted = ((double) current / total) * 100;
+            logger.info("Processed {} ({} failed) out of {} ({}% completed)",
+                    current, failedCount, total,
+                    String.format("%.2f", percentageCompleted));
         }
 
-        try {
-            storeInferredLibraries(inferredLibrariesMap);
-        } catch (IOException e) {
-            logger.error("Failed to store inferred libraries to file", e);
-        }
         return inferredLibrariesMap;
     }
 
@@ -146,14 +176,14 @@ public class JarEvaluator {
         return filteredList;
     }
 
-    private void storeInferredLibraries(Map<String, List<JarEvaluator.InferredLibrary>> inferredLibrariesMap) throws IOException {
-        Path filePath = Paths.get(evaluationDirectory, "evaluation", "inferredLibraries.json");
+    private void storeInferredLibraries(String projectName, List<JarEvaluator.InferredLibrary> inferredLibraries) throws IOException {
+        Path filePath = Paths.get(evaluationDirectory, "evaluation", projectName + "_inferredLibraries.json");
 
         if (!filePath.getParent().toFile().exists()) {
             filePath.getParent().toFile().mkdirs();
         }
 
-        objectMapper.writerWithDefaultPrettyPrinter().writeValue(filePath.toFile(), inferredLibrariesMap);
+        objectMapper.writerWithDefaultPrettyPrinter().writeValue(filePath.toFile(), inferredLibraries);
         logger.info("Stored inferred libraries to {}", filePath);
     }
 
@@ -249,13 +279,19 @@ public class JarEvaluator {
     }
 
     private Map<String, List<InferredLibrary>> loadInferredLibraries() throws IOException {
-        Path filePath = Paths.get(evaluationDirectory, "evaluation", "inferredLibraries.json");
-        if (filePath.toFile().exists()) {
-            logger.info("Loading inferred libraries from {}", filePath);
-            return objectMapper.readValue(filePath.toFile(), new TypeReference<>() {
-            });
+        Map<String, List<JarEvaluator.InferredLibrary>> allInferredLibraries = new HashMap<>();
+        File evaluationDir = new File(evaluationDirectory, "evaluation");
+
+        File[] files = evaluationDir.listFiles((dir, name) -> name.endsWith("_inferredLibraries.json"));
+        if (files != null) {
+            for (File file : files) {
+                String projectName = file.getName().replace("_inferredLibraries.json", "");
+                List<JarEvaluator.InferredLibrary> inferredLibraries = objectMapper.readValue(file, new TypeReference<>() {});
+                allInferredLibraries.put(projectName, inferredLibraries);
+                logger.info("Loaded inferred libraries {} from {}", projectName, file.getPath());
+            }
         }
-        return new HashMap<>();
+        return allInferredLibraries;
     }
 
     private File[] getProjectFolders() {

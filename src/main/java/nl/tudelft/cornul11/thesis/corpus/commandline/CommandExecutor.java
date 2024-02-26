@@ -81,7 +81,7 @@ public class CommandExecutor {
                     String evaluationDirectory = options.getEvaluationDirectory();
                     if (evaluationDirectory != null) {
                         JarEvaluator jarEvaluator = new JarEvaluator(signatureDao, evaluationDirectory);
-                        Map<String, List<JarEvaluator.InferredLibrary>> inferredLibrariesMap = jarEvaluator.inferLibrariesFromJars();
+                        Map<String, List<JarEvaluator.InferredLibrary>> inferredLibrariesMap = jarEvaluator.inferLibrariesFromJars(options.getLastPath());
                         jarEvaluator.evaluate(inferredLibrariesMap);
                     } else {
                         System.out.println("Evaluation directory is required for EVALUATION_MODE");
