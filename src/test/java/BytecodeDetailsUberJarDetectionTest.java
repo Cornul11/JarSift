@@ -40,7 +40,7 @@ public class BytecodeDetailsUberJarDetectionTest {
     public void setUp() {
         MockitoAnnotations.openMocks(this);
 
-        Mockito.when(config.ignoreUberJarSignatures()).thenReturn(true);
+        Mockito.when(config.getIgnoreUberJarSignatures()).thenReturn(true);
         fileAnalyzer = new FileAnalyzer(signatureDao, config);
     }
 

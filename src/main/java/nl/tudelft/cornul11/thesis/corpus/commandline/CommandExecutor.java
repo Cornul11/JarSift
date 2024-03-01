@@ -46,6 +46,7 @@ public class CommandExecutor {
             switch (mode) {
                 case "CORPUS_GEN_MODE":
                     JarFileExplorer jarFileExplorer = new JarFileExplorer(signatureDao, config);
+                    logger.info("Starting CORPUS_GEN_MODE; ignoring uber JARs: " + config.getIgnoreUberJarSignatures());
                     String directoryPath = options.getDirectory();
                     String filePaths = options.getFilePaths();
                     if (directoryPath != null) {

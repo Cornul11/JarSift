@@ -31,7 +31,7 @@ public class ConfigurationLoader {
         loadConfig(CONFIG_FILE_NAME);
     }
 
-    public boolean ignoreUberJarSignatures() {
+    public boolean getIgnoreUberJarSignatures() {
         return Boolean.parseBoolean(config.getProperty("ignoreUberJarSignatures"));
     }
 

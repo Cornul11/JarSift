@@ -35,7 +35,7 @@ public class JarHandler {
         this.jarFilePath = jarFilePath;
         this.ignoredUberJars = ignoredUberJars;
         this.insertedLibraries = insertedLibraries;
-        this.ignoreUberJarSignatures = config.ignoreUberJarSignatures();
+        this.ignoreUberJarSignatures = config.getIgnoreUberJarSignatures();
         this.crcValue = this.generateCrc();
     }
 
