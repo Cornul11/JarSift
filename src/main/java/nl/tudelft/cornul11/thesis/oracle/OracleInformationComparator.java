@@ -254,7 +254,7 @@ public class OracleInformationComparator {
     }
 
     private String getGAVFromPath(Path jarPath) {
-        JarAndPomInfoExtractor jarAndPomInfoExtractor = new JarAndPomInfoExtractor(jarPath.toString());
+        JarAndPomInfoExtractor jarAndPomInfoExtractor = new JarAndPomInfoExtractor(jarPath.toString(), null);
         String groupId = jarAndPomInfoExtractor.getGroupId();
         String artifactId = jarAndPomInfoExtractor.getArtifactId();
         String version = jarAndPomInfoExtractor.getVersion();

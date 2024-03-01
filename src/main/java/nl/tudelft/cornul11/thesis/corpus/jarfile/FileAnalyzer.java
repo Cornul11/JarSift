@@ -27,11 +27,13 @@ public class FileAnalyzer {
     private final AtomicInteger processedJars = new AtomicInteger(0);
     private final int totalJars;
     private final long startTime = System.currentTimeMillis();
+    private final String basePath;
 
     public FileAnalyzer(SignatureDAO signatureDao, ConfigurationLoader config) {
         this.config = config;
         this.signatureDao = signatureDao;
         this.totalJars = config.getTotalJars();
+        this.basePath = config.getBasePath();
     }
 
     public void printIgnoredUberJars() {
@@ -57,7 +59,7 @@ public class FileAnalyzer {
         long jarCrc = jarHandler.getJarCrc();
         long jarCreationDate = jarHandler.getJarCreationDate();
 
-        JarAndPomInfoExtractor jarAndPomInfoExtractor = new JarAndPomInfoExtractor(jarFilePath.toString());
+        JarAndPomInfoExtractor jarAndPomInfoExtractor = new JarAndPomInfoExtractor(jarFilePath.toString(), basePath);
         if (signatures.isEmpty()) { // it's probably an uber-JAR, let's still add it to the db
             insertedUberJars.incrementAndGet();
             return commitLibrary(jarAndPomInfoExtractor, jarHash, jarCrc, jarHandler.isBrokenJar(), jarCreationDate);

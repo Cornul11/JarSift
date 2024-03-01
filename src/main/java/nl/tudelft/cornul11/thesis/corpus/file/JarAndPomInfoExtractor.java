@@ -5,31 +5,32 @@ public class JarAndPomInfoExtractor {
     String artifactId;
     String version;
 
-    public JarAndPomInfoExtractor(String jarFilePath) {
-        parseJarOrPomFilePath(jarFilePath);
+    public JarAndPomInfoExtractor(String jarFilePath, String basePath) {
+        parseJarOrPomFilePath(jarFilePath, basePath);
     }
 
-    // TODO: this has to be thoroughly tested, maybe also crosscheck with the pom file for certainty
-    private void parseJarOrPomFilePath(String jarFilePath) {
+    private void parseJarOrPomFilePath(String jarFilePath, String basePath) {
+        jarFilePath = jarFilePath.replace("\\", "/");
+        if (basePath != null) {
+            basePath = basePath.replace("\\", "/").endsWith("/") ? basePath : basePath + "/";
+            if (!basePath.isEmpty() && jarFilePath.startsWith(basePath)) {
+                jarFilePath = jarFilePath.substring(basePath.length());
+            }
+        } else {
+            String defaultBase = ".m2/repository/";
+            int index = jarFilePath.indexOf(defaultBase);
+            if (index != -1) {
+                jarFilePath = jarFilePath.substring(index + defaultBase.length());
+            }
+        }
+
         String[] splitPath = jarFilePath.split("/");
 
         String version = splitPath[splitPath.length - 2];
         String artifactID = splitPath[splitPath.length - 3];
 
-        // Find the position of '.m2/repository' by comparing adjacent elements in the 'splitPath' array
-        int repoIndex = -1;
-        for (int i = 0; i < splitPath.length - 1; i++) {
-            if (splitPath[i].equals(".m2") && splitPath[i + 1].equals("repository")) {
-                repoIndex = i;
-                break;
-            }
-        }
-
-        // Start building the 'groupId' from the position just after '.m2/repository'
-        int startIdx = repoIndex + 2;
-
         StringBuilder groupID = new StringBuilder();
-        for (int i = startIdx; i < splitPath.length - 3; i++) {
+        for (int i = 0; i < splitPath.length - 3; i++) {
             groupID.append(splitPath[i]);
             if (i < splitPath.length - 4) {
                 groupID.append('.');

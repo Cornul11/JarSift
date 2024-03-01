@@ -1,4 +1,5 @@
 package nl.tudelft.cornul11.thesis.corpus.util;
+
 import nl.tudelft.cornul11.thesis.corpus.database.DatabaseConfig;
 
 import java.io.FileInputStream;
@@ -60,6 +61,10 @@ public class ConfigurationLoader {
 
     public int getTotalJars() {
         return config.getProperty("totalJars") == null ? -1 : Integer.parseInt(config.getProperty("totalJars"));
+    }
+
+    public String getBasePath() {
+        return config.getProperty("basePath") == null ? null : config.getProperty("basePath");
     }
 
     public String getMongoDbDatabase() {
