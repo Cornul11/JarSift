@@ -9,7 +9,10 @@ import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -28,12 +31,36 @@ public class FileAnalyzer {
     private final int totalJars;
     private final long startTime = System.currentTimeMillis();
     private final String basePath;
+    private final Path outputDirectory;
 
-    public FileAnalyzer(SignatureDAO signatureDao, ConfigurationLoader config) {
+    public FileAnalyzer(SignatureDAO signatureDao, ConfigurationLoader config, String outputDirectory) {
         this.config = config;
         this.signatureDao = signatureDao;
         this.totalJars = config.getTotalJars();
         this.basePath = config.getBasePath();
+        this.outputDirectory = outputDirectory == null ? null : Path.of(outputDirectory);
+    }
+
+    public void processJarFileToFile(Path jarFilePath, String basePath) {
+        JarAndPomInfoExtractor extractor = new JarAndPomInfoExtractor(jarFilePath.toString(), basePath);
+        String groupId = extractor.getGroupId();
+        String artifactId = extractor.getArtifactId();
+        String version = extractor.getVersion();
+
+        JarHandler jarHandler = new JarHandler(jarFilePath, ignoredUberJars, insertedLibraries, config);
+        List<String> classHashes = jarHandler.extractSignatures().stream().map(signature -> Long.toString(signature.getHashCode())).collect(Collectors.toList());
+
+        String groupPath = groupId.replace('.', '/');
+        Path outputFile = Paths.get(outputDirectory.toString(), groupPath, artifactId, version, artifactId + "-" + version + ".jar.txt");
+
+        try {
+            Files.createDirectories(outputFile.getParent());
+
+            Files.write(outputFile, classHashes);
+            logger.info("Saved class hashes for " + jarFilePath.getFileName().toString());
+        } catch (IOException e) {
+            logger.error("Error writing to file: " + outputFile, e);
+        }
     }
 
     public void printIgnoredUberJars() {
@@ -121,8 +148,8 @@ public class FileAnalyzer {
 
         logger.info(String.format("Done processing %d/%d JARs, progress: \u001B[94m%d%%\u001B[0m, ETA: %d days, %d hours, %d minutes and %d seconds",
                 processed, totalJars, (processed * 100 / totalJars), etaDays, etaHours, etaMins, etaSecs));
-
     }
+
     public void printStats() {
         // TODO: investigate why the number of unique hashes is not constant for a constant given set of JARs
         logger.info("Total number of unique hashes: " + uniqueHashes.size());

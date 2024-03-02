@@ -25,10 +25,28 @@ public class JarFileExplorer {
     private static final Path POISON_PILL = Paths.get("");
     private final SignatureDAO signatureDao;
 
-    public JarFileExplorer(SignatureDAO signatureDao, ConfigurationLoader config) {
+    public JarFileExplorer(SignatureDAO signatureDao, ConfigurationLoader config, String outputPath) {
         this.signatureDao = signatureDao;
-        this.fileAnalyzer = new FileAnalyzer(signatureDao, config);
+        this.fileAnalyzer = new FileAnalyzer(signatureDao, config, outputPath);
         this.numConsumerThreads = config.getNumConsumerThreads();
+    }
+
+    public void processFilesToFiles(List<Path> jarFilePaths, String basePath) {
+        ExecutorService executor = Executors.newFixedThreadPool(numConsumerThreads);
+        for (Path jarFilePath : jarFilePaths) {
+            executor.submit(() -> fileAnalyzer.processJarFileToFile(jarFilePath, basePath));
+        }
+        executor.shutdown();
+        while (!executor.isTerminated()) {
+            try {
+                executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+            } catch (InterruptedException e) {
+                List<Runnable> remainingTasks = executor.shutdownNow(); // Force remaining tasks to terminate
+                logger.error("Interrupted while waiting for tasks to complete", e);
+                Thread.currentThread().interrupt();
+            }
+        }
+        logger.info("All JAR files have been processed");
     }
 
     public void processFiles(String path, String lastPath) {

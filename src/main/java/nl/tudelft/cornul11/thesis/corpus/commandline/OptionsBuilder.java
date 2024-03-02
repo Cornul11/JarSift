@@ -31,6 +31,10 @@ public class OptionsBuilder {
         return cmd.getOptionValue("d");
     }
 
+    public String getBasePath() {
+        return cmd.getOptionValue("bp");
+    }
+
     public String getEvaluationDirectory() {
         return cmd.getOptionValue("e");
     }
@@ -112,6 +116,13 @@ public class OptionsBuilder {
                 .hasArg()
                 .argName("file")
                 .desc("Specify the path to a file containing paths for processing")
+                .build());
+
+        options.addOption(Option.builder("bp")
+                .longOpt("basePath")
+                .hasArg()
+                .argName("path")
+                .desc("Specify the base path for where the JARs are located")
                 .build());
 
         options.addOption(Option.builder("e")
