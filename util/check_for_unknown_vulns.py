@@ -268,6 +268,80 @@ def download_vulnerable_artifacts(input_file, download_output_path):
                 download_file.write(response.content)
 
 
+def check_vulnerable_inclusion(input_file):
+    not_found_in_corpus = 0
+    found_in_corpus_but_no_signatures = 0
+    total_vulnerable = 0
+    vulnerable_inclusion_count = 0
+    pool = connect_to_db()
+    if pool:
+        cnx = pool.get_connection()
+        cursor = cnx.cursor(buffered=True)
+
+        with open(input_file, "r") as file:
+            vulnerable_artifacts = file.readlines()
+
+        vulnerable_artifacts = [a.strip() for a in vulnerable_artifacts]
+
+        for artifact in tqdm(vulnerable_artifacts):
+            group_id, artifact_id, version = artifact.split(":")
+            query = "SELECT id, is_uber_jar FROM libraries WHERE group_id = %s AND artifact_id = %s AND version = %s"
+            cursor.execute(query, (group_id, artifact_id, version))
+            library_info = cursor.fetchone()
+            if not library_info:
+                not_found_in_corpus += 1
+                continue
+
+            library_id, is_uber_jar = library_info
+            if is_uber_jar == 0:
+                cursor.execute(
+                    "SELECT class_hash FROM signatures_memory WHERE library_id = %s",
+                    (library_id,),
+                )
+                class_hashes = cursor.fetchall()
+
+                if not class_hashes:
+                    found_in_corpus_but_no_signatures += 1
+                    continue
+
+                class_hashes_set = {ch[0] for ch in class_hashes}
+
+                if len(class_hashes_set) == 1 and None in class_hashes_set:
+                    # shouldn't happen
+                    import sys
+
+                    sys.exit(0)
+                    print(
+                        f"Found {group_id}:{artifact_id} version {version} in corpus but no signatures"
+                    )
+                    found_in_corpus_but_no_signatures += 1
+                    continue
+
+                placeholders = ", ".join(["%s"] * len(class_hashes_set))
+                # Corrected query to exclude same group_id and artifact_id, and count matching libraries
+                cursor.execute(
+                    f"""
+                                    SELECT l.library_id, COUNT(DISTINCT sm.class_hash)
+                                    FROM signatures_memory sm
+                                    JOIN libraries l ON sm.library_id = l.id
+                                    WHERE sm.class_hash IN ({placeholders}) AND l.id != %s
+                                    AND l.group_id != %s AND l.artifact_id != %s
+                                    GROUP BY l.library_id
+                                    HAVING COUNT(DISTINCT sm.class_hash) = %s;
+                                    """,
+                    tuple(class_hashes_set)
+                    + (library_id, group_id, artifact_id, len(class_hashes_set)),
+                )
+                matching_libraries = cursor.fetchall()
+
+                vulnerable_inclusion_count += len(matching_libraries)
+
+        print(f"Total not found in corpus: {not_found_in_corpus}")
+        print(
+            f"Libraries with full inclusion of vulnerable signatures: {vulnerable_inclusion_count}"
+        )
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Analyze Maven artifacts for vulnerabilities"
@@ -309,7 +383,13 @@ def main():
             print(
                 "Error: Both --input_file and --download_output_path are required for this mode"
             )
-        download_vulnerable_artifacts(args.input_file, args.download_output_path)
+        else:
+            download_vulnerable_artifacts(args.input_file, args.download_output_path)
+    elif args.mode == "check_vulnerable_inclusion":
+        if not args.input_file:
+            print("Error: --input_file is required for this mode")
+        else:
+            check_vulnerable_inclusion(args.input_file)
     else:
         print(f"Error: Unknown mode {args.mode}")
 
