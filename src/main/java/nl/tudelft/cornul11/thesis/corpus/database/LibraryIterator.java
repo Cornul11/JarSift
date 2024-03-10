@@ -48,7 +48,7 @@ public class LibraryIterator implements Iterator<Dependency> {
     @Override
     public Dependency next() {
         try {
-            return new Dependency(resultSet.getString("group_id"), resultSet.getString("artifact_id"), resultSet.getString("version"));
+            return new Dependency(resultSet.getString("group_id"), resultSet.getString("artifact_id"), resultSet.getString("version"), true);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }

@@ -20,5 +20,7 @@ public interface SignatureDAO {
 
     boolean isLibraryInDB(String library);
 
+    boolean isLibraryInDBWithSignatures(String library);
+
     Iterator<Dependency> getAllPossibleLibraries();
 }

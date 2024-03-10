@@ -16,6 +16,9 @@ public class Dependency {
     @JsonProperty("version")
     private String version;
 
+    @JsonProperty("presentInDatabase")
+    private boolean presentInDatabase;
+
     @JsonIgnore
     private String gav;
 
@@ -23,11 +26,17 @@ public class Dependency {
     public Dependency(
             @JsonProperty("groupId") String groupId,
             @JsonProperty("artifactId") String artifactId,
-            @JsonProperty("version") String version) {
+            @JsonProperty("version") String version,
+            @JsonProperty("presentInDatabase") boolean presentInDatabase) {
         this.groupId = groupId;
         this.artifactId = artifactId;
         this.version = version;
         this.gav = groupId + ":" + artifactId + ":" + version;
+        this.presentInDatabase = presentInDatabase;
+    }
+
+    public void setPresentInDatabase(boolean presentInDatabase) {
+        this.presentInDatabase = presentInDatabase;
     }
 
     public void setGroupId(String groupId) {
@@ -56,6 +65,10 @@ public class Dependency {
 
     public String getGAV() {
         return gav;
+    }
+
+    public boolean isPresentInDatabase() {
+        return presentInDatabase;
     }
 
 }

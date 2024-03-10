@@ -62,7 +62,8 @@ public class ProjectMetadata {
                 .map(dep -> new Dependency(
                         cleanGroupId(dep.getGroupId()),
                         dep.getArtifactId(),
-                        dep.getVersion()))
+                        dep.getVersion(),
+                        dep.isPresentInDatabase()))
                 .collect(Collectors.toList());
     }
 

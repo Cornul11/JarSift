@@ -2,6 +2,7 @@ package nl.tudelft.cornul11.thesis.packaging;
 
 import freemarker.template.Configuration;
 import freemarker.template.Template;
+import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.corpus.jarfile.JarProcessingUtils;
 import nl.tudelft.cornul11.thesis.corpus.model.Dependency;
 import nl.tudelft.cornul11.thesis.corpus.model.LibraryInfo;
@@ -15,7 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
-import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -27,6 +27,11 @@ import java.util.regex.Pattern;
 
 public class ProjectGenerator {
     private static Logger logger = LoggerFactory.getLogger(ProjectGenerator.class);
+    private SignatureDAO signatureDao;
+
+    public ProjectGenerator(SignatureDAO signatureDao) {
+        this.signatureDao = signatureDao;
+    }
 
     public ProjectMetadata generateProject(LibraryInfo dependencies, ShadeConfiguration shadeConfiguration) throws Exception {
         String projectName = "project" + System.currentTimeMillis();
@@ -220,6 +225,13 @@ public class ProjectGenerator {
         executeMavenGoal(request, invoker, "clean package", baos);
 
         List<Dependency> effectiveDependencies = getDependencies(request, invoker);
+
+        for (Dependency dependency : effectiveDependencies) {
+            if (signatureDao.isLibraryInDBWithSignatures(dependency.getGAV())) {
+                dependency.setPresentInDatabase(true);
+            }
+        }
+
         projectMetadata = projectMetadata.withEffectiveDependencies(effectiveDependencies);
 
         // if we got here, then the Jar was successfully generated
@@ -256,7 +268,7 @@ public class ProjectGenerator {
                     String groupId = parts[0];
                     String artifactId = parts[1];
                     String version = parts[3];
-                    dependencies.add(new Dependency(groupId, artifactId, version));
+                    dependencies.add(new Dependency(groupId, artifactId, version, false));
                 }
             }
         }

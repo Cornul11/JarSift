@@ -48,7 +48,7 @@ public class UberJarGenerator {
         initDb();
         initPaths();
         LibrarySelector librarySelector = new LibrarySelector();
-        ProjectGenerator projectGenerator = new ProjectGenerator();
+        ProjectGenerator projectGenerator = new ProjectGenerator(signatureDao);
         MetadataStorage metadataStorage = new MetadataStorage(Path.of(METADATA_DIRECTORY));
 
         // fetch all libraries once

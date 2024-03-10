@@ -167,6 +167,36 @@ public class SignatureDAOImpl implements SignatureDAO {
         }
     }
 
+    @Override
+    public boolean isLibraryInDBWithSignatures(String library) {
+        String signaturesTable = Objects.equals(this.dbMode, "file") ? "signatures" : "signatures_memory";
+
+        String selectLibraryQuery = "SELECT id FROM libraries WHERE CONCAT(group_id, ':', artifact_id, ':', version) = ? AND unique_signatures > 0";
+        try (Connection connection = ds.getConnection();
+             PreparedStatement statement = connection.prepareStatement(selectLibraryQuery)) {
+            statement.setString(1, library);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    int libraryId = resultSet.getInt("id");
+
+                    String selectSignaturesQuery = "SELECT 1 FROM " + signaturesTable + " WHERE library_id = ?";
+                    try (PreparedStatement signatureStatement = connection.prepareStatement(selectSignaturesQuery)) {
+                        signatureStatement.setInt(1, libraryId);
+                        try (ResultSet signatureResultSet = signatureStatement.executeQuery()) {
+                            return signatureResultSet.next();
+                        }
+                    }
+                } else {
+                    return false;
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+
+
     public class LibraryCandidate {
         private Integer libraryId;
         private Set<Long> hashes;

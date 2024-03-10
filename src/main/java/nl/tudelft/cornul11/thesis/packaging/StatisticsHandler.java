@@ -138,7 +138,7 @@ public class StatisticsHandler {
         return lastF1Score;
     }
 
-    public void updateStatisticsForProject(ProjectMetadata groundTruth, ThresholdStatistics thresholdStats, List<JarEvaluator.InferredLibrary> inferredLibraries) {
+    public void updateStatisticsForProject(ProjectMetadata groundTruth, ThresholdStatistics thresholdStats, List<JarEvaluator.InferredLibrary> inferredLibraries, List<JarEvaluator.NotFoundLibrary> notFoundLibraries) {
         ShadeConfiguration shadeConfig = groundTruth.getShadeConfiguration();
         double precision = calculatePrecision(inferredLibraries, groundTruth);
         double recall = calculateRecall(inferredLibraries, groundTruth);
