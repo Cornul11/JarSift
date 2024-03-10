@@ -119,15 +119,15 @@ def contains_shade_plugin(pom_file_path):
             if parent_group_id and parent_artifact_id and parent_version:
                 # check if any of these contain a variable or placeholder or path separator
                 if (
-                    "$" in parent_group_id
-                    or "${" in parent_group_id
-                    or "$" in parent_artifact_id
-                    or "${" in parent_artifact_id
-                    or "$" in parent_version
-                    or "${" in parent_version
-                    or "/" in parent_group_id
-                    or "/" in parent_artifact_id
-                    or "/" in parent_version
+                        "$" in parent_group_id
+                        or "${" in parent_group_id
+                        or "$" in parent_artifact_id
+                        or "${" in parent_artifact_id
+                        or "$" in parent_version
+                        or "${" in parent_version
+                        or "/" in parent_group_id
+                        or "/" in parent_artifact_id
+                        or "/" in parent_version
                 ):
                     result_dict["has_parent"] = False
                 else:
@@ -330,7 +330,7 @@ class MavenPomAnalyzer:
     def create_archive(self, pom_files):
         with zipfile.ZipFile(self.args.archive_path, "w", zipfile.ZIP_DEFLATED) as zipf:
             for pom_file in self.progress_bar(
-                pom_files, desc="Archiving pom.xml files"
+                    pom_files, desc="Archiving pom.xml files"
             ):
                 if not has_parent(pom_file):
                     zipf.write(pom_file)
@@ -353,7 +353,7 @@ class MavenPomAnalyzer:
         group_id, artifact_id, version = extract_gav_from_pom_path(result["path"])
 
         if result["is_error"] or any(
-            v is None for v in [group_id, artifact_id, version]
+                v is None for v in [group_id, artifact_id, version]
         ):
             self.total_errors += 1
             return

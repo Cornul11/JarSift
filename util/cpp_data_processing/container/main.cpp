@@ -116,7 +116,7 @@ void checkLibrariesContainAllHashes(std::shared_ptr<sql::Connection> conn, const
 
 					std::cout << "Library ID " << libraryId << " has all " << matchingHashes << " matching class hashes.\n";
 					outputFile << libraryId << "," << artifactKey << "," << group_id << ":" << artifact_id << ":" << version << "," << matchingHashes << "\n";
-					totalMatches;
+					totalMatches++;
 				}
 			}
 		} catch (sql::SQLException& e) {

@@ -52,7 +52,8 @@ def read_jar_paths(filename, base_path):
         for line in tqdm(file, desc="Reading jar paths"):
             path = line.strip()
             gav = path_to_gav(path, base_path)
-            jar_paths[gav] = path[len(base_path) :]
+            if gav:
+                jar_paths[gav] = path[len(base_path) :]
         return jar_paths
 
 

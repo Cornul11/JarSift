@@ -258,6 +258,38 @@ public class JarEvaluator {
             this.groupId = groupId;
             this.artifactId = artifactId;
         }
+
+        public String getGav() {
+            return gav;
+        }
+
+        public void setGav(String gav) {
+            this.gav = gav;
+        }
+
+        public String getVersion() {
+            return version;
+        }
+
+        public void setVersion(String version) {
+            this.version = version;
+        }
+
+        public String getGroupId() {
+            return groupId;
+        }
+
+        public void setGroupId(String groupId) {
+            this.groupId = groupId;
+        }
+
+        public String getArtifactId() {
+            return artifactId;
+        }
+
+        public void setArtifactId(String artifactId) {
+            this.artifactId = artifactId;
+        }
     }
 
     public static class InferredLibrary {

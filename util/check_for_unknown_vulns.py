@@ -2,7 +2,6 @@ import argparse
 import json
 import os
 import subprocess
-import time
 
 import requests
 from jproperties import Properties
