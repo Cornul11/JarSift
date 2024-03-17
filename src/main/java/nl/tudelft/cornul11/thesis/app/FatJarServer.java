@@ -1,5 +1,6 @@
 package nl.tudelft.cornul11.thesis.app;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.MultipartConfigElement;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -7,10 +8,12 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.Part;
 import nl.tudelft.cornul11.thesis.corpus.database.DatabaseConfig;
 import nl.tudelft.cornul11.thesis.corpus.database.DatabaseManager;
+import nl.tudelft.cornul11.thesis.corpus.database.MongoDbClient;
 import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAO;
 import nl.tudelft.cornul11.thesis.corpus.database.SignatureDAOImpl.LibraryCandidate;
 import nl.tudelft.cornul11.thesis.corpus.jarfile.JarSignatureMapper;
 import nl.tudelft.cornul11.thesis.corpus.util.ConfigurationLoader;
+import org.bson.Document;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Server;
@@ -27,6 +30,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -44,6 +48,8 @@ public class FatJarServer extends AbstractHandler {
     DatabaseManager databaseManager = DatabaseManager.getInstance(databaseConfig);
     SignatureDAO signatureDao = databaseManager.getSignatureDao(config.getDatabaseMode());
     JarSignatureMapper jarSignatureMapper = new JarSignatureMapper(signatureDao);
+
+    MongoDbClient mongoDbClient = new MongoDbClient(config);
 
     MultipartConfigElement multipartConfig = new MultipartConfigElement(location, maxFileSize, maxRequestSize, fileSizeThreshold);
 
@@ -107,6 +113,7 @@ public class FatJarServer extends AbstractHandler {
 
     @Override
     public void handle(String target, Request jettyRequest, HttpServletRequest request, HttpServletResponse response) {
+        System.out.println("Handling request for target: " + target);
         // get file upload from request
         if (target.equals("/upload")) {
             jettyRequest.setAttribute(Request.__MULTIPART_CONFIG_ELEMENT, multipartConfig);
@@ -115,11 +122,29 @@ public class FatJarServer extends AbstractHandler {
             } catch (ServletException | IOException e) {
                 e.printStackTrace();
             }
+        } else if (target.equals("/vulnerabilities")) {
+            String library = request.getParameter("library");
+            String version = request.getParameter("version");
+            response.setCharacterEncoding("utf-8");
+            response.setContentType("application/json");
+            ObjectMapper mapper = new ObjectMapper();
+
+            try {
+                List<Document> vulnerabilities = mongoDbClient.getVulnerabilities(library, version);
+                String json = mapper.writeValueAsString(vulnerabilities);
+                response.getWriter().write(json);
+                response.setStatus(HttpServletResponse.SC_OK);
+                response.getWriter().flush();
+            } catch (Exception e) {
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                e.printStackTrace();
+            }
+
         }
     }
 
     public void run() throws Exception {
-        int port = System.getenv("PORT") != null ? Integer.parseInt(System.getenv("PORT")) : 8080;
+        int port = System.getenv("PORT") != null ? Integer.parseInt(System.getenv("PORT")) : 8081;
         // Create a Server instance.
         Server server = new Server(port);
         System.out.println("Server started on port " + port);

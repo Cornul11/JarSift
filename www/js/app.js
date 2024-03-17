@@ -79,6 +79,15 @@ angular
         })
         .then(function (response) {
           $scope.libraries = response.data;
+          $scope.libraries.forEach(function(lib) {
+            $scope.fetchVulnerabilities(lib);
+            lib.alternatives = lib.alternatives.map(function(altGav) {
+              return { id: altGav, vulnerabilities: [], isVulnerable: false };
+            });
+            lib.alternatives.forEach(function(altLib) {
+              $scope.fetchVulnerabilities(altLib);
+            })
+          });
           setTimeout($scope.generateCluster, 100);
         })
         .finally(function () {
@@ -317,6 +326,24 @@ angular
         timoutRefresh = setTimeout(() => {
           clearInterval(refreshInterval);
         }, 1000);
+      });
+    };
+    $scope.fetchVulnerabilities = function (library) {
+      let gavString = typeof library === 'string' ? library : library.id;
+
+      const [groupId, artifactId, version] = gavString.split(':');
+      const url = `/api/vulnerabilities?library=${groupId}:${artifactId}&version=${version}`;
+
+      return $http.get(url).then(function(response) {
+        if (typeof library === 'string') {
+          console.log
+        }
+        library.vulnerabilities = response.data;
+        library.isVulnerable = response.data.length > 0;
+      }, function(error) {
+        console.error('Failed to fetch vulnerabilities for', gavString, error);
+        library.vulnerabilities = [];
+        library.isVulnerable = false;
       });
     };
   });
