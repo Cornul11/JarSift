@@ -1,3 +1,11 @@
+# local files
+mariadb_data/
+mongodb_data/
+projects/
+projects_metadata/
+evaluation/
+paths/
+
 *.env
 *.properties
 *.cnf

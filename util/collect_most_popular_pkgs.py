@@ -36,5 +36,3 @@ if __name__ == "__main__":
     libraries = get_top_libraries(int(sys.argv[1]))
     with open("libraries.json", "w") as file:
         json.dump(libraries, file, indent=4)
-
-

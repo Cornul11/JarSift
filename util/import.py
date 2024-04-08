@@ -1,7 +1,8 @@
+import json
 import os
 import sys
-import json
 from zipfile import ZipFile
+
 from pymongo import MongoClient
 
 if len(sys.argv) < 3:
@@ -11,11 +12,11 @@ if len(sys.argv) < 3:
 zip_file_path = sys.argv[1]
 extracted_folder = sys.argv[2]
 
-client = MongoClient('localhost', 27072)
+client = MongoClient("localhost", 27017)
 db = client["osv_db"]
 collection = db["data"]
 
-with ZipFile(zip_file_path, 'r') as zip_ref:
+with ZipFile(zip_file_path, "r") as zip_ref:
     zip_ref.extractall(extracted_folder)
 
 for json_file in os.listdir(extracted_folder):

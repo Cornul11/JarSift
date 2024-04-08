@@ -50,7 +50,10 @@ def main(artifacts_path, custom_cwd):
                     tqdm_log(f"Running command: {' '.join(command)}")
                     command_str = " ".join(command)
                     result = subprocess.run(
-                        command_str, cwd=custom_cwd, shell=True, stdout=subprocess.DEVNULL
+                        command_str,
+                        cwd=custom_cwd,
+                        shell=True,
+                        stdout=subprocess.DEVNULL,
                     )
                     if result.returncode != 0:
                         tqdm_log(f"Failed to run command: {' '.join(command)}")

@@ -13,7 +13,12 @@ def generate_latex_table(folder_path):
     latex_table.append(r"Configuration & Threshold & Precision & Recall & F1 Score \\")
     latex_table.append(r"\midrule")
 
-    for configuration in ["Relocation Disabled", "Relocation Enabled", "Minimize Jar Disabled", "Minimize Jar Enabled"]:
+    for configuration in [
+        "Relocation Disabled",
+        "Relocation Enabled",
+        "Minimize Jar Disabled",
+        "Minimize Jar Enabled",
+    ]:
         latex_table.append(f"{configuration} & & & & \\\\")
         for threshold in thresholds:
             filename = os.path.join(folder_path, f"stats_{threshold}.json")

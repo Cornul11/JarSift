@@ -34,7 +34,9 @@ def compare_results(expected, actual, threshold=0.95):
             false_negatives += 1
 
     nb_actual = sum(
-        1 for inferred_dep in actual["inferredLibraries"] if inferred_dep["includedRatio"] >= threshold
+        1
+        for inferred_dep in actual["inferredLibraries"]
+        if inferred_dep["includedRatio"] >= threshold
     )
     false_positives = nb_actual - true_positives
     return (true_positives, false_positives, false_negatives)
