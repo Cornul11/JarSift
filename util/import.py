@@ -12,7 +12,7 @@ if len(sys.argv) < 3:
 zip_file_path = sys.argv[1]
 extracted_folder = sys.argv[2]
 
-client = MongoClient("localhost", 27017)
+client = MongoClient("localhost", 27072)
 db = client["osv_db"]
 collection = db["data"]
 
